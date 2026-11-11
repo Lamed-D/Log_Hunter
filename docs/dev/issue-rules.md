@@ -13,6 +13,19 @@ GitHub Issues로 버그와 기능 요청을 관리합니다. 이슈를 만들 �
 추가 라벨(선택): `parser`(아티팩트 파서), `image`(E01/NTFS/이 PC 분석), `ui`(GUI·보고서),
 `docs`, `good first issue`.
 
+## 에이전트 라벨
+
+에이전트끼리·사용자와 에이전트 사이의 일은 아래 라벨로 주고받습니다([에이전트 협업 규칙 4절](agents.md#4-작업-표시와-소통)).
+
+| 라벨 | 뜻 |
+| --- | --- |
+| `from:claude1`·`from:codex1` | 쓴 에이전트 |
+| `to:claude1`·`to:codex1`·`to:user` | 처리할 대상(`to:user`는 대부분 claude1이 대리 승인) |
+| `agent:request`·`agent:question`·`agent:blocker`·`agent:info` | 요청·질문·막힘·알림 |
+| `in-progress`·`blocked` | 진행 상태 |
+
+에이전트가 쓰는 이슈·코멘트는 맨 앞에 `[이름]`을 붙입니다. 이름 표시가 없으면 사용자가 쓴 글입니다.
+
 ## 좋은 이슈의 조건
 
 - **재현 가능해야 합니다.** 버그는 입력 종류(E01, dd, 하이브 직접 추가, 이 PC 분석),
