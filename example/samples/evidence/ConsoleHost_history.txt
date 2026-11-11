@@ -1,0 +1,6 @@
+Get-ChildItem $env:USERPROFILE\Downloads
+Invoke-WebRequest https://cdn.example.com/setup.exe -OutFile setup.exe
+Start-Process .\setup.exe `
+  -ArgumentList '-silent'
+reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+Remove-Item .\setup.exe

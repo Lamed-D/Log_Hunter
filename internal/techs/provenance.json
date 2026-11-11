@@ -1,0 +1,62 @@
+{
+  "source_commit": "3ec9763735e40c9370b75318425dc698f02f671e",
+  "source_description": "main immediately before PR16 pure-Python integration",
+  "files": [
+    {
+      "original_path": "techs/CMakeLists.txt",
+      "archived_path": "CMakeLists.txt",
+      "git_blob": "342b9e797d0009a2a58da6298808fcf3ad676e00",
+      "sha256": "4278199f0ea09e00775036a478fa7cc945e0d28cc24d7696a2e30b63a1fd628c",
+      "bytes": 702
+    },
+    {
+      "original_path": "techs/README.md",
+      "archived_path": "README.legacy.md",
+      "git_blob": "43533c86d1d9efe80eb3e7a43d20460bfa6c412e",
+      "sha256": "02bdf53087ad8b032efe4cedc2a6c2a199cafadec1de8ea01085f67e960af414",
+      "bytes": 963
+    },
+    {
+      "original_path": "techs/eventlog_export.c",
+      "archived_path": "eventlog_export.c",
+      "git_blob": "f2ee12e00018f6a1311bb7a9bf763279f60e309c",
+      "sha256": "9f3a42a03b3f0cc44447d2ccf605ca76e5a1f7ff0b9e27bbb5a3ba49e7438322",
+      "bytes": 279
+    },
+    {
+      "original_path": "techs/native.h",
+      "archived_path": "native.h",
+      "git_blob": "e44b6fb266cdafd232bfa74ff55fbffa285a6211",
+      "sha256": "ae0c1b3aec79fbc456775a10b7d1993273d482787387952c209d3ebbf598e343",
+      "bytes": 765
+    },
+    {
+      "original_path": "techs/prefetch_decompress.c",
+      "archived_path": "prefetch_decompress.c",
+      "git_blob": "294dff80609de81aa7e49bb78138371ba8df2b61",
+      "sha256": "33d4c0fd26da758e712e48279fa5f6eb0c3c74390ed8f7bd8351516cdcb07a80",
+      "bytes": 1367
+    },
+    {
+      "original_path": "techs/registry_save.c",
+      "archived_path": "registry_save.c",
+      "git_blob": "54b02719f8fde02ea2d60af24c4181a9773fe38e",
+      "sha256": "056276e6f731c59bc3935c59f9688eeec90d7aa289f68ec1cac92b3de23637a0",
+      "bytes": 1264
+    },
+    {
+      "original_path": "techs/shared_read.c",
+      "archived_path": "shared_read.c",
+      "git_blob": "d4a571bd1a3b56b7ee8e804f339a9212c890ae80",
+      "sha256": "9b4190b3f448b8f2d660ed71974f7cedaada215e6f423b2fa1ecd78025df2978",
+      "bytes": 1416
+    },
+    {
+      "original_path": "techs/vss_requester.c",
+      "archived_path": "vss_requester.c",
+      "git_blob": "40cd680aff81f233fcfb8513701480c9fa2aead4",
+      "sha256": "3e0741edf42dde216fa76dae0925def1d5c9e20e4660c006427994599a3c0a92",
+      "bytes": 5759
+    }
+  ]
+}

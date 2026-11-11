@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "sha256": "5dcf1e9cf7cb55dc5753113b85f7dd17663047aa1953f7298d5682497fc1cfd6",
+  "table_counts": {
+    "case_query_meta": 1,
+    "case_state": 1,
+    "cases": 1,
+    "devices": 0,
+    "entity_events": 18,
+    "event_query": 13,
+    "event_query_tags": 0,
+    "events": 13,
+    "evidence_files": 6,
+    "files": 2,
+    "meta": 3,
+    "parser_errors": 7,
+    "processes": 1,
+    "relation_query_members": 39,
+    "relation_query_summaries": 19,
+    "relations": 19,
+    "urls": 2,
+    "users": 1
+  }
+}

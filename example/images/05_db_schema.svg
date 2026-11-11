@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" font-family="Malgun Gothic, sans-serif">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<text x="50" y="55" font-size="30" font-weight="700" fill="#172554">SQLite 저장 스키마</text>
+<text x="50" y="90" font-size="17" fill="#475569">실제 repository.py 기준 · data는 JSON TEXT</text>
+<rect x="50.0" y="120" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="149" font-size="19" fill="#1d4ed8" font-weight="700">cases</text>
+<text x="68.0" y="177" font-size="16" fill="#334155">id PK / name NOT NULL</text>
+<text x="68.0" y="200" font-size="16" fill="#334155">사건별 입력·기록·관계를 연결</text>
+<rect x="654.0" y="120" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="149" font-size="19" fill="#1d4ed8" font-weight="700">evidence_files / parser_errors</text>
+<text x="672.0" y="177" font-size="16" fill="#334155">id PK / case_id FK → cases</text>
+<text x="672.0" y="200" font-size="16" fill="#334155">data TEXT NOT NULL</text>
+<rect x="50.0" y="265" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="294" font-size="19" fill="#1d4ed8" font-weight="700">events</text>
+<text x="68.0" y="322" font-size="16" fill="#334155">id PK / case_id FK / artifact / timestamp / sid</text>
+<text x="68.0" y="345" font-size="16" fill="#334155">data TEXT; index(case_id, timestamp)</text>
+<rect x="654.0" y="265" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="294" font-size="19" fill="#1d4ed8" font-weight="700">relations</text>
+<text x="672.0" y="322" font-size="16" fill="#334155">id PK / case_id FK / left_event·right_event FK</text>
+<text x="672.0" y="345" font-size="16" fill="#334155">묶음은 페어 FK 없이 data.event_indices 보존</text>
+<rect x="50.0" y="410" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="439" font-size="19" fill="#1d4ed8" font-weight="700">엔티티 테이블 5개</text>
+<text x="68.0" y="467" font-size="16" fill="#334155">users / processes / files / urls / devices</text>
+<text x="68.0" y="490" font-size="16" fill="#334155">id PK / case_id FK / data: count·event_ids</text>
+<rect x="654.0" y="410" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="439" font-size="19" fill="#1d4ed8" font-weight="700">entity_events</text>
+<text x="672.0" y="467" font-size="16" fill="#334155">id / entity_type / entity_id / event_id</text>
+<text x="672.0" y="490" font-size="16" fill="#334155">unique(type,entity,event), index(event_id)</text>
+</svg>

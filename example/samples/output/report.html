@@ -1,0 +1,2753 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Log Hunter 분석 보고서</title>
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --fg: #e6edf3; --fg2: #8b949e;
+  --accent: #58a6ff; --accent2: #388bfd; --green: #3fb950; --yellow: #d29922;
+  --red: #f85149; --purple: #bc8cff; --border: #30363d; --mono: 'Cascadia Code', 'Fira Code', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); line-height: 1.5; }
+.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+header { background: linear-gradient(135deg, #0d1117 0%, #161b22 100%); border-bottom: 1px solid var(--border); padding: 24px 16px; }
+header h1 { font-size: 1.5rem; font-weight: 600; }
+header .meta { color: var(--fg2); font-size: 0.85rem; margin-top: 4px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+.stat { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.stat .label { font-size: 0.8rem; color: var(--fg2); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat .value { font-size: 1.8rem; font-weight: 700; color: var(--accent); margin-top: 4px; }
+.stat .sub { font-size: 0.75rem; color: var(--fg2); margin-top: 2px; }
+.stat.warn .value { color: var(--yellow); }
+.stat.danger .value { color: var(--red); }
+.stat.ok .value { color: var(--green); }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-top: 20px; overflow-x: auto; }
+.tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--fg2); font-size: 0.9rem; white-space: nowrap; }
+.tab:hover { color: var(--fg); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.panel { display: none; }
+.panel.active { display: block; }
+.controls { display: flex; gap: 8px; padding: 12px 0; flex-wrap: wrap; align-items: center; }
+.controls input, .controls select { background: var(--bg3); border: 1px solid var(--border); color: var(--fg); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; }
+.controls input { flex: 1; min-width: 200px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th { position: sticky; top: 0; background: var(--bg2); text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--border); color: var(--fg2); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+tr:hover td { background: var(--bg3); }
+tr.status-partial td { border-left: 3px solid var(--yellow); }
+tr.status-warning td { border-left: 3px solid var(--yellow); }
+tr.status-ok td:first-child { border-left: 3px solid var(--green); }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 600; }
+.badge-ok { background: #12261e; color: var(--green); }
+.badge-partial { background: #2a2013; color: var(--yellow); }
+.badge-error { background: #2d1215; color: var(--red); }
+.badge-warning { background: #2a2013; color: var(--yellow); }
+.badge-info { background: #0d2035; color: var(--accent); }
+.detail-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 12px; display: none; }
+.detail-panel.open { display: block; }
+.detail-panel pre { font-family: var(--mono); font-size: 0.8rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg2); max-height: 400px; overflow-y: auto; }
+.chart { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; }
+.chart h3 { font-size: 0.9rem; color: var(--fg2); margin-bottom: 12px; }
+.bar-chart { display: flex; flex-direction: column; gap: 4px; }
+.bar-row { display: flex; align-items: center; gap: 8px; }
+.bar-label { min-width: 120px; font-size: 0.8rem; text-align: right; color: var(--fg2); }
+.bar { height: 22px; border-radius: 4px; background: var(--accent2); min-width: 2px; transition: width 0.3s; }
+.bar-value { font-size: 0.75rem; color: var(--fg2); min-width: 40px; }
+.relation-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin: 6px 0; font-size: 0.82rem; }
+.relation-card .conf { color: var(--yellow); }
+.relation-card .path { color: var(--green); }
+.relation-card .temporal { color: var(--purple); }
+.table-scroll { overflow-x: auto; max-height: 600px; overflow-y: auto; }
+.count { background: var(--bg3); color: var(--fg2); padding: 1px 8px; border-radius: 8px; font-size: 0.75rem; margin-left: 4px; }
+footer { text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75rem; border-top: 1px solid var(--border); margin-top: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Log Hunter 분석 보고서</h1>
+  <div class="meta">생성 시각: 2026-03-14 10:03:00 UTC | 시간 범위: 2026-03-14T09:58:00 ~ 2026-03-14T10:02:00 UTC | 증거 파일: 6개</div>
+</header>
+<div class="container">
+  <div class="stats">
+    <div class="stat"><div class="label">찾은 기록</div><div class="value">13</div><div class="sub">7개 기록 종류</div></div>
+    <div class="stat ok"><div class="label">정상 처리</div><div class="value">12</div><div class="sub">내용을 모두 읽은 기록</div></div>
+    <div class="stat warn"><div class="label">일부 손상</div><div class="value">0</div><div class="sub">일부 정보만 읽은 기록</div></div>
+    <div class="stat"><div class="label">오류 / 경고</div><div class="value">0</div><div class="sub">0건 경고</div></div>
+    <div class="stat"><div class="label">연관 관계</div><div class="value">19</div><div class="sub">여러 기록에서 확인된 실행 1건</div></div>
+    <div class="stat"><div class="label">사용자 (SID)</div><div class="value">1</div><div class="sub">로컬 사용자 (RID 1001) (S-1-5-21-1000-2000-3000-1001)</div></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-panel="timeline">타임라인</div>
+    <div class="tab" data-panel="artifacts">기록 종류별 분포</div>
+    <div class="tab" data-panel="relations">연관 분석</div>
+    <div class="tab" data-panel="evidence">증거 파일</div>
+    <div class="tab" data-panel="errors">오류/경고</div>
+    <div class="tab" data-panel="stats">통계/이상탐지</div>
+    <div class="tab" data-panel="proctree">프로세스 트리</div>
+    <div class="tab" data-panel="thumbcache">파일 미리 보기 흔적</div>
+    <div class="tab" data-panel="raw">원시 JSON</div>
+  </div>
+
+  <div class="panel active" id="timeline">
+    <div class="controls">
+      <input type="text" id="search" placeholder="검색 (파일 경로, 프로그램, 웹 주소, 사용자...)">
+      <select id="artifactFilter"><option value="">전체 기록 종류</option><option value="psreadline">PowerShell 명령어 기록 (5)</option><option value="defender">백신 파일 기록 (1)</option><option value="userassist">사용자가 직접 실행한 프로그램 (1)</option><option value="history">웹 방문 기록 (2)</option><option value="run">자동 실행 프로그램 (1)</option><option value="thumbcache">파일 미리 보기 흔적 (1)</option><option value="prefetch">프로그램 실행 기록 (2)</option></select>
+      <select id="statusFilter"><option value="">전체 상태</option><option value="ok">정상</option><option value="partial">일부 손상</option><option value="warning">주의</option></select>
+      <input type="text" id="startDate" placeholder="시작 (YYYY-MM-DD)" style="max-width:160px">
+      <input type="text" id="endDate" placeholder="종료 (YYYY-MM-DD)" style="max-width:160px">
+    </div>
+    <div id="filterCount" style="color:var(--fg2);font-size:0.8rem;padding:4px 0;"></div>
+    <div class="table-scroll">
+      <table id="eventTable">
+        <thead><tr><th>시각</th><th>시각의 의미</th><th>기록 종류</th><th>무슨 일</th><th>파일/프로그램/주소</th><th>사용자</th><th>상태</th></tr></thead>
+        <tbody id="eventBody"></tbody>
+      </table>
+    </div>
+    <div class="detail-panel" id="detailPanel"><pre id="detailContent"></pre></div>
+  </div>
+
+  <div class="panel" id="artifacts">
+    <div class="chart"><h3>기록 종류별 건수</h3><div class="bar-chart" id="artifactChart"></div></div>
+    <div class="chart"><h3>많이 발생한 윈도우 이벤트 ID (상위 20)</h3><div class="bar-chart" id="eventIdChart"></div></div>
+  </div>
+
+  <div class="panel" id="relations">
+    <div id="relationsList"></div>
+    <div class="chart" style="margin-top:16px"><h3>삭제 연관 분석</h3>
+      <div style="padding:8px 0;color:var(--fg2);font-size:0.85rem">삭제 연관 매칭: <strong style="color:var(--yellow)">0</strong>건</div>
+      <div style="color:var(--fg2);padding:8px">삭제 연관 매칭이 없습니다.</div>
+    </div>
+  </div>
+
+  <div class="panel" id="evidence">
+    
+    <div class="table-scroll">
+      <table><thead><tr><th>원본 위치</th><th>수집 방식</th><th>SHA-256 (무결성 확인값)</th></tr></thead>
+      <tbody><tr><td>C:\Evidence\synthetic\evidence\History</td><td>파일 직접 지정</td><td style="font-family:var(--mono);font-size:0.7rem">1a6bc122f7c3b091...</td></tr><tr><td>C:\Evidence\synthetic\evidence\SETUP.EXE-1A2B3C4D.pf</td><td>파일 직접 지정</td><td style="font-family:var(--mono);font-size:0.7rem">1e8ccad75f2fae3f...</td></tr><tr><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>파일 직접 지정</td><td style="font-family:var(--mono);font-size:0.7rem">86a02ceaa8c46632...</td></tr><tr><td>C:\Evidence\synthetic\evidence\ConsoleHost_history.txt</td><td>파일 직접 지정</td><td style="font-family:var(--mono);font-size:0.7rem">ea2add9217e59001...</td></tr><tr><td>C:\Evidence\synthetic\evidence\thumbcache_256.db</td><td>파일 직접 지정</td><td style="font-family:var(--mono);font-size:0.7rem">0d3ef17453a7b0a6...</td></tr><tr><td>C:\Evidence\synthetic\evidence\MPLog-synthetic.log</td><td>파일 직접 지정</td><td style="font-family:var(--mono);font-size:0.7rem">4dda82e2991a2120...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel" id="errors">
+    <div class="table-scroll">
+      <table><thead><tr><th>심각도</th><th>파일</th><th>기록 종류</th><th>위치</th><th>내용</th></tr></thead>
+      <tbody><tr><td><span class="badge badge-info">참고</span></td><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>자동 실행 프로그램</td><td>Microsoft\Windows\CurrentVersion\Run</td><td>키 없음</td></tr><tr><td><span class="badge badge-info">참고</span></td><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>자동 실행 프로그램</td><td>Microsoft\Windows\CurrentVersion\RunOnce</td><td>키 없음</td></tr><tr><td><span class="badge badge-info">참고</span></td><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>자동 실행 프로그램</td><td>Wow6432Node\Microsoft\Windows\CurrentVer</td><td>키 없음</td></tr><tr><td><span class="badge badge-info">참고</span></td><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>자동 실행 프로그램</td><td>Wow6432Node\Microsoft\Windows\CurrentVer</td><td>키 없음</td></tr><tr><td><span class="badge badge-info">참고</span></td><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>자동 실행 프로그램</td><td>Software\Microsoft\Windows\CurrentVersio</td><td>키 없음</td></tr><tr><td><span class="badge badge-info">참고</span></td><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>자동 실행 프로그램</td><td>Software\Wow6432Node\Microsoft\Windows\C</td><td>키 없음</td></tr><tr><td><span class="badge badge-info">참고</span></td><td>C:\Evidence\synthetic\evidence\NTUSER.DAT</td><td>자동 실행 프로그램</td><td>Software\Wow6432Node\Microsoft\Windows\C</td><td>키 없음</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel" id="stats">
+    <div class="stats" style="margin-bottom:16px">
+      <div class="stat"><div class="label">고유 프로세스</div><div class="value">1</div></div>
+      <div class="stat"><div class="label">고유 소스</div><div class="value">6</div></div>
+      <div class="stat danger"><div class="label">고위험 이벤트</div><div class="value">1</div></div>
+    </div>
+    <div class="chart"><h3>시간대별 이벤트 분포 (UTC)</h3><div class="bar-chart" id="hourlyChart"></div></div>
+    <div class="chart"><h3>요일×시간 히트맵 (UTC)</h3><canvas id="heatmapCanvas" style="width:100%;max-width:600px;height:200px"></canvas></div>
+    <div class="chart"><h3>이상 탐지 결과 (0건)</h3><div id="anomalyList"></div></div>
+  </div>
+
+  <div class="panel" id="proctree">
+    <div class="chart"><h3>프로세스 트리 (0개 루트 프로세스)</h3>
+      <div style="color:var(--fg2);padding:12px">Sysmon Event ID 1 이벤트가 없어 프로세스 트리를 생성할 수 없습니다.</div>
+    </div>
+    <div class="chart"><h3>의심 프로세스 탐지 (0건)</h3>
+      <div style="color:var(--fg2);padding:8px">의심 프로세스 패턴이 감지되지 않았습니다.</div>
+    </div>
+    <div class="chart"><h3>삭제 연관 요약</h3>
+      <div style="padding:8px 0;color:var(--fg2);font-size:0.85rem">삭제 관계 유형 수: <strong style="color:var(--yellow)">0</strong>건</div>
+      <div style="color:var(--fg2);padding:8px">삭제 파일 매칭이 없습니다.</div>
+    </div>
+  </div>
+
+  <div class="panel" id="thumbcache"><div style="color:var(--fg2);padding:8px 0">탐색기 미리 보기 캐시 (thumbcache). 캐시가 있다는 것은 그 파일을 실제로 열었거나 지웠다는 확정이 아닙니다. 원본 파일 경로와 연결하지 않았고, 시각 정보도 없습니다. 캐시 안의 그림은 해독하거나 보고서에 넣지 않습니다.</div><div class="table-scroll"><table><thead><tr><th>캐시 ID</th><th>형식 (시그니처만)</th><th>데이터 크기(바이트)</th><th>위치 (캐시 파일 안)</th><th>이미지 데이터 SHA-256</th><th>해시 상태</th><th>저장 체크섬</th><th>확인할 점</th><th>출처 파일</th><th>상태</th></tr></thead><tbody><tr><td>0000000001001001</td><td>BMP</td><td>58</td><td>항목 0x18 · 데이터 0x66</td><td>aa17a30f6ec6d08cd44f4567a44e4b0916ca968a7b2d0a7bb9cdb9a34b461825</td><td>완료</td><td>검증 안 됨</td><td></td><td>C:\Evidence\synthetic\evidence\thumbcache_256.db</td><td>정상</td></tr></tbody></table></div></div>
+  <div class="panel" id="raw">
+    <pre style="font-family:var(--mono);font-size:0.75rem;color:var(--fg2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:80vh;overflow-y:auto">{
+  &quot;evidence&quot;: [
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+      &quot;collected&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+      &quot;sha256&quot;: &quot;1a6bc122f7c3b09127f09bd0636444bbb7e9dae0461b245bfb20781c6daf6dc6&quot;,
+      &quot;method&quot;: &quot;OFFLINE&quot;,
+      &quot;collected_at&quot;: &quot;2026-03-14T10:03:00+00:00&quot;,
+      &quot;metadata&quot;: {
+        &quot;log_replay&quot;: false,
+        &quot;source_sidecar&quot;: false
+      }
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+      &quot;collected&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+      &quot;sha256&quot;: &quot;1e8ccad75f2fae3f4905bb37fe3507bfaa0c781a5b3d803f66296b041f5de467&quot;,
+      &quot;method&quot;: &quot;OFFLINE&quot;,
+      &quot;collected_at&quot;: &quot;2026-03-14T10:03:00+00:00&quot;,
+      &quot;metadata&quot;: {
+        &quot;log_replay&quot;: false,
+        &quot;source_sidecar&quot;: false
+      }
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;collected&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;sha256&quot;: &quot;86a02ceaa8c466327c6f72e46f9f3634c762d953ef4d6e70ebe961bf58e8423c&quot;,
+      &quot;method&quot;: &quot;OFFLINE&quot;,
+      &quot;collected_at&quot;: &quot;2026-03-14T10:03:00+00:00&quot;,
+      &quot;metadata&quot;: {
+        &quot;log_replay&quot;: false,
+        &quot;source_sidecar&quot;: false
+      }
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;collected&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;sha256&quot;: &quot;ea2add9217e590018bc7c26215a4bf280f1df2e6eb6699d3ab476d3fb9452cd2&quot;,
+      &quot;method&quot;: &quot;OFFLINE&quot;,
+      &quot;collected_at&quot;: &quot;2026-03-14T10:03:00+00:00&quot;,
+      &quot;metadata&quot;: {
+        &quot;log_replay&quot;: false,
+        &quot;source_sidecar&quot;: false
+      }
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\thumbcache_256.db&quot;,
+      &quot;collected&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\thumbcache_256.db&quot;,
+      &quot;sha256&quot;: &quot;0d3ef17453a7b0a637dc91ce63ac61c0353ce1b315424f619b5605b4cbd4a1e9&quot;,
+      &quot;method&quot;: &quot;OFFLINE&quot;,
+      &quot;collected_at&quot;: &quot;2026-03-14T10:03:00+00:00&quot;,
+      &quot;metadata&quot;: {
+        &quot;log_replay&quot;: false,
+        &quot;source_sidecar&quot;: false
+      }
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\MPLog-synthetic.log&quot;,
+      &quot;collected&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\MPLog-synthetic.log&quot;,
+      &quot;sha256&quot;: &quot;4dda82e2991a2120fe1e583788e735a9010757a2d2212a6575e8b2ea09f03ab8&quot;,
+      &quot;method&quot;: &quot;OFFLINE&quot;,
+      &quot;collected_at&quot;: &quot;2026-03-14T10:03:00+00:00&quot;,
+      &quot;metadata&quot;: {
+        &quot;log_replay&quot;: false,
+        &quot;source_sidecar&quot;: false
+      }
+    }
+  ],
+  &quot;events&quot;: [
+    {
+      &quot;artifact&quot;: &quot;history&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+      &quot;action&quot;: &quot;url_visit&quot;,
+      &quot;timestamp&quot;: &quot;2026-03-14T09:58:00+00:00&quot;,
+      &quot;time_field&quot;: &quot;visit_time&quot;,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: null,
+      &quot;process&quot;: null,
+      &quot;url&quot;: &quot;https://example.com/tools&quot;,
+      &quot;locator&quot;: &quot;visits:1&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;id&quot;: 1,
+        &quot;visit_time&quot;: 13417955880000000,
+        &quot;transition&quot;: 805306368,
+        &quot;url&quot;: &quot;https://example.com/tools&quot;,
+        &quot;title&quot;: &quot;Free Tools&quot;,
+        &quot;activity_class&quot;: &quot;user_activity&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 0
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;history&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+      &quot;action&quot;: &quot;download&quot;,
+      &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+      &quot;time_field&quot;: &quot;start_time&quot;,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+      &quot;process&quot;: null,
+      &quot;url&quot;: &quot;https://example.com/setup.exe&quot;,
+      &quot;locator&quot;: &quot;downloads:1&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;id&quot;: 1,
+        &quot;target_path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+        &quot;start_time&quot;: 13417955940000000,
+        &quot;end_time&quot;: 13417955940000000,
+        &quot;total_bytes&quot;: 482304,
+        &quot;mime_type&quot;: &quot;application/x-msdownload&quot;,
+        &quot;url_chain&quot;: [
+          &quot;https://example.com/dl?id=1&quot;,
+          &quot;https://example.com/setup.exe&quot;
+        ],
+        &quot;activity_class&quot;: &quot;user_activity&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 0
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;prefetch&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+      &quot;action&quot;: &quot;execution_trace&quot;,
+      &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+      &quot;time_field&quot;: &quot;last_run_time&quot;,
+      &quot;sid&quot;: null,
+      &quot;path&quot;: null,
+      &quot;process&quot;: &quot;SETUP.EXE&quot;,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;byte:136&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;version&quot;: 30,
+        &quot;run_count&quot;: 2,
+        &quot;prefetch_hash&quot;: &quot;1A2B3C4D&quot;,
+        &quot;filename_hash_match&quot;: true,
+        &quot;references&quot;: [
+          &quot;\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\USERS\\ALICE\\DOWNLOADS\\SETUP.EXE&quot;,
+          &quot;\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\WINDOWS\\SYSTEM32\\KERNEL32.DLL&quot;
+        ],
+        &quot;reference_count&quot;: 2,
+        &quot;volume_count&quot;: 0,
+        &quot;full_executable_path_confirmed&quot;: true,
+        &quot;raw_filetime&quot;: 134179560000000000,
+        &quot;activity_class&quot;: &quot;execution&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 2
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;prefetch&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+      &quot;action&quot;: &quot;execution_trace&quot;,
+      &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+      &quot;time_field&quot;: &quot;last_run_time&quot;,
+      &quot;sid&quot;: null,
+      &quot;path&quot;: null,
+      &quot;process&quot;: &quot;SETUP.EXE&quot;,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;byte:128&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;version&quot;: 30,
+        &quot;run_count&quot;: 2,
+        &quot;prefetch_hash&quot;: &quot;1A2B3C4D&quot;,
+        &quot;filename_hash_match&quot;: true,
+        &quot;references&quot;: [
+          &quot;\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\USERS\\ALICE\\DOWNLOADS\\SETUP.EXE&quot;,
+          &quot;\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\WINDOWS\\SYSTEM32\\KERNEL32.DLL&quot;
+        ],
+        &quot;reference_count&quot;: 2,
+        &quot;volume_count&quot;: 0,
+        &quot;full_executable_path_confirmed&quot;: true,
+        &quot;raw_filetime&quot;: 134179560600000000,
+        &quot;activity_class&quot;: &quot;execution&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 2
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;userassist&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;action&quot;: &quot;execution_trace&quot;,
+      &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+      &quot;time_field&quot;: &quot;last_execution&quot;,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;run_count&quot;: 2,
+        &quot;focus_count&quot;: 3,
+        &quot;focus_time_ms&quot;: 15000,
+        &quot;last_execution&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+        &quot;raw_filetime&quot;: 134179560600000000,
+        &quot;version&quot;: &quot;72-byte&quot;,
+        &quot;encoded_name&quot;: &quot;P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+        &quot;raw_path&quot;: null,
+        &quot;raw&quot;: &quot;000000000200000003000000983a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000056ae7599b3dc0100000000&quot;,
+        &quot;activity_class&quot;: &quot;user_activity&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 0
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;defender&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\MPLog-synthetic.log&quot;,
+      &quot;action&quot;: &quot;defender_detection&quot;,
+      &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+      &quot;time_field&quot;: &quot;defender_log_record_time&quot;,
+      &quot;sid&quot;: null,
+      &quot;path&quot;: &quot;C:\\Evidence\\fake.exe&quot;,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;line:1&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;log_line&quot;: &quot;2026-03-14T10:02:00Z DETECTIONEVENT MPSOURCE_REALTIME Test:Win32/Synthetic file:C:\\Evidence\\fake.exe;&quot;,
+        &quot;text_decoding&quot;: [
+          {
+            &quot;encoding&quot;: &quot;utf-8&quot;,
+            &quot;inferred&quot;: false,
+            &quot;decode_error&quot;: false,
+            &quot;line_truncated&quot;: false
+          }
+        ],
+        &quot;line_number&quot;: 1,
+        &quot;threat_execution_confirmed&quot;: false,
+        &quot;remediation_confirmed&quot;: false,
+        &quot;log_time_raw&quot;: &quot;2026-03-14T10:02:00Z&quot;,
+        &quot;detection_source&quot;: &quot;MPSOURCE_REALTIME&quot;,
+        &quot;threat_name&quot;: &quot;Test:Win32/Synthetic&quot;,
+        &quot;threat_resource&quot;: &quot;file:C:\\Evidence\\fake.exe;&quot;,
+        &quot;activity_class&quot;: &quot;security&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 2
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;action&quot;: &quot;autorun_registration&quot;,
+      &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+      &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;executable&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+        &quot;arguments&quot;: &quot;-silent&quot;,
+        &quot;ambiguous&quot;: false,
+        &quot;command&quot;: &quot;\&quot;C:\\Users\\alice\\Downloads\\setup.exe\&quot; -silent&quot;,
+        &quot;expanded_command&quot;: &quot;\&quot;C:\\Users\\alice\\Downloads\\setup.exe\&quot; -silent&quot;,
+        &quot;name&quot;: &quot;Updater&quot;,
+        &quot;raw&quot;: &quot;220043003a005c00550073006500720073005c0061006c006900630065005c0044006f0077006e006c006f006100640073005c00730065007400750070002e00650078006500220020002d00730069006c0065006e0074000000&quot;,
+        &quot;type&quot;: 1,
+        &quot;view&quot;: &quot;native&quot;,
+        &quot;scope&quot;: &quot;user&quot;,
+        &quot;run_type&quot;: &quot;Run&quot;,
+        &quot;execution_confirmed&quot;: false,
+        &quot;defer_deletion&quot;: false,
+        &quot;safe_mode&quot;: false,
+        &quot;activity_class&quot;: &quot;system_config&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 0
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;psreadline&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;action&quot;: &quot;command_history&quot;,
+      &quot;timestamp&quot;: null,
+      &quot;time_field&quot;: null,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: null,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;line:1-1&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;command&quot;: &quot;Get-ChildItem $env:USERPROFILE\\Downloads&quot;,
+        &quot;categories&quot;: [
+          &quot;OTHER&quot;
+        ],
+        &quot;risk_level&quot;: &quot;low&quot;,
+        &quot;timestamp_available&quot;: false,
+        &quot;classification_is_heuristic&quot;: true,
+        &quot;activity_class&quot;: &quot;execution&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 1
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;psreadline&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;action&quot;: &quot;command_history&quot;,
+      &quot;timestamp&quot;: null,
+      &quot;time_field&quot;: null,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: null,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;line:2-2&quot;,
+      &quot;status&quot;: &quot;warning&quot;,
+      &quot;details&quot;: {
+        &quot;command&quot;: &quot;Invoke-WebRequest https://cdn.example.com/setup.exe -OutFile setup.exe&quot;,
+        &quot;categories&quot;: [
+          &quot;DOWNLOAD&quot;
+        ],
+        &quot;risk_level&quot;: &quot;high&quot;,
+        &quot;timestamp_available&quot;: false,
+        &quot;classification_is_heuristic&quot;: true,
+        &quot;activity_class&quot;: &quot;execution&quot;,
+        &quot;risk_score&quot;: 30,
+        &quot;session_id&quot;: 1
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;psreadline&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;action&quot;: &quot;command_history&quot;,
+      &quot;timestamp&quot;: null,
+      &quot;time_field&quot;: null,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: null,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;line:3-4&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;command&quot;: &quot;Start-Process .\\setup.exe \n  -ArgumentList &#x27;-silent&#x27;&quot;,
+        &quot;categories&quot;: [
+          &quot;PROCESS&quot;
+        ],
+        &quot;risk_level&quot;: &quot;medium&quot;,
+        &quot;timestamp_available&quot;: false,
+        &quot;classification_is_heuristic&quot;: true,
+        &quot;activity_class&quot;: &quot;execution&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 1
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;psreadline&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;action&quot;: &quot;command_history&quot;,
+      &quot;timestamp&quot;: null,
+      &quot;time_field&quot;: null,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: null,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;line:5-5&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;command&quot;: &quot;reg query HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run&quot;,
+        &quot;categories&quot;: [
+          &quot;REGISTRY&quot;
+        ],
+        &quot;risk_level&quot;: &quot;medium&quot;,
+        &quot;timestamp_available&quot;: false,
+        &quot;classification_is_heuristic&quot;: true,
+        &quot;activity_class&quot;: &quot;execution&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 1
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;psreadline&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;action&quot;: &quot;command_history&quot;,
+      &quot;timestamp&quot;: null,
+      &quot;time_field&quot;: null,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: null,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;line:6-6&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;command&quot;: &quot;Remove-Item .\\setup.exe&quot;,
+        &quot;categories&quot;: [
+          &quot;FILE_DELETE&quot;
+        ],
+        &quot;risk_level&quot;: &quot;medium&quot;,
+        &quot;timestamp_available&quot;: false,
+        &quot;classification_is_heuristic&quot;: true,
+        &quot;activity_class&quot;: &quot;execution&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 1
+      }
+    },
+    {
+      &quot;artifact&quot;: &quot;thumbcache&quot;,
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\thumbcache_256.db&quot;,
+      &quot;action&quot;: &quot;thumbnail_cached&quot;,
+      &quot;timestamp&quot;: null,
+      &quot;time_field&quot;: null,
+      &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+      &quot;path&quot;: null,
+      &quot;process&quot;: null,
+      &quot;url&quot;: null,
+      &quot;locator&quot;: &quot;0x18&quot;,
+      &quot;status&quot;: &quot;ok&quot;,
+      &quot;details&quot;: {
+        &quot;cache_version&quot;: 32,
+        &quot;cache_type&quot;: 4,
+        &quot;cache_id&quot;: &quot;0000000001001001&quot;,
+        &quot;cache_identifier&quot;: &quot;synthetic-1&quot;,
+        &quot;entry_offset&quot;: 24,
+        &quot;entry_size&quot;: 136,
+        &quot;data_offset&quot;: 102,
+        &quot;data_size&quot;: 58,
+        &quot;image_format&quot;: &quot;bmp&quot;,
+        &quot;image_sha256&quot;: &quot;aa17a30f6ec6d08cd44f4567a44e4b0916ca968a7b2d0a7bb9cdb9a34b461825&quot;,
+        &quot;image_hash_status&quot;: &quot;complete&quot;,
+        &quot;identifier_decode_error&quot;: false,
+        &quot;entry_aux_28&quot;: 1,
+        &quot;entry_aux_32&quot;: 1,
+        &quot;stored_data_checksum&quot;: &quot;0000000000000000&quot;,
+        &quot;stored_header_checksum&quot;: &quot;0000000000000000&quot;,
+        &quot;checksum_verified&quot;: false,
+        &quot;original_path_confirmed&quot;: false,
+        &quot;view_confirmed&quot;: false,
+        &quot;activity_class&quot;: &quot;other&quot;,
+        &quot;risk_score&quot;: 0,
+        &quot;session_id&quot;: 1
+      }
+    }
+  ],
+  &quot;errors&quot;: [
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;locator&quot;: &quot;Microsoft\\Windows\\CurrentVersion\\Run&quot;,
+      &quot;message&quot;: &quot;키 없음&quot;,
+      &quot;severity&quot;: &quot;info&quot;
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;locator&quot;: &quot;Microsoft\\Windows\\CurrentVersion\\RunOnce&quot;,
+      &quot;message&quot;: &quot;키 없음&quot;,
+      &quot;severity&quot;: &quot;info&quot;
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;locator&quot;: &quot;Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run&quot;,
+      &quot;message&quot;: &quot;키 없음&quot;,
+      &quot;severity&quot;: &quot;info&quot;
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;locator&quot;: &quot;Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\RunOnce&quot;,
+      &quot;message&quot;: &quot;키 없음&quot;,
+      &quot;severity&quot;: &quot;info&quot;
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce&quot;,
+      &quot;message&quot;: &quot;키 없음&quot;,
+      &quot;severity&quot;: &quot;info&quot;
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;locator&quot;: &quot;Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run&quot;,
+      &quot;message&quot;: &quot;키 없음&quot;,
+      &quot;severity&quot;: &quot;info&quot;
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;locator&quot;: &quot;Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\RunOnce&quot;,
+      &quot;message&quot;: &quot;키 없음&quot;,
+      &quot;severity&quot;: &quot;info&quot;
+    }
+  ],
+  &quot;relations&quot;: [
+    {
+      &quot;left&quot;: 1,
+      &quot;right&quot;: 2,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;filename_only&quot;,
+      &quot;confidence&quot;: &quot;filename_only&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 60.0,
+      &quot;temporal_proximity&quot;: true,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.filename_only&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 파일 이름만&quot;,
+        &quot;confidence_reason&quot;: &quot;filename_only&quot;,
+        &quot;confidence_reason_label&quot;: &quot;파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;process&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 1,
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;locator&quot;: &quot;downloads:1&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;start_time&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: &quot;https://example.com/setup.exe&quot;
+          },
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;filename_only&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;start_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: true
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 1,
+      &quot;right&quot;: 3,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;filename_only&quot;,
+      &quot;confidence&quot;: &quot;filename_only&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 120.0,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.filename_only&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 파일 이름만&quot;,
+        &quot;confidence_reason&quot;: &quot;filename_only&quot;,
+        &quot;confidence_reason_label&quot;: &quot;파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;process&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 1,
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;locator&quot;: &quot;downloads:1&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;start_time&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: &quot;https://example.com/setup.exe&quot;
+          },
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;filename_only&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;start_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 120.0,
+          &quot;delta_seconds&quot;: 120.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: false
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 1,
+      &quot;right&quot;: 4,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;normalized_path&quot;,
+      &quot;confidence&quot;: &quot;path_match&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 120.0,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.normalized_path&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 전체 경로&quot;,
+        &quot;confidence_reason&quot;: &quot;normalized_path&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 전체 경로 문자열이 같습니다. 같은 파일 실체나 실행을 확인한 것은 아닙니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;normalized_path&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;c:\\users\\alice\\downloads\\setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;c:\\users\\alice\\downloads\\setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 1,
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;locator&quot;: &quot;downloads:1&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;start_time&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: &quot;https://example.com/setup.exe&quot;
+          },
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;normalized_path&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;start_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_execution&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 120.0,
+          &quot;delta_seconds&quot;: 120.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: false
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 1,
+      &quot;right&quot;: 6,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;normalized_path&quot;,
+      &quot;confidence&quot;: &quot;path_match&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 180.0,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.normalized_path&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 전체 경로&quot;,
+        &quot;confidence_reason&quot;: &quot;normalized_path&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 전체 경로 문자열이 같습니다. 같은 파일 실체나 실행을 확인한 것은 아닙니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;normalized_path&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;c:\\users\\alice\\downloads\\setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;c:\\users\\alice\\downloads\\setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 1,
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;locator&quot;: &quot;downloads:1&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;start_time&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: &quot;https://example.com/setup.exe&quot;
+          },
+          {
+            &quot;event_index&quot;: 6,
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;normalized_path&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;start_time&quot;,
+          &quot;right_time_field&quot;: &quot;key_lastwrite&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 180.0,
+          &quot;delta_seconds&quot;: 180.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: false
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 2,
+      &quot;right&quot;: 4,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;filename_only&quot;,
+      &quot;confidence&quot;: &quot;filename_only&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 60.0,
+      &quot;temporal_proximity&quot;: true,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.filename_only&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 파일 이름만&quot;,
+        &quot;confidence_reason&quot;: &quot;filename_only&quot;,
+        &quot;confidence_reason_label&quot;: &quot;파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;filename_only&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_execution&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: true
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 2,
+      &quot;right&quot;: 6,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;filename_only&quot;,
+      &quot;confidence&quot;: &quot;filename_only&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 120.0,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.filename_only&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 파일 이름만&quot;,
+        &quot;confidence_reason&quot;: &quot;filename_only&quot;,
+        &quot;confidence_reason_label&quot;: &quot;파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 6,
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;filename_only&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;key_lastwrite&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 120.0,
+          &quot;delta_seconds&quot;: 120.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: false
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 3,
+      &quot;right&quot;: 4,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;filename_only&quot;,
+      &quot;confidence&quot;: &quot;filename_only&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 0.0,
+      &quot;temporal_proximity&quot;: true,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.filename_only&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 파일 이름만&quot;,
+        &quot;confidence_reason&quot;: &quot;filename_only&quot;,
+        &quot;confidence_reason_label&quot;: &quot;파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;filename_only&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_execution&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 0.0,
+          &quot;delta_seconds&quot;: 0.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: true
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 3,
+      &quot;right&quot;: 6,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;filename_only&quot;,
+      &quot;confidence&quot;: &quot;filename_only&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 60.0,
+      &quot;temporal_proximity&quot;: true,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.filename_only&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 파일 이름만&quot;,
+        &quot;confidence_reason&quot;: &quot;filename_only&quot;,
+        &quot;confidence_reason_label&quot;: &quot;파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 6,
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;filename_only&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;key_lastwrite&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: true
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 4,
+      &quot;right&quot;: 6,
+      &quot;type&quot;: &quot;path_correlation&quot;,
+      &quot;basis&quot;: &quot;normalized_path&quot;,
+      &quot;confidence&quot;: &quot;path_match&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;delta_seconds&quot;: 60.0,
+      &quot;temporal_proximity&quot;: true,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;path_correlation.normalized_path&quot;,
+        &quot;rule_label&quot;: &quot;같은 파일 경로·이름 / 같은 전체 경로&quot;,
+        &quot;confidence_reason&quot;: &quot;normalized_path&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 전체 경로 문자열이 같습니다. 같은 파일 실체나 실행을 확인한 것은 아닙니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;normalized_path&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;c:\\users\\alice\\downloads\\setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;c:\\users\\alice\\downloads\\setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 6,
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;normalized_path&quot;,
+          &quot;key&quot;: null,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 1,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [
+            &quot;different_artifacts&quot;,
+            &quot;no_known_sid_conflict&quot;
+          ],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_execution&quot;,
+          &quot;right_time_field&quot;: &quot;key_lastwrite&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: 60,
+          &quot;within_window&quot;: true
+        }
+      }
+    },
+    {
+      &quot;type&quot;: &quot;execution_chain&quot;,
+      &quot;process&quot;: &quot;setup&quot;,
+      &quot;basis&quot;: &quot;process_name&quot;,
+      &quot;confidence&quot;: &quot;multi_source&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;sources&quot;: [
+        &quot;prefetch&quot;,
+        &quot;userassist&quot;
+      ],
+      &quot;first_seen&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+      &quot;last_seen&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+      &quot;event_count&quot;: 3,
+      &quot;event_indices&quot;: [
+        2,
+        3,
+        4
+      ],
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;execution_chain.process_name&quot;,
+        &quot;rule_label&quot;: &quot;여러 종류의 실행 기록에 나온 같은 프로그램 / 같은 프로그램 이름&quot;,
+        &quot;confidence_reason&quot;: &quot;multi_source&quot;,
+        &quot;confidence_reason_label&quot;: &quot;실행 관련 기록 종류 두 가지 이상에서 프로그램 이름이 같습니다. 같은 파일·실행 건·출처 파일의 다양성을 보장하지 않습니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;process_name&quot;,
+            &quot;event_index&quot;: 2,
+            &quot;value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;normalized&quot;: &quot;setup&quot;
+          },
+          {
+            &quot;field&quot;: &quot;process_name&quot;,
+            &quot;event_index&quot;: 3,
+            &quot;value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;normalized&quot;: &quot;setup&quot;
+          },
+          {
+            &quot;field&quot;: &quot;process_name&quot;,
+            &quot;event_index&quot;: 4,
+            &quot;value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;normalized&quot;: &quot;setup&quot;
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 2
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;process_name&quot;,
+          &quot;key&quot;: &quot;setup&quot;,
+          &quot;candidate_count&quot;: null,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 3,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {
+            &quot;prefetch_present&quot;: true,
+            &quot;registry_execution_trace_present&quot;: true,
+            &quot;execution_log_event_indices&quot;: [],
+            &quot;known_sid_conflict&quot;: false,
+            &quot;timestamp_count&quot;: 3,
+            &quot;comparable_clock&quot;: true,
+            &quot;window_seconds&quot;: 300,
+            &quot;span_seconds&quot;: 60.0
+          },
+          &quot;definition&quot;: &quot;multi_source&quot;
+        },
+        &quot;time_comparison&quot;: {
+          &quot;comparable&quot;: true,
+          &quot;timestamp_count&quot;: 3,
+          &quot;missing_timestamp_count&quot;: 0,
+          &quot;span_seconds&quot;: 60.0
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 1,
+      &quot;right&quot;: 2,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;process&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 1,
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;locator&quot;: &quot;downloads:1&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;start_time&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: &quot;https://example.com/setup.exe&quot;
+          },
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;start_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 1,
+      &quot;right&quot;: 3,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;process&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 1,
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;locator&quot;: &quot;downloads:1&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;start_time&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: &quot;https://example.com/setup.exe&quot;
+          },
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;start_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 120.0,
+          &quot;delta_seconds&quot;: 120.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 1,
+      &quot;right&quot;: 4,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 1,
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;locator&quot;: &quot;downloads:1&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;start_time&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: &quot;https://example.com/setup.exe&quot;
+          },
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;history&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T09:59:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;start_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_execution&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 120.0,
+          &quot;delta_seconds&quot;: 120.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 2,
+      &quot;right&quot;: 3,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;process&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 2
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 1,
+          &quot;source_file_count&quot;: 1,
+          &quot;known_sids&quot;: [],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 2,
+      &quot;right&quot;: 4,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_execution&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 2,
+      &quot;right&quot;: 6,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 2,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:136&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 6,
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:00:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;key_lastwrite&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 120.0,
+          &quot;delta_seconds&quot;: 120.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 3,
+      &quot;right&quot;: 4,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;last_execution&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 0.0,
+          &quot;delta_seconds&quot;: 0.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 3,
+      &quot;right&quot;: 6,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;process&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;SETUP.EXE&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 3,
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;locator&quot;: &quot;byte:128&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_run_time&quot;,
+            &quot;sid&quot;: null,
+            &quot;path&quot;: null,
+            &quot;process&quot;: &quot;SETUP.EXE&quot;,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 6,
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;prefetch&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 2,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_run_time&quot;,
+          &quot;right_time_field&quot;: &quot;key_lastwrite&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    },
+    {
+      &quot;left&quot;: 4,
+      &quot;right&quot;: 6,
+      &quot;type&quot;: &quot;program_group&quot;,
+      &quot;basis&quot;: &quot;same_executable&quot;,
+      &quot;confidence&quot;: &quot;program_cluster&quot;,
+      &quot;execution_confirmed&quot;: false,
+      &quot;program&quot;: &quot;setup.exe&quot;,
+      &quot;artifact_count&quot;: 4,
+      &quot;total_events&quot;: 5,
+      &quot;evidence_details&quot;: {
+        &quot;rule_name&quot;: &quot;program_group.same_executable&quot;,
+        &quot;rule_label&quot;: &quot;같은 프로그램 / 같은 실행 파일&quot;,
+        &quot;confidence_reason&quot;: &quot;same_executable&quot;,
+        &quot;confidence_reason_label&quot;: &quot;정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.&quot;,
+        &quot;comparisons&quot;: [
+          {
+            &quot;field&quot;: &quot;filename&quot;,
+            &quot;left_field&quot;: &quot;path&quot;,
+            &quot;right_field&quot;: &quot;path&quot;,
+            &quot;left_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;right_value&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;left_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;right_normalized&quot;: &quot;setup.exe&quot;,
+            &quot;operator&quot;: &quot;equals&quot;,
+            &quot;matched&quot;: true
+          }
+        ],
+        &quot;event_refs&quot;: [
+          {
+            &quot;event_index&quot;: 4,
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;last_execution&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          },
+          {
+            &quot;event_index&quot;: 6,
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;locator&quot;: &quot;Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater&quot;,
+            &quot;timestamp&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+            &quot;time_field&quot;: &quot;key_lastwrite&quot;,
+            &quot;sid&quot;: &quot;S-1-5-21-1000-2000-3000-1001&quot;,
+            &quot;path&quot;: &quot;C:\\Users\\alice\\Downloads\\setup.exe&quot;,
+            &quot;process&quot;: null,
+            &quot;url&quot;: null
+          }
+        ],
+        &quot;source_counts&quot;: [
+          {
+            &quot;artifact&quot;: &quot;run&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          },
+          {
+            &quot;artifact&quot;: &quot;userassist&quot;,
+            &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+            &quot;count&quot;: 1
+          }
+        ],
+        &quot;grouping&quot;: {
+          &quot;basis&quot;: &quot;same_executable&quot;,
+          &quot;key&quot;: &quot;setup.exe&quot;,
+          &quot;candidate_count&quot;: 1,
+          &quot;pair_expansion_limit&quot;: null,
+          &quot;event_count&quot;: 2,
+          &quot;artifact_count&quot;: 2,
+          &quot;source_file_count&quot;: 1,
+          &quot;known_sids&quot;: [
+            &quot;S-1-5-21-1000-2000-3000-1001&quot;
+          ],
+          &quot;candidate_rules&quot;: [],
+          &quot;criteria&quot;: {}
+        },
+        &quot;time_comparison&quot;: {
+          &quot;left_value&quot;: &quot;2026-03-14T10:01:00+00:00&quot;,
+          &quot;right_value&quot;: &quot;2026-03-14T10:02:00+00:00&quot;,
+          &quot;left_time_field&quot;: &quot;last_execution&quot;,
+          &quot;right_time_field&quot;: &quot;key_lastwrite&quot;,
+          &quot;comparable&quot;: true,
+          &quot;signed_delta_seconds&quot;: 60.0,
+          &quot;delta_seconds&quot;: 60.0,
+          &quot;window_seconds&quot;: null,
+          &quot;within_window&quot;: null
+        }
+      }
+    }
+  ],
+  &quot;summaries&quot;: [
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\History&quot;,
+      &quot;artifact&quot;: &quot;history&quot;,
+      &quot;events&quot;: 2,
+      &quot;state&quot;: &quot;ok&quot;,
+      &quot;elapsed_seconds&quot;: 0.0,
+      &quot;errors&quot;: 0,
+      &quot;warnings&quot;: 0
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf&quot;,
+      &quot;artifact&quot;: &quot;prefetch&quot;,
+      &quot;events&quot;: 2,
+      &quot;state&quot;: &quot;ok&quot;,
+      &quot;elapsed_seconds&quot;: 0.0,
+      &quot;errors&quot;: 0,
+      &quot;warnings&quot;: 0
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;userassist&quot;,
+      &quot;events&quot;: 1,
+      &quot;state&quot;: &quot;ok&quot;,
+      &quot;elapsed_seconds&quot;: 0.0,
+      &quot;errors&quot;: 0,
+      &quot;warnings&quot;: 0
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT&quot;,
+      &quot;artifact&quot;: &quot;run&quot;,
+      &quot;events&quot;: 1,
+      &quot;state&quot;: &quot;ok&quot;,
+      &quot;elapsed_seconds&quot;: 0.0,
+      &quot;errors&quot;: 0,
+      &quot;warnings&quot;: 0
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt&quot;,
+      &quot;artifact&quot;: &quot;psreadline&quot;,
+      &quot;events&quot;: 5,
+      &quot;state&quot;: &quot;ok&quot;,
+      &quot;elapsed_seconds&quot;: 0.0,
+      &quot;errors&quot;: 0,
+      &quot;warnings&quot;: 0
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\thumbcache_256.db&quot;,
+      &quot;artifact&quot;: &quot;thumbcache&quot;,
+      &quot;events&quot;: 1,
+      &quot;state&quot;: &quot;ok&quot;,
+      &quot;elapsed_seconds&quot;: 0.0,
+      &quot;errors&quot;: 0,
+      &quot;warnings&quot;: 0
+    },
+    {
+      &quot;source&quot;: &quot;C:\\Evidence\\synthetic\\evidence\\MPLog-synthetic.log&quot;,
+      &quot;artifact&quot;: &quot;defender&quot;,
+      &quot;events&quot;: 1,
+      &quot;state&quot;: &quot;ok&quot;,
+      &quot;elapsed_seconds&quot;: 0.0,
+      &quot;errors&quot;: 0,
+      &quot;warnings&quot;: 0
+    }
+  ],
+  &quot;correlation_summary&quot;: {
+    &quot;total_relations&quot;: 19,
+    &quot;by_type&quot;: {
+      &quot;path_correlation&quot;: 9,
+      &quot;execution_chain&quot;: 1,
+      &quot;program_group&quot;: 9
+    },
+    &quot;top_programs&quot;: [
+      [
+        &quot;setup.exe&quot;,
+        9
+      ]
+    ],
+    &quot;temporal_count&quot;: 5,
+    &quot;url_matches&quot;: 0,
+    &quot;usb_file_matches&quot;: 0,
+    &quot;mountpoint_usb_matches&quot;: 0,
+    &quot;execution_chains&quot;: 1,
+    &quot;chain_confidence&quot;: {
+      &quot;multi_source&quot;: 1
+    },
+    &quot;deletion_matches&quot;: 0
+  }
+}</pre>
+  </div>
+</div>
+<footer>Log Hunter v1.0.0 — Windows 포렌식 아티팩트 분석 도구</footer>
+
+<script>
+const ALL_EVENTS = [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "action": "url_visit", "timestamp": "2026-03-14T09:58:00+00:00", "time_field": "visit_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": null, "process": null, "url": "https://example.com/tools", "locator": "visits:1", "status": "ok", "details": {"id": 1, "visit_time": 13417955880000000, "transition": 805306368, "url": "https://example.com/tools", "title": "Free Tools", "activity_class": "user_activity", "risk_score": 0, "session_id": 0}}, {"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "action": "download", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe", "locator": "downloads:1", "status": "ok", "details": {"id": 1, "target_path": "C:\\Users\\alice\\Downloads\\setup.exe", "start_time": 13417955940000000, "end_time": 13417955940000000, "total_bytes": 482304, "mime_type": "application/x-msdownload", "url_chain": ["https://example.com/dl?id=1", "https://example.com/setup.exe"], "activity_class": "user_activity", "risk_score": 0, "session_id": 0}}, {"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "action": "execution_trace", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null, "locator": "byte:136", "status": "ok", "details": {"version": 30, "run_count": 2, "prefetch_hash": "1A2B3C4D", "filename_hash_match": true, "references": ["\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\USERS\\ALICE\\DOWNLOADS\\SETUP.EXE", "\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\WINDOWS\\SYSTEM32\\KERNEL32.DLL"], "reference_count": 2, "volume_count": 0, "full_executable_path_confirmed": true, "raw_filetime": 134179560000000000, "activity_class": "execution", "risk_score": 0, "session_id": 2}}, {"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "action": "execution_trace", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null, "locator": "byte:128", "status": "ok", "details": {"version": 30, "run_count": 2, "prefetch_hash": "1A2B3C4D", "filename_hash_match": true, "references": ["\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\USERS\\ALICE\\DOWNLOADS\\SETUP.EXE", "\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\WINDOWS\\SYSTEM32\\KERNEL32.DLL"], "reference_count": 2, "volume_count": 0, "full_executable_path_confirmed": true, "raw_filetime": 134179560600000000, "activity_class": "execution", "risk_score": 0, "session_id": 2}}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "action": "execution_trace", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null, "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "status": "ok", "details": {"run_count": 2, "focus_count": 3, "focus_time_ms": 15000, "last_execution": "2026-03-14T10:01:00+00:00", "raw_filetime": 134179560600000000, "version": "72-byte", "encoded_name": "P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "raw_path": null, "raw": "000000000200000003000000983a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000056ae7599b3dc0100000000", "activity_class": "user_activity", "risk_score": 0, "session_id": 0}}, {"artifact": "defender", "source": "C:\\Evidence\\synthetic\\evidence\\MPLog-synthetic.log", "action": "defender_detection", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "defender_log_record_time", "sid": null, "path": "C:\\Evidence\\fake.exe", "process": null, "url": null, "locator": "line:1", "status": "ok", "details": {"log_line": "2026-03-14T10:02:00Z DETECTIONEVENT MPSOURCE_REALTIME Test:Win32/Synthetic file:C:\\Evidence\\fake.exe;", "text_decoding": [{"encoding": "utf-8", "inferred": false, "decode_error": false, "line_truncated": false}], "line_number": 1, "threat_execution_confirmed": false, "remediation_confirmed": false, "log_time_raw": "2026-03-14T10:02:00Z", "detection_source": "MPSOURCE_REALTIME", "threat_name": "Test:Win32/Synthetic", "threat_resource": "file:C:\\Evidence\\fake.exe;", "activity_class": "security", "risk_score": 0, "session_id": 2}}, {"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "action": "autorun_registration", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null, "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "status": "ok", "details": {"executable": "C:\\Users\\alice\\Downloads\\setup.exe", "arguments": "-silent", "ambiguous": false, "command": "\"C:\\Users\\alice\\Downloads\\setup.exe\" -silent", "expanded_command": "\"C:\\Users\\alice\\Downloads\\setup.exe\" -silent", "name": "Updater", "raw": "220043003a005c00550073006500720073005c0061006c006900630065005c0044006f0077006e006c006f006100640073005c00730065007400750070002e00650078006500220020002d00730069006c0065006e0074000000", "type": 1, "view": "native", "scope": "user", "run_type": "Run", "execution_confirmed": false, "defer_deletion": false, "safe_mode": false, "activity_class": "system_config", "risk_score": 0, "session_id": 0}}, {"artifact": "psreadline", "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt", "action": "command_history", "timestamp": null, "time_field": null, "sid": "S-1-5-21-1000-2000-3000-1001", "path": null, "process": null, "url": null, "locator": "line:1-1", "status": "ok", "details": {"command": "Get-ChildItem $env:USERPROFILE\\Downloads", "categories": ["OTHER"], "risk_level": "low", "timestamp_available": false, "classification_is_heuristic": true, "activity_class": "execution", "risk_score": 0, "session_id": 1}}, {"artifact": "psreadline", "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt", "action": "command_history", "timestamp": null, "time_field": null, "sid": "S-1-5-21-1000-2000-3000-1001", "path": null, "process": null, "url": null, "locator": "line:2-2", "status": "warning", "details": {"command": "Invoke-WebRequest https://cdn.example.com/setup.exe -OutFile setup.exe", "categories": ["DOWNLOAD"], "risk_level": "high", "timestamp_available": false, "classification_is_heuristic": true, "activity_class": "execution", "risk_score": 30, "session_id": 1}}, {"artifact": "psreadline", "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt", "action": "command_history", "timestamp": null, "time_field": null, "sid": "S-1-5-21-1000-2000-3000-1001", "path": null, "process": null, "url": null, "locator": "line:3-4", "status": "ok", "details": {"command": "Start-Process .\\setup.exe \n  -ArgumentList '-silent'", "categories": ["PROCESS"], "risk_level": "medium", "timestamp_available": false, "classification_is_heuristic": true, "activity_class": "execution", "risk_score": 0, "session_id": 1}}, {"artifact": "psreadline", "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt", "action": "command_history", "timestamp": null, "time_field": null, "sid": "S-1-5-21-1000-2000-3000-1001", "path": null, "process": null, "url": null, "locator": "line:5-5", "status": "ok", "details": {"command": "reg query HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "categories": ["REGISTRY"], "risk_level": "medium", "timestamp_available": false, "classification_is_heuristic": true, "activity_class": "execution", "risk_score": 0, "session_id": 1}}, {"artifact": "psreadline", "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt", "action": "command_history", "timestamp": null, "time_field": null, "sid": "S-1-5-21-1000-2000-3000-1001", "path": null, "process": null, "url": null, "locator": "line:6-6", "status": "ok", "details": {"command": "Remove-Item .\\setup.exe", "categories": ["FILE_DELETE"], "risk_level": "medium", "timestamp_available": false, "classification_is_heuristic": true, "activity_class": "execution", "risk_score": 0, "session_id": 1}}, {"artifact": "thumbcache", "source": "C:\\Evidence\\synthetic\\evidence\\thumbcache_256.db", "action": "thumbnail_cached", "timestamp": null, "time_field": null, "sid": "S-1-5-21-1000-2000-3000-1001", "path": null, "process": null, "url": null, "locator": "0x18", "status": "ok", "details": {"cache_version": 32, "cache_type": 4, "cache_id": "0000000001001001", "cache_identifier": "synthetic-1", "entry_offset": 24, "entry_size": 136, "data_offset": 102, "data_size": 58, "image_format": "bmp", "image_sha256": "aa17a30f6ec6d08cd44f4567a44e4b0916ca968a7b2d0a7bb9cdb9a34b461825", "image_hash_status": "complete", "identifier_decode_error": false, "entry_aux_28": 1, "entry_aux_32": 1, "stored_data_checksum": "0000000000000000", "stored_header_checksum": "0000000000000000", "checksum_verified": false, "original_path_confirmed": false, "view_confirmed": false, "activity_class": "other", "risk_score": 0, "session_id": 1}}];
+const ALL_RELATIONS = [{"left": 1, "right": 2, "type": "path_correlation", "basis": "filename_only", "confidence": "filename_only", "execution_confirmed": false, "delta_seconds": 60.0, "temporal_proximity": true, "evidence_details": {"rule_name": "path_correlation.filename_only", "rule_label": "같은 파일 경로·이름 / 같은 파일 이름만", "confidence_reason": "filename_only", "confidence_reason_label": "파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.", "comparisons": [{"field": "filename", "left_field": "path", "right_field": "process", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "SETUP.EXE", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 1, "artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "locator": "downloads:1", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe"}, {"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}], "source_counts": [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "count": 1}, {"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}], "grouping": {"basis": "filename_only", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T09:59:00+00:00", "right_value": "2026-03-14T10:00:00+00:00", "left_time_field": "start_time", "right_time_field": "last_run_time", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": 60, "within_window": true}}}, {"left": 1, "right": 3, "type": "path_correlation", "basis": "filename_only", "confidence": "filename_only", "execution_confirmed": false, "delta_seconds": 120.0, "evidence_details": {"rule_name": "path_correlation.filename_only", "rule_label": "같은 파일 경로·이름 / 같은 파일 이름만", "confidence_reason": "filename_only", "confidence_reason_label": "파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.", "comparisons": [{"field": "filename", "left_field": "path", "right_field": "process", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "SETUP.EXE", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 1, "artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "locator": "downloads:1", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe"}, {"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}], "source_counts": [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "count": 1}, {"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}], "grouping": {"basis": "filename_only", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T09:59:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "start_time", "right_time_field": "last_run_time", "comparable": true, "signed_delta_seconds": 120.0, "delta_seconds": 120.0, "window_seconds": 60, "within_window": false}}}, {"left": 1, "right": 4, "type": "path_correlation", "basis": "normalized_path", "confidence": "path_match", "execution_confirmed": false, "delta_seconds": 120.0, "evidence_details": {"rule_name": "path_correlation.normalized_path", "rule_label": "같은 파일 경로·이름 / 같은 전체 경로", "confidence_reason": "normalized_path", "confidence_reason_label": "정규화한 전체 경로 문자열이 같습니다. 같은 파일 실체나 실행을 확인한 것은 아닙니다.", "comparisons": [{"field": "normalized_path", "left_field": "path", "right_field": "path", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "c:\\users\\alice\\downloads\\setup.exe", "right_normalized": "c:\\users\\alice\\downloads\\setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 1, "artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "locator": "downloads:1", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe"}, {"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "normalized_path", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T09:59:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "start_time", "right_time_field": "last_execution", "comparable": true, "signed_delta_seconds": 120.0, "delta_seconds": 120.0, "window_seconds": 60, "within_window": false}}}, {"left": 1, "right": 6, "type": "path_correlation", "basis": "normalized_path", "confidence": "path_match", "execution_confirmed": false, "delta_seconds": 180.0, "evidence_details": {"rule_name": "path_correlation.normalized_path", "rule_label": "같은 파일 경로·이름 / 같은 전체 경로", "confidence_reason": "normalized_path", "confidence_reason_label": "정규화한 전체 경로 문자열이 같습니다. 같은 파일 실체나 실행을 확인한 것은 아닙니다.", "comparisons": [{"field": "normalized_path", "left_field": "path", "right_field": "path", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "c:\\users\\alice\\downloads\\setup.exe", "right_normalized": "c:\\users\\alice\\downloads\\setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 1, "artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "locator": "downloads:1", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe"}, {"event_index": 6, "artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "count": 1}, {"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "normalized_path", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T09:59:00+00:00", "right_value": "2026-03-14T10:02:00+00:00", "left_time_field": "start_time", "right_time_field": "key_lastwrite", "comparable": true, "signed_delta_seconds": 180.0, "delta_seconds": 180.0, "window_seconds": 60, "within_window": false}}}, {"left": 2, "right": 4, "type": "path_correlation", "basis": "filename_only", "confidence": "filename_only", "execution_confirmed": false, "delta_seconds": 60.0, "temporal_proximity": true, "evidence_details": {"rule_name": "path_correlation.filename_only", "rule_label": "같은 파일 경로·이름 / 같은 파일 이름만", "confidence_reason": "filename_only", "confidence_reason_label": "파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "filename_only", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:00:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "last_run_time", "right_time_field": "last_execution", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": 60, "within_window": true}}}, {"left": 2, "right": 6, "type": "path_correlation", "basis": "filename_only", "confidence": "filename_only", "execution_confirmed": false, "delta_seconds": 120.0, "evidence_details": {"rule_name": "path_correlation.filename_only", "rule_label": "같은 파일 경로·이름 / 같은 파일 이름만", "confidence_reason": "filename_only", "confidence_reason_label": "파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 6, "artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "filename_only", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:00:00+00:00", "right_value": "2026-03-14T10:02:00+00:00", "left_time_field": "last_run_time", "right_time_field": "key_lastwrite", "comparable": true, "signed_delta_seconds": 120.0, "delta_seconds": 120.0, "window_seconds": 60, "within_window": false}}}, {"left": 3, "right": 4, "type": "path_correlation", "basis": "filename_only", "confidence": "filename_only", "execution_confirmed": false, "delta_seconds": 0.0, "temporal_proximity": true, "evidence_details": {"rule_name": "path_correlation.filename_only", "rule_label": "같은 파일 경로·이름 / 같은 파일 이름만", "confidence_reason": "filename_only", "confidence_reason_label": "파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "filename_only", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:01:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "last_run_time", "right_time_field": "last_execution", "comparable": true, "signed_delta_seconds": 0.0, "delta_seconds": 0.0, "window_seconds": 60, "within_window": true}}}, {"left": 3, "right": 6, "type": "path_correlation", "basis": "filename_only", "confidence": "filename_only", "execution_confirmed": false, "delta_seconds": 60.0, "temporal_proximity": true, "evidence_details": {"rule_name": "path_correlation.filename_only", "rule_label": "같은 파일 경로·이름 / 같은 파일 이름만", "confidence_reason": "filename_only", "confidence_reason_label": "파일 이름만 같습니다. 경로가 다르거나 전체 경로를 알 수 없습니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 6, "artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "filename_only", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:01:00+00:00", "right_value": "2026-03-14T10:02:00+00:00", "left_time_field": "last_run_time", "right_time_field": "key_lastwrite", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": 60, "within_window": true}}}, {"left": 4, "right": 6, "type": "path_correlation", "basis": "normalized_path", "confidence": "path_match", "execution_confirmed": false, "delta_seconds": 60.0, "temporal_proximity": true, "evidence_details": {"rule_name": "path_correlation.normalized_path", "rule_label": "같은 파일 경로·이름 / 같은 전체 경로", "confidence_reason": "normalized_path", "confidence_reason_label": "정규화한 전체 경로 문자열이 같습니다. 같은 파일 실체나 실행을 확인한 것은 아닙니다.", "comparisons": [{"field": "normalized_path", "left_field": "path", "right_field": "path", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "c:\\users\\alice\\downloads\\setup.exe", "right_normalized": "c:\\users\\alice\\downloads\\setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}, {"event_index": 6, "artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "normalized_path", "key": null, "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 1, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": ["different_artifacts", "no_known_sid_conflict"], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:01:00+00:00", "right_value": "2026-03-14T10:02:00+00:00", "left_time_field": "last_execution", "right_time_field": "key_lastwrite", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": 60, "within_window": true}}}, {"type": "execution_chain", "process": "setup", "basis": "process_name", "confidence": "multi_source", "execution_confirmed": false, "sources": ["prefetch", "userassist"], "first_seen": "2026-03-14T10:00:00+00:00", "last_seen": "2026-03-14T10:01:00+00:00", "event_count": 3, "event_indices": [2, 3, 4], "evidence_details": {"rule_name": "execution_chain.process_name", "rule_label": "여러 종류의 실행 기록에 나온 같은 프로그램 / 같은 프로그램 이름", "confidence_reason": "multi_source", "confidence_reason_label": "실행 관련 기록 종류 두 가지 이상에서 프로그램 이름이 같습니다. 같은 파일·실행 건·출처 파일의 다양성을 보장하지 않습니다.", "comparisons": [{"field": "process_name", "event_index": 2, "value": "SETUP.EXE", "normalized": "setup"}, {"field": "process_name", "event_index": 3, "value": "SETUP.EXE", "normalized": "setup"}, {"field": "process_name", "event_index": 4, "value": "C:\\Users\\alice\\Downloads\\setup.exe", "normalized": "setup"}], "event_refs": [{"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 2}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "process_name", "key": "setup", "candidate_count": null, "pair_expansion_limit": null, "event_count": 3, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {"prefetch_present": true, "registry_execution_trace_present": true, "execution_log_event_indices": [], "known_sid_conflict": false, "timestamp_count": 3, "comparable_clock": true, "window_seconds": 300, "span_seconds": 60.0}, "definition": "multi_source"}, "time_comparison": {"comparable": true, "timestamp_count": 3, "missing_timestamp_count": 0, "span_seconds": 60.0}}}, {"left": 1, "right": 2, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "path", "right_field": "process", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "SETUP.EXE", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 1, "artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "locator": "downloads:1", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe"}, {"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}], "source_counts": [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "count": 1}, {"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T09:59:00+00:00", "right_value": "2026-03-14T10:00:00+00:00", "left_time_field": "start_time", "right_time_field": "last_run_time", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": null, "within_window": null}}}, {"left": 1, "right": 3, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "path", "right_field": "process", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "SETUP.EXE", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 1, "artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "locator": "downloads:1", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe"}, {"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}], "source_counts": [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "count": 1}, {"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T09:59:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "start_time", "right_time_field": "last_run_time", "comparable": true, "signed_delta_seconds": 120.0, "delta_seconds": 120.0, "window_seconds": null, "within_window": null}}}, {"left": 1, "right": 4, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "path", "right_field": "path", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 1, "artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "locator": "downloads:1", "timestamp": "2026-03-14T09:59:00+00:00", "time_field": "start_time", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": "https://example.com/setup.exe"}, {"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "history", "source": "C:\\Evidence\\synthetic\\evidence\\History", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T09:59:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "start_time", "right_time_field": "last_execution", "comparable": true, "signed_delta_seconds": 120.0, "delta_seconds": 120.0, "window_seconds": null, "within_window": null}}}, {"left": 2, "right": 3, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "process", "left_value": "SETUP.EXE", "right_value": "SETUP.EXE", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 2}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 1, "source_file_count": 1, "known_sids": [], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:00:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "last_run_time", "right_time_field": "last_run_time", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": null, "within_window": null}}}, {"left": 2, "right": 4, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:00:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "last_run_time", "right_time_field": "last_execution", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": null, "within_window": null}}}, {"left": 2, "right": 6, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 2, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:136", "timestamp": "2026-03-14T10:00:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 6, "artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:00:00+00:00", "right_value": "2026-03-14T10:02:00+00:00", "left_time_field": "last_run_time", "right_time_field": "key_lastwrite", "comparable": true, "signed_delta_seconds": 120.0, "delta_seconds": 120.0, "window_seconds": null, "within_window": null}}}, {"left": 3, "right": 4, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:01:00+00:00", "right_value": "2026-03-14T10:01:00+00:00", "left_time_field": "last_run_time", "right_time_field": "last_execution", "comparable": true, "signed_delta_seconds": 0.0, "delta_seconds": 0.0, "window_seconds": null, "within_window": null}}}, {"left": 3, "right": 6, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "process", "right_field": "path", "left_value": "SETUP.EXE", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 3, "artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "locator": "byte:128", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_run_time", "sid": null, "path": null, "process": "SETUP.EXE", "url": null}, {"event_index": 6, "artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "prefetch", "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf", "count": 1}, {"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 2, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:01:00+00:00", "right_value": "2026-03-14T10:02:00+00:00", "left_time_field": "last_run_time", "right_time_field": "key_lastwrite", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": null, "within_window": null}}}, {"left": 4, "right": 6, "type": "program_group", "basis": "same_executable", "confidence": "program_cluster", "execution_confirmed": false, "program": "setup.exe", "artifact_count": 4, "total_events": 5, "evidence_details": {"rule_name": "program_group.same_executable", "rule_label": "같은 프로그램 / 같은 실행 파일", "confidence_reason": "same_executable", "confidence_reason_label": "정규화한 실행 파일 이름이 같습니다. 전체 경로와 실행 건의 동일성은 미확인입니다.", "comparisons": [{"field": "filename", "left_field": "path", "right_field": "path", "left_value": "C:\\Users\\alice\\Downloads\\setup.exe", "right_value": "C:\\Users\\alice\\Downloads\\setup.exe", "left_normalized": "setup.exe", "right_normalized": "setup.exe", "operator": "equals", "matched": true}], "event_refs": [{"event_index": 4, "artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr", "timestamp": "2026-03-14T10:01:00+00:00", "time_field": "last_execution", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}, {"event_index": 6, "artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", "timestamp": "2026-03-14T10:02:00+00:00", "time_field": "key_lastwrite", "sid": "S-1-5-21-1000-2000-3000-1001", "path": "C:\\Users\\alice\\Downloads\\setup.exe", "process": null, "url": null}], "source_counts": [{"artifact": "run", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}, {"artifact": "userassist", "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT", "count": 1}], "grouping": {"basis": "same_executable", "key": "setup.exe", "candidate_count": 1, "pair_expansion_limit": null, "event_count": 2, "artifact_count": 2, "source_file_count": 1, "known_sids": ["S-1-5-21-1000-2000-3000-1001"], "candidate_rules": [], "criteria": {}}, "time_comparison": {"left_value": "2026-03-14T10:01:00+00:00", "right_value": "2026-03-14T10:02:00+00:00", "left_time_field": "last_execution", "right_time_field": "key_lastwrite", "comparable": true, "signed_delta_seconds": 60.0, "delta_seconds": 60.0, "window_seconds": null, "within_window": null}}}];
+const ARTIFACT_DATA = [{"name": "PowerShell 명령어 기록", "count": 5}, {"name": "웹 방문 기록", "count": 2}, {"name": "프로그램 실행 기록", "count": 2}, {"name": "사용자가 직접 실행한 프로그램", "count": 1}, {"name": "백신 파일 기록", "count": 1}, {"name": "자동 실행 프로그램", "count": 1}, {"name": "파일 미리 보기 흔적", "count": 1}];
+const TOP_EVENTS = [];
+const HOURLY_DATA = [{"hour": 9, "count": 2}, {"hour": 10, "count": 5}];
+const ANOMALIES = [];
+const LABELS = {"artifact": {"defender": "백신 파일 기록", "thumbcache": "파일 미리 보기 흔적", "rdp": "원격 데스크톱 접속 기록", "prefetch": "프로그램 실행 기록", "bam": "최근 실행한 프로그램", "userassist": "사용자가 직접 실행한 프로그램", "amcache": "설치·실행된 프로그램 목록", "run": "자동 실행 프로그램", "startup": "시작프로그램 폴더", "services": "백그라운드 서비스", "taskcache": "예약 작업 등록 정보", "tasks": "예약된 작업", "psreadline": "PowerShell 명령어 기록", "evtx": "윈도우 이벤트 로그", "mru": "최근 열어본 파일", "lnk": "바로가기 파일", "jumplist": "최근 사용 항목 (작업 표시줄)", "shellbag": "열어본 폴더", "recyclebin": "휴지통 (삭제한 파일)", "mft": "파일 생성·수정 기록", "usb": "USB 장치 연결 기록", "history": "웹 방문 기록", "cache": "웹 캐시 (임시 파일)", "srum": "앱·네트워크 사용량", "network": "접속한 네트워크", "wlan": "저장된 Wi-Fi", "image": "디스크 이미지"}, "action": {"task_registration": "예약 작업 등록", "defender_history_record": "백신 보호 기록", "defender_quarantine_metadata": "격리 항목 파일 정보 (내부 형식 미지원)", "defender_log_reference": "백신 로그의 문구", "defender_exclusion_reference": "백신 제외 관련 문구 (설정 확정 아님)", "defender_scan_reference": "백신 검사 관련 문구", "defender_detection": "백신 탐지 기록", "defender_action": "백신 조치 기록 (조치 내용 확인 필요)", "thumbnail_cached": "미리 보기 캐시 항목", "rdp_mru": "원격 접속 대상 목록", "rdp_server": "원격 서버 사용자 힌트", "rdp_settings": "원격 접속 설정", "execution_trace": "프로그램 실행", "program_execution": "프로그램 실행", "file_inventory": "프로그램 파일 확인", "program_inventory": "설치된 프로그램", "autorun_registration": "자동 실행 등록", "startup_entry": "시작프로그램 등록", "suspicious_startup": "의심스러운 시작프로그램", "service_entry": "서비스 등록", "suspicious_service": "의심스러운 서비스", "command_history": "입력한 명령어", "cleartext_password": "명령어에 비밀번호 노출", "event_record": "이벤트 기록", "recent_document": "최근 문서 열기", "open_save_dialog": "열기/저장 창에서 선택", "last_visited_dialog": "열기/저장 창 마지막 폴더", "file_metadata": "파일 정보", "device_registration": "USB 장치 처음 인식", "install": "USB 장치 설치", "first_install": "USB 장치 최초 설치", "last_arrival": "USB 마지막 연결", "last_removal": "USB 마지막 분리", "url_visit": "웹사이트 방문", "url_summary": "웹사이트 방문 요약", "download": "파일 다운로드", "activity_update": "앱 사용 기록", "network_profile": "네트워크 접속", "wlan_profile": "Wi-Fi 저장", "deleted_file": "파일 삭제", "file_deleted": "파일 삭제", "cache_entry": "웹 캐시 항목", "cache_url_candidate": "웹 캐시 주소", "ese_string_candidate": "사용량 기록 문자열", "folder_access": "폴더 열기", "network_interface": "네트워크 어댑터", "network_signature": "네트워크 식별 정보", "recent_file_access": "최근 파일 사용", "shortcut_target": "바로가기 대상 파일", "network_usage": "네트워크 사용량", "network_connection": "네트워크 연결 시간", "app_resource": "앱 사용량", "energy_usage": "전력 사용량", "push_notification": "알림 기록", "bluetooth_last_seen": "블루투스 마지막 관측 기록", "bluetooth_last_connected": "블루투스 마지막 연결 기록"}, "status": {"ok": "정상", "partial": "일부 손상", "warning": "주의", "error": "오류", "failed": "실패", "no_data": "데이터 없음", "no_input": "입력 없음", "info": "참고"}, "relation": {"task_log_correlation": "작업 로그 연결 후보", "rdp_session_correlation": "원격 대상·사용자·가까운 시각의 접속 후보", "correlation_group": "관계 후보 묶음", "path_correlation": "같은 파일 경로·이름", "url_correlation": "같은 웹 주소", "usb_file_correlation": "USB 기록 시각 전후 5분 안 파일 사용", "deletion_correlation": "삭제된 파일의 다른 흔적", "execution_chain": "여러 종류의 실행 기록에 나온 같은 프로그램", "program_group": "같은 프로그램"}, "confidence": {"path_match": "경로 일치", "filename_only": "이름만 일치", "candidate": "가능성 있음", "temporal_proximity": "시간 근접", "url_match": "주소 일치", "drive_match": "드라이브 일치", "filename_match": "이름 일치", "corroborated_execution": "여러 실행 기록이 같은 시간대에 일치", "confirmed_execution": "여러 실행 기록 (이름 일치)", "probable_execution": "여러 실행 기록 (이름 일치)", "multi_source": "기록 종류 2가지 이상에서 이름만 일치", "single_source": "단일 기록", "program_cluster": "같은 프로그램", "volume_match": "볼륨 일치"}, "time": {"defender_log_record_time": "백신 로그 기록 시각", "lnk_access_time": "바로가기 대상의 접근 시각 (목록 사용 시각 아님)", "lnk_write_time": "바로가기 대상의 수정 시각 (목록 사용 시각 아님)", "lnk_creation_time": "바로가기 대상의 생성 시각 (목록 사용 시각 아님)", "time_created": "이벤트 원본 시각", "key_lastwrite": "레지스트리 마지막 변경", "key_last_write": "레지스트리 마지막 변경", "last_execution": "마지막 실행", "last_run_time": "마지막 실행", "last_visit_time": "마지막 방문", "visit_time": "방문", "start_time": "다운로드 시작", "creation_time": "생성", "deletion_time": "삭제", "registration_date": "등록", "srum_timestamp": "사용량 기록", "activity_update": "사용 기록", "destlist_timestamp": "마지막 사용", "lnk_timestamp": "바로가기 생성·수정", "record_filetime": "이벤트 레코드 기록 시각 (레코드 헤더)", "raw_filetime": "기록 시각", "modified": "수정", "accessed": "접근", "mtime": "수정", "si_created": "파일 생성", "si_modified": "파일 수정", "si_accessed": "파일 접근", "si_mft_changed": "파일 정보 변경", "fn_created": "파일 생성 (이름 기록)", "fn_modified": "파일 수정 (이름 기록)", "fn_accessed": "파일 접근 (이름 기록)", "fn_mft_changed": "파일 정보 변경 (이름 기록)", "install": "설치", "first_install": "최초 설치", "last_arrival": "마지막 연결", "last_removal": "마지막 분리", "bluetooth_last_seen": "블루투스에 기록된 마지막 관측 시각", "bluetooth_last_connected": "블루투스에 기록된 마지막 연결 시각"}, "anomaly": {"burst": "짧은 시간에 몰린 기록", "off_hours": "새벽 시간대 활동(UTC 기준)", "time_gap": "기록이 끊긴 시간", "deep_nesting": "프로세스가 깊게 이어짐", "lolbin_unusual_parent": "시스템 도구를 이례적인 부모가 실행", "temp_execution": "임시 폴더에서 실행"}, "basis": {"same_task_namespace": "같은 수집 Windows의 전체 작업 경로", "normalized_path": "같은 전체 경로", "filename_only": "같은 파일 이름만", "same_file": "같은 파일", "same_executable": "같은 실행 파일", "process_name": "같은 프로그램 이름", "url_match": "같은 웹 주소", "volume_guid_match": "같은 볼륨 식별자", "usb_drive_match": "USB 드라이브 일치", "usb_temporal_window": "USB 기록 시각 전후 시간 창", "candidate_group": "후보가 많아 묶어서 보관"}};
+const USER_NAMES = {"S-1-5-21-1000-2000-3000-1001": "로컬 사용자 (RID 1001)"};
+const lab = (kind, key) => (LABELS[kind] && LABELS[kind][key]) || String(key ?? '').replace(/_/g, ' ');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.panel).classList.add('active');
+  });
+});
+
+const PAGE_SIZE = 500;
+let filteredEvents = ALL_EVENTS;
+let currentPage = 0;
+
+function renderEvents() {
+  const tbody = document.getElementById('eventBody');
+  const slice = filteredEvents.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  tbody.innerHTML = slice.map((e, i) => {
+    const idx = currentPage * PAGE_SIZE + i;
+    const target = String(e.path || e.process || e.url || (e.details && e.details.command) || '');
+    return `<tr class="status-${esc(e.status)}" data-idx="${idx}" style="cursor:pointer">` +
+      `<td>${e.timestamp ? esc(e.timestamp.slice(0,19)) : '알 수 없음'}</td>` +
+      `<td>${e.time_field ? esc(lab('time', e.time_field)) : ''}</td>` +
+      `<td title="${esc(e.artifact)}">${esc(lab('artifact', e.artifact))}</td>` +
+      `<td title="${esc(e.action)}">${esc(lab('action', e.action))}</td>` +
+      `<td title="${esc(target)}">${esc(target.length > 60 ? target.slice(0,60)+'...' : target)}</td>` +
+      `<td title="${esc(e.sid || '')}">${esc(USER_NAMES[e.sid] ? USER_NAMES[e.sid] + ' (' + e.sid + ')' : (e.sid || ''))}</td>` +
+      `<td><span class="badge badge-${esc(e.status)}">${esc(lab('status', e.status))}</span></td></tr>`;
+  }).join('');
+  document.getElementById('filterCount').textContent =
+    `${filteredEvents.length.toLocaleString()}건 표시 (전체 ${ALL_EVENTS.length.toLocaleString()}건)` +
+    (filteredEvents.length > PAGE_SIZE ? ` — 페이지 ${currentPage+1}/${Math.ceil(filteredEvents.length/PAGE_SIZE)}` : '');
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const af = document.getElementById('artifactFilter').value;
+  const sf = document.getElementById('statusFilter').value;
+  const sd = document.getElementById('startDate').value;
+  const ed = document.getElementById('endDate').value;
+  filteredEvents = ALL_EVENTS.filter(e => {
+    if (af && e.artifact !== af) return false;
+    if (sf && e.status !== sf) return false;
+    if (sd && (!e.timestamp || e.timestamp < sd)) return false;
+    if (ed && (!e.timestamp || e.timestamp > ed + 'T99')) return false;
+    if (q) {
+      const text = JSON.stringify(e).toLowerCase();
+      if (!text.includes(q)) return false;
+    }
+    return true;
+  });
+  currentPage = 0;
+  renderEvents();
+}
+
+['search','artifactFilter','statusFilter','startDate','endDate'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applyFilters);
+});
+
+document.getElementById('eventBody').addEventListener('click', e => {
+  const row = e.target.closest('tr');
+  if (!row) return;
+  const idx = parseInt(row.dataset.idx);
+  const event = filteredEvents[idx];
+  const panel = document.getElementById('detailPanel');
+  const content = document.getElementById('detailContent');
+  content.textContent = JSON.stringify(event, null, 2);
+  panel.classList.toggle('open');
+});
+
+function renderBarChart(container, data, colorFn) {
+  const max = Math.max(...data.map(d => d.count), 1);
+  container.innerHTML = data.map(d => {
+    const pct = (d.count / max * 100).toFixed(1);
+    const label = d.name != null ? String(d.name) : String(d.id);
+    return `<div class="bar-row"><div class="bar-label">${esc(label)}</div><div class="bar" style="width:${pct}%;background:${colorFn ? colorFn(d) : 'var(--accent2)'}"></div><div class="bar-value">${d.count.toLocaleString()}</div></div>`;
+  }).join('');
+}
+
+function renderRelations() {
+  const container = document.getElementById('relationsList');
+  if (!ALL_RELATIONS.length) {
+    container.innerHTML = '<div style="color:var(--fg2);padding:20px">연관 관계가 없습니다.</div>';
+    return;
+  }
+  container.innerHTML = ALL_RELATIONS.slice(0, 200).map(r => {
+    const confClass = r.confidence === 'path_match' ? 'path' : r.temporal_proximity ? 'temporal' : 'conf';
+    const head = `<span class="${confClass}">[${esc(lab('relation', r.type))} · ${esc(lab('confidence', r.confidence))}]</span> `;
+    if (r.type === 'correlation_group') {
+      const anchors = (r.left_event_indices || []).length;
+      const members = (r.event_indices || []).length;
+      const window = r.window_seconds ? ` · 같은 시계 기준 ±${esc(r.window_seconds)}초` : '';
+      return `<div class="relation-card"><span class="conf">[${esc(lab('relation', 'correlation_group'))}: ` +
+        `${esc(lab('relation', r.relation_type))}]</span> ` +
+        (anchors ? `기준 기록 ${anchors.toLocaleString()}건 · ` : '') + `포함 기록 ${members.toLocaleString()}건 · ` +
+        `후보 ${Number(r.candidate_count || 0).toLocaleString()}쌍${window} ` +
+        `<span style="color:var(--fg2)">(모든 쌍이 관계인 것은 아님)</span></div>`;
+    }
+    if (r.type === 'execution_chain') {
+      return `<div class="relation-card">${head}<strong>${esc(r.process)}</strong>: ` +
+        `${esc((r.sources || []).map(s => lab('artifact', s)).join(', '))}</div>`;
+    }
+    const left = ALL_EVENTS[r.left] || {};
+    const right = ALL_EVENTS[r.right] || {};
+    return `<div class="relation-card">` + head +
+      `<strong>${esc(lab('artifact', left.artifact) || '?')}</strong>: ${esc(left.path || left.process || '?')}` +
+      ` ↔ <strong>${esc(lab('artifact', right.artifact) || '?')}</strong>: ${esc(right.path || right.process || '?')}` +
+      (r.delta_seconds != null ? ` <span style="color:var(--fg2)">(${esc(r.delta_seconds)}초 차이)</span>` : '') +
+      `</div>`;
+  }).join('');
+  if (ALL_RELATIONS.length > 200) {
+    container.innerHTML += `<div style="color:var(--fg2);padding:10px">... 외 ${ALL_RELATIONS.length - 200}건</div>`;
+  }
+}
+
+renderEvents();
+renderBarChart(document.getElementById('artifactChart'), ARTIFACT_DATA);
+renderBarChart(document.getElementById('eventIdChart'), TOP_EVENTS, d => {
+  const id = d.id;
+  if ([4624,4625,4634,4648,4672].includes(id)) return 'var(--yellow)';
+  if ([4688,4689,7045,7034].includes(id)) return 'var(--red)';
+  if ([1102,4616].includes(id)) return 'var(--purple)';
+  return 'var(--accent2)';
+});
+renderRelations();
+
+// Hourly chart
+renderBarChart(document.getElementById('hourlyChart'),
+  HOURLY_DATA.map(d => ({name: d.hour+'시', count: d.count})),
+  d => { const h = parseInt(d.name); return (h >= 0 && h < 5) ? 'var(--red)' : 'var(--accent2)'; });
+
+// Heatmap day×hour
+(function() {
+  const canvas = document.getElementById('heatmapCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 600, h = canvas.clientHeight || 200;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const days = ['월','화','수','목','금','토','일'];
+  const grid = Array.from({length:7}, () => new Array(24).fill(0));
+  ALL_EVENTS.forEach(e => {
+    if (!e.timestamp || e.timestamp.length < 13) return;
+    try {
+      const d = new Date(e.timestamp);
+      const dow = (d.getUTCDay() + 6) % 7;  // UTC, same as the hourly chart
+      grid[dow][d.getUTCHours()]++;
+    } catch(ex) {}
+  });
+  const maxVal = Math.max(...grid.flat(), 1);
+  const lx = 30, ty = 15, cw = (w - lx - 5) / 24, ch = (h - ty - 5) / 7;
+  ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let hr = 0; hr < 24; hr++) ctx.fillText(hr+'', lx + hr*cw + cw/2, 2);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let d = 0; d < 7; d++) ctx.fillText(days[d], lx - 3, ty + d*ch + ch/2);
+  for (let d = 0; d < 7; d++) for (let hr = 0; hr < 24; hr++) {
+    const v = grid[d][hr] / maxVal;
+    const r = hr < 5 ? Math.round(255 - v*150) : Math.round(255 - v*200);
+    const g = Math.round(255 - v*255);
+    const b = hr < 5 ? Math.round(255 - v*255) : Math.round(255 - v*200);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(lx + hr*cw, ty + d*ch, cw-1, ch-1);
+  }
+})();
+
+// Anomaly list
+const anomalyList = document.getElementById('anomalyList');
+if (ANOMALIES.length === 0) {
+  anomalyList.innerHTML = '<div style="color:var(--fg2);padding:8px">이상 패턴이 감지되지 않았습니다.</div>';
+} else {
+  anomalyList.innerHTML = ANOMALIES.map(a => {
+    const cls = a.severity === 'high' ? 'danger' : a.severity === 'warning' ? 'badge-warning' : 'badge-info';
+    return `<div class="relation-card"><span class="badge badge-${esc(a.severity)}">${esc(lab('status', a.severity))}</span> <strong>[${esc(lab('anomaly', a.type))}]</strong> ${esc(a.description)}</div>`;
+  }).join('');
+}
+
+// Keyboard pagination
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' && (currentPage + 1) * PAGE_SIZE < filteredEvents.length) { currentPage++; renderEvents(); }
+  if (e.key === 'ArrowLeft' && currentPage > 0) { currentPage--; renderEvents(); }
+});
+</script>
+</body>
+</html>

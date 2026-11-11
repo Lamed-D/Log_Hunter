@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" font-family="Malgun Gothic, sans-serif">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<text x="50" y="55" font-size="30" font-weight="700" fill="#172554">Windows 수집: Python → 운영체제</text>
+<text x="50" y="90" font-size="17" fill="#475569">현재 구현은 스냅샷을 생성하지 않음 · 실제 PC 수집은 합성 데모에 사용하지 않음</text>
+<rect x="50.0" y="120" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="149" font-size="19" fill="#1d4ed8" font-weight="700">1. 요청과 목적지</text>
+<text x="68.0" y="177" font-size="16" fill="#334155">collector가 원본과 다른 새 목적지를 준비</text>
+<text x="68.0" y="200" font-size="16" fill="#334155">기존 파일 덮어쓰기 거부</text>
+<rect x="654.0" y="120" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="149" font-size="19" fill="#1d4ed8" font-weight="700">2. ctypes 타입 지정</text>
+<text x="672.0" y="177" font-size="16" fill="#334155">HANDLE·포인터·인자·반환값 타입 명시</text>
+<text x="672.0" y="200" font-size="16" fill="#334155">Windows API 오류와 자원 정리</text>
+<rect x="50.0" y="265" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="294" font-size="19" fill="#1d4ed8" font-weight="700">3. 파일 공유 읽기</text>
+<text x="68.0" y="322" font-size="16" fill="#334155">CreateFileW / ReadFile</text>
+<text x="68.0" y="345" font-size="16" fill="#334155">잠긴 NTFS 파일은 직접 볼륨 읽기 경로</text>
+<rect x="654.0" y="265" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="294" font-size="19" fill="#1d4ed8" font-weight="700">4. 레지스트리·이벤트 로그</text>
+<text x="672.0" y="322" font-size="16" fill="#334155">RegSaveKeyExW / EvtExportLog</text>
+<text x="672.0" y="345" font-size="16" fill="#334155">필요한 권한은 범위 안에서 활성·복구</text>
+<rect x="50.0" y="410" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="439" font-size="19" fill="#1d4ed8" font-weight="700">5. 일관성 한계</text>
+<text x="68.0" y="467" font-size="16" fill="#334155">point_in_time_consistent: false</text>
+<text x="68.0" y="490" font-size="16" fill="#334155">실행 중 원본은 읽는 동안 바뀔 수 있음</text>
+<rect x="654.0" y="410" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="439" font-size="19" fill="#1d4ed8" font-weight="700">6. 결과와 manifest</text>
+<text x="672.0" y="467" font-size="16" fill="#334155">SHA-256 / 수집 방법 / 원본 출처</text>
+<text x="672.0" y="490" font-size="16" fill="#334155">가짜 경로 예: C:\Evidence\sample</text>
+</svg>

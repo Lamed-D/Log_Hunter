@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" font-family="Malgun Gothic, sans-serif">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<text x="50" y="55" font-size="30" font-weight="700" fill="#172554">바이너리 읽기: 구조·경계·의미</text>
+<text x="50" y="90" font-size="17" fill="#475569">합성 데이터는 코드로 조립 · 실제 파일에서 일부 값만 바꿔 만들지 않음</text>
+<rect x="50.0" y="120" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="149" font-size="19" fill="#1d4ed8" font-weight="700">Little endian</text>
+<text x="68.0" y="177" font-size="16" fill="#334155">bytes 78 56 34 12 → 0x12345678</text>
+<text x="68.0" y="200" font-size="16" fill="#334155">struct.unpack_from(&quot;&lt;I&quot;, data, offset)</text>
+<rect x="654.0" y="120" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="149" font-size="19" fill="#1d4ed8" font-weight="700">FILETIME</text>
+<text x="672.0" y="177" font-size="16" fill="#334155">1601년부터 100ns 단위의 64비트 값</text>
+<text x="672.0" y="200" font-size="16" fill="#334155">struct &lt;Q → 기준 시각과 단위를 확인</text>
+<rect x="50.0" y="265" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="294" font-size="19" fill="#1d4ed8" font-weight="700">UTF-16LE</text>
+<text x="68.0" y="322" font-size="16" fill="#334155">문자 단위는 2바이트, 종료도 정렬 검사</text>
+<text x="68.0" y="345" font-size="16" fill="#334155">손상 문자는 표시 대체 + 원시 바이트 보존</text>
+<rect x="654.0" y="265" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="294" font-size="19" fill="#1d4ed8" font-weight="700">길이와 오프셋</text>
+<text x="672.0" y="322" font-size="16" fill="#334155">offset + length ≤ input length</text>
+<text x="672.0" y="345" font-size="16" fill="#334155">레코드·스트림·압축 출력의 상한 검사</text>
+<rect x="50.0" y="410" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="68.0" y="439" font-size="19" fill="#1d4ed8" font-weight="700">참조와 순환</text>
+<text x="68.0" y="467" font-size="16" fill="#334155">REGF 셀 / NTFS 런 / CFB 체인</text>
+<text x="68.0" y="490" font-size="16" fill="#334155">visited·깊이·개수 제한으로 반복 종료</text>
+<rect x="654.0" y="410" width="576.0" height="120" rx="12" fill="white" stroke="#94a3b8"/>
+<text x="672.0" y="439" font-size="19" fill="#1d4ed8" font-weight="700">출처와 불확실성</text>
+<text x="672.0" y="467" font-size="16" fill="#334155">raw hex / locator / 원래 경로를 보존</text>
+<text x="672.0" y="490" font-size="16" fill="#334155">미상 시각·SID·필드 의미는 추측하지 않음</text>
+</svg>

@@ -1,0 +1,7 @@
+0|history:url_visit [visit_time] https://example.com/tools|0|0|S-1-5-21-1000-2000-3000-1001|0|0|0|1773482280|0|0
+0|history:download [start_time] C:\Users\alice\Downloads\setup.exe|0|0|S-1-5-21-1000-2000-3000-1001|0|0|0|1773482340|0|0
+0|prefetch:execution_trace [last_run_time] SETUP.EXE|0|0|0|0|0|0|1773482400|0|0
+0|prefetch:execution_trace [last_run_time] SETUP.EXE|0|0|0|0|0|0|1773482460|0|0
+0|userassist:execution_trace [last_execution] C:\Users\alice\Downloads\setup.exe|0|0|S-1-5-21-1000-2000-3000-1001|0|0|0|1773482460|0|0
+0|defender:defender_detection [defender_log_record_time] C:\Evidence\fake.exe|0|0|0|0|0|0|1773482520|0|0
+0|run:autorun_registration [key_lastwrite] C:\Users\alice\Downloads\setup.exe|0|0|S-1-5-21-1000-2000-3000-1001|0|0|0|1773482520|0|0

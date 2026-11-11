@@ -1,0 +1,37 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+outputs/
+
+# Generated real-machine collections belong outside version control.
+*.E01
+*.e01
+*.Ex01
+*.L01
+*.dd
+*.raw
+*.img
+*.vhd
+*.vhdx
+*.vmdk
+*.mem
+*.dmp
+/evidence/
+/cases/
+/collected/
+# Reproducible synthetic learning/test fixtures are versioned.
+!example/**
+!tests/fixtures/**
+# Synthetic-file exceptions must not include interpreter caches.
+__pycache__/
+*.py[cod]
+
+# 참고용 외부 소스와 그 분석 문서는 저장소에 올리지 않는다
+refs/
+autopsy/
+sleuthkit/
+*autopsy*
+*sleuthkit*

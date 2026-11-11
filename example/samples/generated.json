@@ -1,0 +1,19 @@
+{
+  "generator": "example/samples/demo.py",
+  "synthetic": true,
+  "files": {
+    "evidence/ConsoleHost_history.txt": "ea2add9217e590018bc7c26215a4bf280f1df2e6eb6699d3ab476d3fb9452cd2",
+    "evidence/History": "1a6bc122f7c3b09127f09bd0636444bbb7e9dae0461b245bfb20781c6daf6dc6",
+    "evidence/MPLog-synthetic.log": "4dda82e2991a2120fe1e583788e735a9010757a2d2212a6575e8b2ea09f03ab8",
+    "evidence/NTUSER.DAT": "86a02ceaa8c466327c6f72e46f9f3634c762d953ef4d6e70ebe961bf58e8423c",
+    "evidence/SETUP.EXE-1A2B3C4D.pf": "1e8ccad75f2fae3f4905bb37fe3507bfaa0c781a5b3d803f66296b041f5de467",
+    "evidence/thumbcache_256.db": "0d3ef17453a7b0a637dc91ce63ac61c0353ce1b315424f619b5605b4cbd4a1e9",
+    "output/case.sqlite": "5dcf1e9cf7cb55dc5753113b85f7dd17663047aa1953f7298d5682497fc1cfd6",
+    "output/case.sqlite.integrity.json": "618fb8161d6d1600b629d13ad79f9bdbe4bab4802b87648599308aec9d0d9187",
+    "output/report.html": "327d801c72a44c183d54b42ee887e899512b8303905bd7310dc708322d82ab13",
+    "output/report.json": "0fc24581241d0c5a656d5bfe80df931526cac621583eb2498ac152ce60013909",
+    "output/timeline.bodyfile": "26269bdcfa1e903866049e97b93f0e35cd9f8dbe0ce3d2581b31c6caa57efc56",
+    "output/timeline.csv": "accdaf01c5c14d4c58662b30b7a7f52ba52a073761c2de26a0434ebd980c7fc8",
+    "output/timeline.json": "cb3dc874574959400e8b867b5badecfe65eae82f6b1b1e4036ca1ead23be31cd"
+  }
+}

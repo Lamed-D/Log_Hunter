@@ -1,0 +1,5 @@
+# ▶ 원본: log_hunter/__init__.py
+# ▶ 패키지의 공개 이름과 하위 모듈 연결을 확인하는 시작점입니다.
+# ▶ 실행 코드는 원본과 동일하며 이 접두어의 줄은 학습 해설입니다.
+"""Log Hunter forensic analysis package."""
+__version__ = "0.1.0"

@@ -1,0 +1,322 @@
+[
+  {
+    "artifact": "history",
+    "source": "C:\\Evidence\\synthetic\\evidence\\History",
+    "action": "url_visit",
+    "timestamp": "2026-03-14T09:58:00+00:00",
+    "time_field": "visit_time",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "url": "https://example.com/tools",
+    "locator": "visits:1",
+    "status": "ok",
+    "details": {
+      "id": 1,
+      "visit_time": 13417955880000000,
+      "transition": 805306368,
+      "url": "https://example.com/tools",
+      "title": "Free Tools",
+      "activity_class": "user_activity",
+      "risk_score": 0,
+      "session_id": 0
+    }
+  },
+  {
+    "artifact": "history",
+    "source": "C:\\Evidence\\synthetic\\evidence\\History",
+    "action": "download",
+    "timestamp": "2026-03-14T09:59:00+00:00",
+    "time_field": "start_time",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "path": "C:\\Users\\alice\\Downloads\\setup.exe",
+    "url": "https://example.com/setup.exe",
+    "locator": "downloads:1",
+    "status": "ok",
+    "details": {
+      "id": 1,
+      "target_path": "C:\\Users\\alice\\Downloads\\setup.exe",
+      "start_time": 13417955940000000,
+      "end_time": 13417955940000000,
+      "total_bytes": 482304,
+      "mime_type": "application/x-msdownload",
+      "url_chain": [
+        "https://example.com/dl?id=1",
+        "https://example.com/setup.exe"
+      ],
+      "activity_class": "user_activity",
+      "risk_score": 0,
+      "session_id": 0
+    }
+  },
+  {
+    "artifact": "prefetch",
+    "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf",
+    "action": "execution_trace",
+    "timestamp": "2026-03-14T10:00:00+00:00",
+    "time_field": "last_run_time",
+    "process": "SETUP.EXE",
+    "locator": "byte:136",
+    "status": "ok",
+    "details": {
+      "version": 30,
+      "run_count": 2,
+      "prefetch_hash": "1A2B3C4D",
+      "filename_hash_match": true,
+      "references": [
+        "\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\USERS\\ALICE\\DOWNLOADS\\SETUP.EXE",
+        "\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\WINDOWS\\SYSTEM32\\KERNEL32.DLL"
+      ],
+      "reference_count": 2,
+      "volume_count": 0,
+      "full_executable_path_confirmed": true,
+      "raw_filetime": 134179560000000000,
+      "activity_class": "execution",
+      "risk_score": 0,
+      "session_id": 2
+    }
+  },
+  {
+    "artifact": "prefetch",
+    "source": "C:\\Evidence\\synthetic\\evidence\\SETUP.EXE-1A2B3C4D.pf",
+    "action": "execution_trace",
+    "timestamp": "2026-03-14T10:01:00+00:00",
+    "time_field": "last_run_time",
+    "process": "SETUP.EXE",
+    "locator": "byte:128",
+    "status": "ok",
+    "details": {
+      "version": 30,
+      "run_count": 2,
+      "prefetch_hash": "1A2B3C4D",
+      "filename_hash_match": true,
+      "references": [
+        "\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\USERS\\ALICE\\DOWNLOADS\\SETUP.EXE",
+        "\\VOLUME{01d9a1b2c3d4e5f6-12345678}\\WINDOWS\\SYSTEM32\\KERNEL32.DLL"
+      ],
+      "reference_count": 2,
+      "volume_count": 0,
+      "full_executable_path_confirmed": true,
+      "raw_filetime": 134179560600000000,
+      "activity_class": "execution",
+      "risk_score": 0,
+      "session_id": 2
+    }
+  },
+  {
+    "artifact": "userassist",
+    "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT",
+    "action": "execution_trace",
+    "timestamp": "2026-03-14T10:01:00+00:00",
+    "time_field": "last_execution",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "path": "C:\\Users\\alice\\Downloads\\setup.exe",
+    "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist\\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\\Count\\P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr",
+    "status": "ok",
+    "details": {
+      "run_count": 2,
+      "focus_count": 3,
+      "focus_time_ms": 15000,
+      "last_execution": "2026-03-14T10:01:00+00:00",
+      "raw_filetime": 134179560600000000,
+      "version": "72-byte",
+      "encoded_name": "P:\\Hfref\\nyvpr\\Qbjaybnqf\\frghc.rkr",
+      "raw_path": null,
+      "raw": "000000000200000003000000983a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000056ae7599b3dc0100000000",
+      "activity_class": "user_activity",
+      "risk_score": 0,
+      "session_id": 0
+    }
+  },
+  {
+    "artifact": "defender",
+    "source": "C:\\Evidence\\synthetic\\evidence\\MPLog-synthetic.log",
+    "action": "defender_detection",
+    "timestamp": "2026-03-14T10:02:00+00:00",
+    "time_field": "defender_log_record_time",
+    "path": "C:\\Evidence\\fake.exe",
+    "locator": "line:1",
+    "status": "ok",
+    "details": {
+      "log_line": "2026-03-14T10:02:00Z DETECTIONEVENT MPSOURCE_REALTIME Test:Win32/Synthetic file:C:\\Evidence\\fake.exe;",
+      "text_decoding": [
+        {
+          "encoding": "utf-8",
+          "inferred": false,
+          "decode_error": false,
+          "line_truncated": false
+        }
+      ],
+      "line_number": 1,
+      "threat_execution_confirmed": false,
+      "remediation_confirmed": false,
+      "log_time_raw": "2026-03-14T10:02:00Z",
+      "detection_source": "MPSOURCE_REALTIME",
+      "threat_name": "Test:Win32/Synthetic",
+      "threat_resource": "file:C:\\Evidence\\fake.exe;",
+      "activity_class": "security",
+      "risk_score": 0,
+      "session_id": 2
+    }
+  },
+  {
+    "artifact": "run",
+    "source": "C:\\Evidence\\synthetic\\evidence\\NTUSER.DAT",
+    "action": "autorun_registration",
+    "timestamp": "2026-03-14T10:02:00+00:00",
+    "time_field": "key_lastwrite",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "path": "C:\\Users\\alice\\Downloads\\setup.exe",
+    "locator": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater",
+    "status": "ok",
+    "details": {
+      "executable": "C:\\Users\\alice\\Downloads\\setup.exe",
+      "arguments": "-silent",
+      "ambiguous": false,
+      "command": "\"C:\\Users\\alice\\Downloads\\setup.exe\" -silent",
+      "expanded_command": "\"C:\\Users\\alice\\Downloads\\setup.exe\" -silent",
+      "name": "Updater",
+      "raw": "220043003a005c00550073006500720073005c0061006c006900630065005c0044006f0077006e006c006f006100640073005c00730065007400750070002e00650078006500220020002d00730069006c0065006e0074000000",
+      "type": 1,
+      "view": "native",
+      "scope": "user",
+      "run_type": "Run",
+      "execution_confirmed": false,
+      "defer_deletion": false,
+      "safe_mode": false,
+      "activity_class": "system_config",
+      "risk_score": 0,
+      "session_id": 0
+    }
+  },
+  {
+    "artifact": "psreadline",
+    "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt",
+    "action": "command_history",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "locator": "line:1-1",
+    "status": "ok",
+    "details": {
+      "command": "Get-ChildItem $env:USERPROFILE\\Downloads",
+      "categories": [
+        "OTHER"
+      ],
+      "risk_level": "low",
+      "timestamp_available": false,
+      "classification_is_heuristic": true,
+      "activity_class": "execution",
+      "risk_score": 0,
+      "session_id": 1
+    }
+  },
+  {
+    "artifact": "psreadline",
+    "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt",
+    "action": "command_history",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "locator": "line:2-2",
+    "status": "warning",
+    "details": {
+      "command": "Invoke-WebRequest https://cdn.example.com/setup.exe -OutFile setup.exe",
+      "categories": [
+        "DOWNLOAD"
+      ],
+      "risk_level": "high",
+      "timestamp_available": false,
+      "classification_is_heuristic": true,
+      "activity_class": "execution",
+      "risk_score": 30,
+      "session_id": 1
+    }
+  },
+  {
+    "artifact": "psreadline",
+    "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt",
+    "action": "command_history",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "locator": "line:3-4",
+    "status": "ok",
+    "details": {
+      "command": "Start-Process .\\setup.exe \n  -ArgumentList '-silent'",
+      "categories": [
+        "PROCESS"
+      ],
+      "risk_level": "medium",
+      "timestamp_available": false,
+      "classification_is_heuristic": true,
+      "activity_class": "execution",
+      "risk_score": 0,
+      "session_id": 1
+    }
+  },
+  {
+    "artifact": "psreadline",
+    "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt",
+    "action": "command_history",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "locator": "line:5-5",
+    "status": "ok",
+    "details": {
+      "command": "reg query HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+      "categories": [
+        "REGISTRY"
+      ],
+      "risk_level": "medium",
+      "timestamp_available": false,
+      "classification_is_heuristic": true,
+      "activity_class": "execution",
+      "risk_score": 0,
+      "session_id": 1
+    }
+  },
+  {
+    "artifact": "psreadline",
+    "source": "C:\\Evidence\\synthetic\\evidence\\ConsoleHost_history.txt",
+    "action": "command_history",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "locator": "line:6-6",
+    "status": "ok",
+    "details": {
+      "command": "Remove-Item .\\setup.exe",
+      "categories": [
+        "FILE_DELETE"
+      ],
+      "risk_level": "medium",
+      "timestamp_available": false,
+      "classification_is_heuristic": true,
+      "activity_class": "execution",
+      "risk_score": 0,
+      "session_id": 1
+    }
+  },
+  {
+    "artifact": "thumbcache",
+    "source": "C:\\Evidence\\synthetic\\evidence\\thumbcache_256.db",
+    "action": "thumbnail_cached",
+    "sid": "S-1-5-21-1000-2000-3000-1001",
+    "locator": "0x18",
+    "status": "ok",
+    "details": {
+      "cache_version": 32,
+      "cache_type": 4,
+      "cache_id": "0000000001001001",
+      "cache_identifier": "synthetic-1",
+      "entry_offset": 24,
+      "entry_size": 136,
+      "data_offset": 102,
+      "data_size": 58,
+      "image_format": "bmp",
+      "image_sha256": "aa17a30f6ec6d08cd44f4567a44e4b0916ca968a7b2d0a7bb9cdb9a34b461825",
+      "image_hash_status": "complete",
+      "identifier_decode_error": false,
+      "entry_aux_28": 1,
+      "entry_aux_32": 1,
+      "stored_data_checksum": "0000000000000000",
+      "stored_header_checksum": "0000000000000000",
+      "checksum_verified": false,
+      "original_path_confirmed": false,
+      "view_confirmed": false,
+      "activity_class": "other",
+      "risk_score": 0,
+      "session_id": 1
+    }
+  }
+]
