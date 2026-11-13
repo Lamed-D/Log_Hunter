@@ -11,7 +11,7 @@ from . import fs_model
 
 class FileListView:
     def __init__(self, notebook, on_select, on_open_folder, on_save, on_copy_path, on_show_records, on_turn_page,
-                 on_cancel, on_navigate=lambda _where: None):
+                 on_cancel, on_navigate=lambda _where: None, on_reveal=None):
         self.frame = ttk.Frame(notebook)
         notebook.insert(0, self.frame, text="파일 목록")
         self._navigate = on_navigate
@@ -51,10 +51,10 @@ class FileListView:
         self.menu = tk.Menu(self.table, tearoff=False)
         self.menu.add_command(label="파일로 저장 (읽기 전용 복사)", command=lambda: self._with_row(on_save))
         self.menu.add_command(label="이미지 안 경로 복사", command=lambda: self._with_row(on_copy_path))
-        # A folder row opens that folder (click or Enter), like a file explorer; a file row shows the file.
-        self.table.bind("<<TreeviewSelect>>", lambda _e: self._with_row(
-            lambda row: on_open_folder(row) if row.get("directory") else on_select(row)))
-        self.table.bind("<Return>", lambda _e: self._with_row(lambda row: row.get("directory") and on_open_folder(row)))
+        self.table.bind("<<TreeviewSelect>>", lambda _e: self._with_row(on_select))
+        activate = lambda row: on_open_folder(row) if row.get("directory") else (on_reveal or on_select)(row)
+        self.table.bind("<Double-1>", lambda event: self._activate(event, activate))
+        self.table.bind("<Return>", lambda _e: self._with_row(activate))
         self.table.bind("<Button-3>", self._popup)
         self.model = fs_model.FileTable()
         self._sort_callback = None
@@ -91,6 +91,28 @@ class FileListView:
             index = int(selection[0][1:])
             if index < len(rows):
                 callback(rows[index])
+
+    def _activate(self, event, callback):
+        item = self.table.identify_row(event.y)
+        if item and item.startswith("r"):
+            self.table.selection_set(item)
+            self._with_row(callback)
+        return "break"
+
+    def select_path(self, parts):
+        """Reveal a file even when its name is filtered out or on another page."""
+        self.query.set("")
+        target = tuple(p.casefold() for p in parts)
+        for index, row in enumerate(self.model.rows):
+            if tuple(p.casefold() for p in row.get("parts", ())) == target:
+                self.model.page = index // self.model.page_rows
+                self.render()
+                item = f"r{index % self.model.page_rows}"
+                self.table.selection_set(item)
+                self.table.focus(item)
+                self.table.see(item)
+                return True
+        return False
 
     def selected_row(self):
         rows = []
@@ -145,12 +167,17 @@ class FileListView:
 
     def update_rows(self, described):
         """Merge details (times, state) read on the worker thread into the current rows."""
+        selected = self.table.selection()
         by_record = {row["record"]: row for row in described}
         for row in self.model.all:
             extra = by_record.get(row.get("record"))
             if extra is not None:
                 row.update({k: v for k, v in extra.items() if k not in ("name", "parts", "records", "kind")})
         self.render()
+        if selected and self.table.exists(selected[0]):
+            self.table.selection_set(selected[0])
+            self.table.focus(selected[0])
+            self.table.see(selected[0])
 
     def busy(self, text, cancellable=False):
         self.status.set(text)
