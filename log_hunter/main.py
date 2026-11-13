@@ -4,37 +4,14 @@ import logging
 import sys
 from pathlib import Path
 from .core.pipeline import Pipeline, PARSERS
-from .core.report import export_reports
 from .core.labels import SNAPSHOT_VERIFY_PHASES
-from .database.case_db import save_case, load_case
-
-
-OUTPUT_FILES = ("case.sqlite", "case.sqlite.integrity.json", "report.json", "timeline.csv", "report.html", "image_manifest.json",
-                "timeline.json", "timeline.bodyfile")
+from .database.case_db import load_case
+from .database.save import OUTPUT_FILES, save_analysis, SaveError
 
 
 def save_result(result, output, tags=None, sid_names=None):
-    """Write case.sqlite, reports and timelines. `tags`: the examiner's tag rows (core.tags.TagBook.rows()),
-    `sid_names`: {SID: user name found in the evidence} for the report's user column (exports keep the SID)."""
-    output = Path(output)
-    targets = {str((output / name).resolve()).casefold(): output / name for name in OUTPUT_FILES}
-    if any(str(Path(e.source).resolve()).casefold() in targets for e in result.evidence):
-        raise ValueError("보고서 파일 이름이 원본 증거 파일과 겹칩니다. 다른 저장 폴더를 고르세요")
-    existing = [path.name for path in targets.values() if path.exists()]
-    if existing:
-        raise FileExistsError(f"저장 폴더에 이전 결과가 있습니다({', '.join(existing)}). 빈 폴더를 고르세요")
-    output.mkdir(parents=True, exist_ok=True)
-    tags = result.tags if tags is None else tags
-    sid_names = (result.sid_names or result.profiles) if sid_names is None else sid_names
-    save_case(output / "case.sqlite", result, name=output.name, tags=list(tags), sid_names=sid_names)
-    export_reports(output, result.evidence, result.events, result.errors, result.relations, result.summaries, tags,
-                   image=getattr(result, "image", None), sid_names=sid_names)
-    if getattr(result, "image", None):
-        (output / "image_manifest.json").write_text(json.dumps(result.image, ensure_ascii=False, indent=2), encoding="utf-8")
-    # timeline.csv is written by export_reports (with time_field); don't overwrite it here.
-    from .core.export import export_json, export_bodyfile
-    export_json(result.events, output / "timeline.json")
-    export_bodyfile(result.events, output / "timeline.bodyfile")
+    """Save the same complete result bundle from every entry point."""
+    return save_analysis(output, result, tags=tags, sid_names=sid_names)
 
 
 def main(argv=None):
@@ -78,10 +55,12 @@ def main(argv=None):
             if args.command == 'report':
                 if info.created_at:
                     result.settings.setdefault('analysis_at', info.created_at)
-                save_result(result, args.output)
+                save_analysis(args.output, result, sources=info.sources)
             print(json.dumps({'events': len(result.events), 'errors': len(result.errors),
                               'case': info.to_dict()}, ensure_ascii=False))
             return 0
+        except SaveError as exc:
+            parser.exit(2, str(exc) + '\n')
         except (OSError, ValueError) as exc:
             parser.error(str(exc))
     if args.command == 'snapshots':
@@ -166,7 +145,11 @@ def main(argv=None):
         if args.auto:
             result.inputs = [{'artifact': a, 'path': str(p), 'sid': owner, 'reason': reason}
                              for a, p, owner, reason in rows]
-        save_result(result, args.output)
+        try:
+            save_result(result, args.output)
+        except (OSError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         print(json.dumps({"events": len(result.events), "errors": len(result.errors), "output": str(Path(args.output).resolve())}, ensure_ascii=False))
         return 1 if any(e.severity == "error" for e in result.errors) else 0
     from .collector.winapi import NativeAPI

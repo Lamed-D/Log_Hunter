@@ -128,7 +128,7 @@ def _sources(result):
     return list(sources.values())
 
 
-def save_case(path, result, *, name=None, tags=None, inputs=None, settings=None, sid_names=None):
+def save_case(path, result, *, name=None, tags=None, inputs=None, settings=None, sid_names=None, sources=None, cancel=None):
     """Save a new case in one data transaction, then record its closed-file digest and counts."""
     path = Path(path)
     if path.exists() or _sidecar(path).exists():
@@ -141,9 +141,14 @@ def save_case(path, result, *, name=None, tags=None, inputs=None, settings=None,
     for key, value in (('tags', tags), ('inputs', inputs), ('settings', settings), ('sid_names', sid_names)):
         if value is not None:
             state[key] = copy.deepcopy(value)
+    saved_sources = copy.deepcopy(sources) if sources is not None else []
+    source_keys = {(row.get('path'), row.get('kind')) for row in saved_sources}
+    saved_sources.extend(row for row in _sources(result) if (row.get('path'), row.get('kind')) not in source_keys)
     state.update(created_at=state['settings'].get('analysis_at') or datetime.now(timezone.utc).isoformat(),
-                 tool_version=__version__, sources=_sources(result))
+                 tool_version=__version__, sources=saved_sources)
     repository = Repository(path)
+    if cancel:
+        repository.connection.set_progress_handler(lambda: int(cancel()), 1000)
     try:
         case_id = repository.save(name or path.stem, result.evidence, result.events, result.errors,
                                   result.relations, state=state, tags=state['tags'])
@@ -310,6 +315,8 @@ def load_case(path, *, verify=False, case_id=None):
             cases = db.execute('SELECT id,name FROM cases ORDER BY id DESC').fetchall()
             selected = next((r for r in cases if case_id is None or r[0] == case_id), None)
             if selected is None:
+                if not cases:
+                    raise ValueError(T['incomplete'])
                 raise ValueError(T['invalid'].format(detail='case not found'))
             info.case_id, info.name = selected
             if case_id is None and len(cases) > 1:

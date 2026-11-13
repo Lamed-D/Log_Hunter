@@ -56,7 +56,7 @@ python -m tkinter
 Git이 설치되어 있다면 다음 명령을 실행합니다. GitHub의 **Code > Download ZIP**으로 받아 압축을 풀어도 됩니다.
 
 ```powershell
-git clone https://github.com/Lamed-D/Log_Hunter.git
+git clone <repository-url>
 cd Log_Hunter
 ```
 
@@ -226,7 +226,7 @@ CLI 분석은 일부 입력에 오류가 생겨도 가능한 다음 입력을 �
 - [트리 보기와 파일 탐색](docs/features/tree-view.md): GUI에서 기록과 이미지 안 파일을 탐색하는 방법
 - [기여 안내](CONTRIBUTING.md): 개발 환경, 브랜치와 PR 시작 방법
 - [개발 문서](docs/README.md): 요구사항, 이슈·리뷰 규칙, AI 작업 가이드
-- [버그 신고와 기능 요청](https://github.com/Lamed-D/Log_Hunter/issues): 실행 환경과 재현 절차를 공유하는 곳
+- [버그 신고와 기능 요청 안내](docs/dev/issue-rules.md): 실행 환경과 재현 절차를 공유하는 방법
 
 테스트는 저장소 루트에서 다음 명령으로 실행합니다.
 
