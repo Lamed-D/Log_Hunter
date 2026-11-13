@@ -98,6 +98,7 @@ def run(live=None):
     relink_button = ttk.Button(actions, text=CASE_TEXT["relink_button"], state="disabled", command=lambda: relink_original())
     relink_button.pack(side="left", padx=3)
     ttk.Button(actions, text="보고서 저장", command=lambda: export()).pack(side="left", padx=3)
+    ttk.Button(actions, text=TAG_MENU["save"], command=lambda: save_tags()).pack(side="left", padx=3)
     ttk.Button(actions, text=TAG_MENU["load"], command=lambda: load_tags()).pack(side="left", padx=3)
     ttk.Label(actions, text="타임라인 내보내기:").pack(side="left", padx=(12, 3))
     ttk.Button(actions, text="CSV", command=lambda: export_timeline("csv")).pack(side="left", padx=3)
@@ -1386,22 +1387,44 @@ def run(live=None):
         prefs.set_tag_preferences(book.preferences())
         prefs.save()
 
-    def load_tags():
-        """Bring back tags saved with an earlier report (case.sqlite, opened read-only); old tags become colours."""
-        path = filedialog.askopenfilename(title=TAG_MENU["load"], filetypes=[("case.sqlite", "*.sqlite"), ("모든 파일", "*.*")])
+    def save_tags():
+        path = filedialog.asksaveasfilename(title=TAG_MENU["save"], defaultextension=".json",
+                                          initialfile="tags.json", filetypes=[(TAG_MENU["file_type"], "*.json")])
         if not path:
             return
         try:
-            rows = tag_book.load_from_sqlite(path)
+            tag_book.save_tag_file(path, book)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror(TAG_MENU["save"], TAG_MENU["save_error"].format(error=exc))
+            return
+        messagebox.showinfo(TAG_MENU["save"], TAG_MENU["save_done"].format(count=len(book.items)))
+
+    def load_tags():
+        """Bring back tags saved with an earlier report (case.sqlite, opened read-only); old tags become colours."""
+        path = filedialog.askopenfilename(title=TAG_MENU["load"], filetypes=[(TAG_MENU["file_type"], "*.json"),
+                                                                            ("case.sqlite", "*.sqlite"), ("모든 파일", "*.*")])
+        if not path:
+            return
+        try:
+            with open(path, "rb") as stream:
+                sqlite_file = stream.read(16) == b"SQLite format 3\x00"
+            loaded = None if sqlite_file else tag_book.load_tag_file(path)
+            rows = tag_book.load_from_sqlite(path) if sqlite_file else loaded.rows()
         except Exception as exc:  # not a SQLite file, locked, damaged
             messagebox.showerror(TAG_MENU["load"], TAG_MENU["load_error"].format(error=exc))
             return
-        if not rows:
+        if not rows and loaded is None:
             messagebox.showinfo(TAG_MENU["load"], TAG_MENU["load_none"])
             return
-        change_tags(lambda: book.load_rows(rows))
+        def apply_loaded():
+            if loaded is not None:
+                book.color_names = dict(loaded.color_names)
+                for color, names in loaded.subcategories.items():
+                    book.subcategories[color] = list(dict.fromkeys(book.subcategories[color] + names))
+            book.load_rows(rows)
+        change_tags(apply_loaded)
         _save_tag_preferences()
-        messagebox.showinfo(TAG_MENU["load"], TAG_MENU["load_done"].format(count=len(rows)))
+        messagebox.showinfo(TAG_MENU["load"], TAG_MENU["file_load_done" if loaded is not None else "load_done"].format(count=len(rows)))
 
     def write_note(key, kind, ref):
         note = simpledialog.askstring("메모", "이 항목에 남길 메모 (증거와 따로, 보고서와 case.sqlite에 저장됩니다):",
