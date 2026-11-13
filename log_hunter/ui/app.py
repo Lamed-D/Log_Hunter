@@ -213,7 +213,8 @@ def run(live=None):
     files_state = {"node": None, "view": None}
     files = FileListView(tabs, lambda row: on_file_select(row), lambda row: on_file_open_folder(row),
                          lambda row: on_file_save(row), lambda row: on_file_copy_path(row), lambda: on_show_records(),
-                         lambda delta: on_file_turn(delta), lambda: on_scan_cancel(), lambda where: on_folder_nav(where))
+                         lambda delta: on_file_turn(delta), lambda: on_scan_cancel(), lambda where: on_folder_nav(where),
+                         on_reveal=lambda row: on_file_reveal(row))
     folder_history = FolderHistory()  # visiting the folder back/forward just moved to is a no-op, so history stays intact
 
     # Global search bar inside timeline tab
@@ -732,6 +733,13 @@ def run(live=None):
     def on_file_open_folder(row):
         fs, _make = _file_row_source(row)
         go_folder((fs["image"], fs["volume"], tuple(row["parts"])))
+
+    def on_file_reveal(row):
+        fs, _make = _file_row_source(row)
+        parts = tuple(row["parts"])
+        key = (fs["image"], fs["volume"], parts[:-1])
+        files_state["reveal"] = (key, parts)
+        go_folder(key)
 
     def on_file_save(row):
         folder = filedialog.askdirectory(title="꺼낸 파일을 저장할 폴더 (원본 이미지는 바뀌지 않습니다)")
@@ -1253,6 +1261,9 @@ def run(live=None):
                     break
             if files_state.get("node") is node:
                 files.show(fs_model.folder_rows(node, rows, nav_state.get("counts", {})), _where(node.fs))
+                reveal = files_state.pop("reveal", None)
+                if reveal and reveal[0] == folder_key(node.fs):
+                    files.select_path(reveal[1])
                 _describe_page()
         elif tag == "describe" and not error:
             files.update_rows(value)
