@@ -46,6 +46,8 @@ def run(live=None):
     loaded_case = {"result": None, "info": None, "path": None}  # an opened saved analysis: new inputs are added to it
     unsaved = {"tags": False}  # tags/notes changed since the analysis was opened or saved
     runner = JobRunner(mailbox)
+    background_threads = []
+    closing = False
     session = content.ContentSession()  # which file/page the viewer shows (stale results dropped)
     browsers = {}  # image path -> ImageBrowser; created and used only on the worker thread
     opened_images = {}  # image path -> {"name", "volumes"}: shown in the tree before analysis finishes
@@ -974,7 +976,9 @@ def run(live=None):
             except Exception as exc:
                 mailbox.put(("extract_error", str(exc)))
 
-        threading.Thread(target=worker, daemon=True).start()
+        thread = threading.Thread(target=worker, daemon=True)
+        background_threads.append(thread)
+        thread.start()
 
     def _finish_extraction(extraction):
         analysis_state["extracting"] = False
@@ -1059,7 +1063,9 @@ def run(live=None):
             except Exception as exc:
                 mailbox.put(("error", (generation, str(exc))))
 
-        threading.Thread(target=worker, daemon=True).start()
+        thread = threading.Thread(target=worker, daemon=True)
+        background_threads.append(thread)
+        thread.start()
         progress["value"] = 0
         status.set(f"분석 중... (대상 {len(batch)}개)")
 
@@ -1074,6 +1080,8 @@ def run(live=None):
         _populate_stats()
 
     def poll():
+        if closing:
+            return
         nonlocal result, sid_map
         try:
             while True:
@@ -1999,19 +2007,40 @@ def run(live=None):
     nav_tree.bind("<Alt-Right>", nav_go_forward)
 
     def on_close():
+        nonlocal closing
+        if closing:
+            return
         if saving["dialog"]:
             return
         if not _keep_unsaved_ok():
             return
         _save_column_layout()
-        for browser in list(browsers.values()):
-            try:
-                browser.close()
-            except OSError:
-                pass
-        for folder in temp_dirs:
-            shutil.rmtree(folder, ignore_errors=True)
-        root.destroy()
+        closing = True
+        auto.stop()
+        for state in (scan_state, verify_state):
+            if state["stop"] is not None:
+                state["stop"].set()
+        root.withdraw()
+
+        def close_browsers():
+            for browser in list(browsers.values()):
+                try:
+                    browser.close()
+                except OSError:
+                    pass
+            browsers.clear()
+
+        runner.shutdown(close_browsers)
+
+        def finish_close():
+            if runner.is_alive() or any(thread.is_alive() for thread in background_threads):
+                root.after(50, finish_close)
+                return
+            for folder in temp_dirs:
+                shutil.rmtree(folder, ignore_errors=True)
+            root.destroy()
+
+        finish_close()
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     root.after(100, poll)

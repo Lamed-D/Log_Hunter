@@ -4,6 +4,8 @@ import errno
 import hashlib
 import io
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -44,6 +46,24 @@ class UnifiedSaveTests(unittest.TestCase):
         html = (again / 'report.html').read_text(encoding='utf-8')
         self.assertNotIn('</script><script>example', html)
         self.assertIn('<\\/script>', html)
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows ACL inheritance')
+    def test_saved_bundle_inherits_destination_permissions(self):
+        for existing in (False, True):
+            folder = self.root / ('existing' if existing else 'new')
+            if existing:
+                folder.mkdir()
+            save_analysis(folder, self.result)
+            # Inspect only inheritance flags, never account names or security identifiers.
+            script = ('$items = @((Get-Item -LiteralPath $env:LH_ACL_TEST)); '
+                      '$items += @(Get-ChildItem -LiteralPath $env:LH_ACL_TEST); '
+                      'foreach ($item in $items) { '
+                      '$acl = Get-Acl -LiteralPath $item.FullName; '
+                      'if ($acl.AreAccessRulesProtected -or '
+                      '-not @($acl.Access | Where-Object IsInherited).Count) { exit 1 } }; exit 0')
+            checked = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
+                                     env={**os.environ, 'LH_ACL_TEST': str(folder)}, capture_output=True)
+            self.assertEqual(checked.returncode, 0, 'Saved results must inherit destination ACLs')
 
     def test_existing_report_is_never_overwritten(self):
         self.folder.mkdir()

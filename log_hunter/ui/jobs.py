@@ -13,14 +13,29 @@ class JobRunner:
         self.jobs = queue.Queue()
         self.tokens = {}
         self.lock = threading.Lock()
-        threading.Thread(target=self._run, daemon=True).start()
+        self.closing = False
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
 
     def submit(self, tag, function, *args):
         with self.lock:
+            if self.closing:
+                raise RuntimeError('Worker is shutting down')
             token = self.tokens.get(tag, 0) + 1
             self.tokens[tag] = token
-        self.jobs.put((tag, token, function, args))
+            self.jobs.put((tag, token, function, args))
         return token
+
+    def shutdown(self, cleanup=None):
+        """Reject new jobs, skip queued jobs, then clean up on the worker after its active job."""
+        with self.lock:
+            if self.closing:
+                return
+            self.closing = True
+            self.jobs.put((None, None, cleanup, ()))
+
+    def is_alive(self):
+        return self.thread.is_alive()
 
     def latest(self, tag):
         with self.lock:
@@ -29,7 +44,13 @@ class JobRunner:
     def _run(self):
         while True:
             tag, token, function, args = self.jobs.get()
-            if token != self.latest(tag):
+            if tag is None:
+                if function:
+                    function()
+                return
+            with self.lock:
+                skip = self.closing or token != self.tokens.get(tag, 0)
+            if skip:
                 continue  # superseded before it started
             try:
                 self.mailbox.put(("job", (tag, token, function(*args), None)))

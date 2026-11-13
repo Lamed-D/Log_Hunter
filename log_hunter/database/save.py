@@ -5,7 +5,7 @@ import json
 import os
 import shutil
 import sqlite3
-import tempfile
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -114,7 +114,18 @@ def save_analysis(folder, result, *, name=None, tags=None, sid_names=None, input
         if existing:
             raise SaveExistsError(existing)
         folder.parent.mkdir(parents=True, exist_ok=True)
-        temporary = Path(tempfile.mkdtemp(prefix='.saving-', dir=folder.parent))
+        # Published files must inherit the selected location's permissions, not
+        # mkdtemp's private Windows ACL. Stage inside an existing destination so
+        # hard-linked files inherit that directory's ACL as well.
+        staging_parent = folder.parent if created else folder
+        while True:
+            candidate = staging_parent / ('.saving-' + uuid.uuid4().hex)
+            try:
+                candidate.mkdir(mode=0o777)
+            except FileExistsError:
+                continue
+            temporary = candidate
+            break
         checkpoint('분석 데이터 저장', .1)
         info = save_case(temporary / 'case.sqlite', result, name=name or folder.name,
                          tags=tags, sid_names=sid_names, inputs=inputs, settings=settings, sources=sources, cancel=cancel)
