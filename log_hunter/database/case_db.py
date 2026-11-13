@@ -270,9 +270,14 @@ def _verify(db, path, info, verify):
 
 
 def _check_sources(info, verify):
+    from log_hunter.image.live import is_live_path
     for source in info.sources:
         path = source.get('resolved_path') or source.get('path')
         source.update(status='not_checked', actual_sha256=None)
+        if is_live_path(source.get('path')) or is_live_path(path):
+            # A running volume is not a stable image file and cannot be hash-verified on reopen.
+            source['status'] = 'live_unverified'
+            continue
         try:
             if not isinstance(path, str) or path.startswith(('\\\\.\\', '\\\\?\\')):
                 source['status'] = 'unavailable'
