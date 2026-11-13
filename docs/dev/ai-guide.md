@@ -57,7 +57,8 @@ docs/                  요구사항·개발 규칙 문서
    커밋 전에 식별 정보 검사를 하고, 파일 하나 10MB·`example` 전체 50MB를 넘기지 않습니다. 실제 PC 출력·사건 자료·
    인터넷의 공개 포렌식 샘플은 넣지 않습니다.
 8. **참고한 외부 포렌식 도구의 이름·코드·데이터·문구를 저장소에 넣지 않습니다.** 기능만 참고해 새로 작성합니다.
-   `tests/test_repo_hygiene.py`가 이를 검사합니다.
+   `tests/test_repo_hygiene.py`와 커밋 훅(`tools/check_confidential.py`)이 이를 검사합니다([비공개 자료 규칙](confidentiality.md)).
+9. **작업 폴더·담당·리뷰·병합은 [에이전트 협업 규칙](agents.md)을 따릅니다.** 내 이름은 `git config --get agent.name`, 방식은 `git config --get agent.mode`.
 
 ## 4. 작업 절차
 
@@ -69,7 +70,7 @@ docs/                  요구사항·개발 규칙 문서
    ```
    샌드박스에서 TEMP 쓰기가 막히면 README의 `outputs\test-temp` 방법을 씁니다.
 4. GUI를 바꿨다면 실행해서 화면을 확인합니다(`python -m log_hunter gui`). 확인하지 못했으면 PR에 그렇게 씁니다.
-5. 커밋: `feat:`/`fix:`/`docs:`/`test:`/`refactor:` + 영어 요약.
+5. 커밋: `<type>: <한국어 요약>` + 한국어 본문 + `Agent: <이름>` ([브랜치 규칙](branch-rules.md)). 커밋 훅이 비공개 낱말을 검사합니다.
 6. PR: 템플릿을 채우고 [코드 리뷰 규칙](code-review.md)의 체크리스트를 스스로 먼저 점검합니다.
 7. 결과 보고: 무엇을 했는지, **검증하지 못한 것**(예: 실제 E01, 관리자 환경)을 숨기지 않고 적습니다.
 

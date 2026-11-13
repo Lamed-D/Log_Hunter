@@ -1,0 +1,13 @@
+#!/bin/sh
+# 푸시하려는 커밋들의 메시지·변경에 비공개 낱말이 있으면 푸시를 막는다.
+zero=0000000000000000000000000000000000000000
+while read local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$remote_sha" = "$zero" ]; then
+    range="origin/main..$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  python tools/check_confidential.py range "$range" || exit 1
+done
+exit 0

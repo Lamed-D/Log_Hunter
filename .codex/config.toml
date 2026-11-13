@@ -1,0 +1,11 @@
+# Codex 프로젝트 설정 (신뢰된 프로젝트에서만 적용된다)
+# 적용되지 않는 버전이면 실행 옵션으로 같은 값을 준다:
+#   codex --sandbox workspace-write --ask-for-approval on-request
+
+# 작업 폴더 안에서는 자유롭게 쓰고, 그 밖의 일·위험한 명령은 묻는다
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+# git push, gh(PR·이슈)를 쓰려면 네트워크가 필요하다
+network_access = true

@@ -35,3 +35,9 @@ autopsy/
 sleuthkit/
 *autopsy*
 *sleuthkit*
+
+# 비공개 자료·에이전트 개인 설정
+/.private/
+.confidential-terms
+.claude/settings.local.json
+.codex/*.local.toml
