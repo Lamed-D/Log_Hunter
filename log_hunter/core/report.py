@@ -22,16 +22,43 @@ def _script_json(value):
     return json.dumps(value, ensure_ascii=False).replace("</", "<\\/").replace("<!--", "<\\!--")
 
 
+class _EventRows(list):
+    def __init__(self, events):
+        self.events = events
+
+    def __len__(self):
+        return len(self.events)
+
+    def __iter__(self):
+        return (event.to_dict() for event in self.events)
+
+
+def _payload_json(payload, events):
+    return json.JSONEncoder(ensure_ascii=False, indent=2).iterencode({**payload, "events": _EventRows(events)})
+
+
+def _payload_preview(payload, events, limit=500000):
+    chunks = []
+    for chunk in _payload_json(payload, events):
+        chunks.append(chunk[:limit])
+        limit -= len(chunk)
+        if limit <= 0:
+            break
+    return "".join(chunks)
+
+
 def export_reports(output, evidence, events, errors, relations, summaries, tags=(), image=None, sid_names=None):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     correlation_summary = summarize_correlations(relations, events)
-    payload = {"evidence": [asdict(e) for e in evidence], "events": [e.to_dict() for e in events],
+    payload = {"evidence": [asdict(e) for e in evidence], "events": None,
                "errors": [asdict(e) for e in errors], "relations": relations, "summaries": summaries,
                "correlation_summary": correlation_summary}
     if tags:
         payload["examiner_tags"] = list(tags)  # the examiner's judgement, kept apart from the evidence data
-    (output / "report.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    with (output / "report.json").open("w", encoding="utf-8") as stream:
+        for chunk in _payload_json(payload, events):
+            stream.write(chunk)
     fields = ["artifact", "source", "locator", "timestamp", "time_field", "sid", "path", "process", "url", "action", "status", "details"]
     with (output / "timeline.csv").open("w", newline="", encoding="utf-8-sig") as stream:
         writer = csv.DictWriter(stream, fields)
@@ -85,7 +112,7 @@ def _write_html_report(path, payload, evidence, events, errors, relations, summa
 
     artifact_options = "".join(f'<option value="{html.escape(a)}">{html.escape(artifact_label(a))} ({c})</option>'
                                for a, c in sorted(artifact_counts.items(), key=lambda x: artifact_label(x[0])))
-    events_json = _script_json([e.to_dict() for e in events])
+    events_json = "__LOG_HUNTER_EVENTS_STREAM__"
     relations_json = _script_json(relations)
     labels_json = _script_json({"artifact": ARTIFACT_LABELS, "action": ACTION_LABELS, "status": STATUS_LABELS,
                                 "relation": RELATION_LABELS, "confidence": CONFIDENCE_LABELS, "time": TIME_FIELD_LABELS,
@@ -301,7 +328,7 @@ footer {{ text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75r
   </div>
 
   {usb_panel}{thumbs_panel}{wifi_panel}{tasks_panel}{tags_panel}<div class="panel" id="raw">
-    <pre style="font-family:var(--mono);font-size:0.75rem;color:var(--fg2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:80vh;overflow-y:auto">{html.escape(json.dumps(payload, ensure_ascii=False, indent=2)[:500000])}</pre>
+    <pre style="font-family:var(--mono);font-size:0.75rem;color:var(--fg2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:80vh;overflow-y:auto">{html.escape(_payload_preview(payload, events))}</pre>
   </div>
 </div>
 <footer>Log Hunter v1.0.0 — Windows 포렌식 아티팩트 분석 도구</footer>
@@ -502,7 +529,14 @@ document.addEventListener('keydown', e => {{
 </script>
 </body>
 </html>'''
-    path.write_text(page, encoding="utf-8")
+    before, after = page.split("const ALL_EVENTS = __LOG_HUNTER_EVENTS_STREAM__;", 1)
+    with path.open("w", encoding="utf-8") as stream:
+        stream.write(before + "const ALL_EVENTS = [")
+        for index, event in enumerate(events):
+            if index:
+                stream.write(", ")
+            stream.write(_script_json(event.to_dict()))
+        stream.write("];" + after)
 
 
 def _tag_target(row):

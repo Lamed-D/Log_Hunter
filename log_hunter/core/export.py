@@ -49,14 +49,17 @@ def _serialize_event(event):
 
 def export_json(events, output_path, indent=2):
     output_path = Path(output_path)
-    records = []
-    for event in events:
-        records.append(_serialize_event(event))
-    output_path.write_text(
-        json.dumps(records, ensure_ascii=False, indent=indent, default=str),
-        encoding="utf-8",
-    )
-    return len(records)
+    count = 0
+    with output_path.open("w", encoding="utf-8") as stream:
+        stream.write("[")
+        for event in events:
+            stream.write(",\n" if count else "\n")
+            record = json.dumps(_serialize_event(event), ensure_ascii=False, indent=indent, default=str)
+            prefix = " " * indent if isinstance(indent, int) else (indent or "")
+            stream.write("\n".join(prefix + line for line in record.split("\n")))
+            count += 1
+        stream.write("\n]" if count else "]")
+    return count
 
 
 def export_jsonl(events, output_path):

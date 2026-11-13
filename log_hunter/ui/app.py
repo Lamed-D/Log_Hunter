@@ -14,7 +14,6 @@ from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, COLUMN_LAYOUT_HINT, C
                                     artifact_from_label, artifact_label, status_label)
 from log_hunter.image import (extract_artifacts, is_admin, is_live_path, live_device,
                               relaunch_as_admin, system_drive)
-from log_hunter.main import save_result
 from . import charts, content, detail, fs_model, nav, nav_tools, view_model
 from .file_list import FileListView
 from . import relation_view, recycle_view
@@ -43,6 +42,7 @@ def run(live=None):
     prefs = Settings()  # column order/widths, in the user's settings folder (not the case or the repository)
     root.minsize(900, 600)
     inputs, mailbox = [], queue.Queue()
+    analysis_state = {"busy": False, "extracting": False}
     loaded_case = {"result": None, "info": None, "path": None}  # an opened saved analysis: new inputs are added to it
     unsaved = {"tags": False}  # tags/notes changed since the analysis was opened or saved
     runner = JobRunner(mailbox)
@@ -947,6 +947,7 @@ def run(live=None):
         return f"이 PC({live_device(path)[4:]})" if is_live_path(path) else "디스크 이미지"
 
     def start_image_extraction(path):
+        analysis_state["extracting"] = True
         workdir = Path(tempfile.mkdtemp(prefix="log-hunter-image-"))
         temp_dirs.append(workdir)
         image_button.configure(state="disabled")
@@ -976,6 +977,7 @@ def run(live=None):
         threading.Thread(target=worker, daemon=True).start()
 
     def _finish_extraction(extraction):
+        analysis_state["extracting"] = False
         verify_cancel.configure(state="disabled")
         if extraction.verification:
             status.set(view_model.verification_lines(extraction.verification)[0])
@@ -1016,6 +1018,7 @@ def run(live=None):
             status.set(f"분석 대상 {len(inputs)}개 - 곧 분석을 시작합니다...")
             return
         auto.stop()
+        analysis_state["busy"] = False
         if loaded_case["result"] is not None:  # all added inputs removed: back to the opened saved analysis as it was
             result = loaded_case["result"]
             sid_map = dict(getattr(result, "sid_names", None) or {})
@@ -1031,6 +1034,7 @@ def run(live=None):
     def analyze(generation):
         if not inputs:
             return
+        analysis_state["busy"] = True
         batch = list(inputs)
         # The SID box only filters what is shown. It must not become the records' owner SID:
         # that would attribute every input without its own SID to whoever was typed there.
@@ -1094,6 +1098,7 @@ def run(live=None):
                 elif kind == "extracted":
                     _finish_extraction(value)
                 elif kind == "extract_error":
+                    analysis_state["extracting"] = False
                     progress.stop()
                     progress.configure(mode="determinate")
                     image_button.configure(state="normal")
@@ -1104,6 +1109,7 @@ def run(live=None):
                     generation, analysis, mapping = value
                     if not auto.is_current(generation):
                         continue  # an older run finished after the inputs changed again
+                    analysis_state["busy"] = False
                     result, sid_map = analysis, mapping
                     progress["value"] = 100
                     status.set(f"분석 완료: 기록 {len(result.events)}건, 오류/경고 {len(result.errors)}건")
@@ -1117,6 +1123,7 @@ def run(live=None):
                     generation, message = value
                     if not auto.is_current(generation):
                         continue
+                    analysis_state["busy"] = False
                     status.set("분석 오류")
                     messagebox.showerror("분석 오류", message)
         except queue.Empty:
@@ -1151,6 +1158,21 @@ def run(live=None):
     def on_job(tag, token, value, error):
         if token != runner.latest(tag):
             return  # an older request the user already moved past
+        if tag == "analysis_save":
+            dialog = saving["dialog"]
+            saving["dialog"] = None
+            if dialog:
+                dialog.grab_release()
+                dialog.destroy()
+            if error:
+                messagebox.showerror("저장 결과", error)
+            else:
+                report, analysis, rows, original_info = value
+                _remember_case(report.folder / "case.sqlite", report.case.name, len(analysis.events))
+                if result is analysis and book.rows() == rows and loaded_case["info"] is original_info:
+                    unsaved["tags"] = False
+                messagebox.showinfo("저장 완료", str(report.folder))
+            return
         if tag == "case_relink":
             if error:
                 status.set(loaded_case.get("status") or "")
@@ -1589,19 +1611,60 @@ def run(live=None):
                 return extraction.image_path
         return None
 
+    saving = {"dialog": None}
+
+    def _start_save(folder, name=None):
+        from log_hunter.database.save import save_analysis, OUTPUT_FILES, suggest_save_folder
+        if saving["dialog"]:
+            return
+        if auto.waiting or analysis_state["busy"] or analysis_state["extracting"]:
+            messagebox.showwarning("분석 중", "분석이 끝난 뒤 저장하세요")
+            return
+        if any((Path(folder) / n).exists() for n in OUTPUT_FILES):
+            proposed = suggest_save_folder(folder)
+            if not messagebox.askyesno("저장 폴더", f"이전 결과가 있습니다. 새 하위 폴더 {proposed.name}에 저장할까요?"):
+                return
+            folder = proposed
+        analysis, rows, owners = result, book.rows(), dict(sid_map)
+        original_info = loaded_case["info"]
+        selected_inputs = None  # AnalysisResult retains input provenance, including merged/reopened cases.
+        stop, updates = threading.Event(), queue.Queue()
+        dialog = tk.Toplevel(root)
+        saving["dialog"] = dialog
+        dialog.title("분석 저장")
+        dialog.transient(root)
+        dialog.grab_set()
+        label = ttk.Label(dialog, text="저장 준비", padding=15)
+        label.pack()
+        bar = ttk.Progressbar(dialog, length=350, maximum=1)
+        bar.pack(padx=15, pady=10)
+        ttk.Button(dialog, text="저장 취소", command=stop.set).pack(pady=10)
+        dialog.protocol("WM_DELETE_WINDOW", stop.set)
+
+        def poll_save():
+            if saving["dialog"] is not dialog:
+                return
+            while not updates.empty():
+                stage, ratio = updates.get_nowait()
+                label.configure(text=stage)
+                bar.configure(value=ratio)
+            root.after(100, poll_save)
+
+        poll_save()
+        def job():
+            report = save_analysis(folder, analysis, name=name, tags=rows, sid_names=owners,
+                                   inputs=selected_inputs, sources=getattr(original_info, "sources", None), cancel=stop.is_set,
+                                   progress=lambda stage, ratio: updates.put((stage, ratio)))
+            return report, analysis, rows, original_info
+        runner.submit("analysis_save", job)
+
     def export():
         if not result:
             messagebox.showwarning("결과 없음", "분석을 먼저 실행하세요")
             return
         output = filedialog.askdirectory()
         if output:
-            try:
-                save_result(result, output, book.rows(), sid_map)
-                _remember_case(Path(output) / "case.sqlite", Path(output).name, len(result.events))
-                note = f"\n분석자 태그 {len(book.items):,}건도 함께 저장했습니다" if book.items else ""
-                messagebox.showinfo("저장 완료", "SQLite / HTML / CSV / JSON 저장 완료" + note)
-            except Exception as exc:
-                messagebox.showerror("저장 오류", str(exc))
+            _start_save(output)
 
     def _remember_case(path, name, events, source_state="not_checked"):
         """Put a saved/opened analysis first in the recent list (user settings folder, never the case folder)."""
@@ -1630,6 +1693,7 @@ def run(live=None):
         inputs.clear()
         listing.delete(0, "end")
         auto.stop()
+        analysis_state["busy"] = False
         loaded_case.update(result=analysis, info=info, path=path)
         unsaved["tags"] = False
         _forget_opened_sources()
@@ -1650,40 +1714,17 @@ def run(live=None):
             messagebox.showwarning(CASE_TEXT["warnings_title"], "\n".join(warnings))
 
     def save_case_dialog():
-        """분석 저장: a new case.sqlite (never over an existing one, never next to the original evidence) plus reports."""
         if not result:
             messagebox.showwarning("결과 없음", "분석을 먼저 실행하세요")
             return
-        try:
-            from log_hunter.database.case_db import save_case
-        except ImportError:
-            messagebox.showinfo(CASE_TEXT["save_button"], CASE_TEXT["engine_pending"])
-            return
         from . import case_view
-        from log_hunter.core.report import export_reports
         default = case_view.info_dict(loaded_case["info"]).get("name") or ""
         name = simpledialog.askstring(CASE_TEXT["save_name"], CASE_TEXT["save_name_prompt"], initialvalue=default, parent=root)
         if not name:
             return
         folder = filedialog.askdirectory(title=CASE_TEXT["save_pick"])
-        if not folder:
-            return
-        problem = case_view.save_folder_problem(folder, [e.source for e in result.evidence])
-        target = Path(folder) / "case.sqlite"
-        if problem or target.exists():
-            messagebox.showwarning(CASE_TEXT["save_button"], problem or CASE_TEXT["save_exists"])
-            return
-        try:
-            info = save_case(target, result, name=name, tags=book.rows(), sid_names=dict(sid_map),
-                             inputs=[{"artifact": a, "path": str(p), "sid": o} for a, p, o in inputs])
-            export_reports(folder, result.evidence, result.events, result.errors, result.relations, result.summaries,
-                           book.rows(), image=getattr(result, "image", None), sid_names=sid_map)
-        except Exception as exc:  # refused overwrite, no permission, disk full
-            messagebox.showerror(CASE_TEXT["save_button"], CASE_TEXT["save_error"].format(error=exc))
-            return
-        _remember_case(target, name, len(result.events), case_view.source_state(info) or "saved")
-        unsaved["tags"] = False
-        messagebox.showinfo(CASE_TEXT["save_button"], CASE_TEXT["saved"].format(path=target))
+        if folder:
+            _start_save(folder, name)
 
     def _keep_unsaved_ok():
         """Ask before tags/notes changed since opening or saving are dropped. True: go on."""
@@ -1958,6 +1999,8 @@ def run(live=None):
     nav_tree.bind("<Alt-Right>", nav_go_forward)
 
     def on_close():
+        if saving["dialog"]:
+            return
         if not _keep_unsaved_ok():
             return
         _save_column_layout()

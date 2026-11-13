@@ -5,6 +5,12 @@ from log_hunter.core.models import ForensicEvent
 from log_hunter.core.timestamp import chromium_timestamp
 
 
+def _record(row):
+    """Keep SQLite binary fields losslessly in a JSON-safe, explicitly typed form."""
+    return {key: {'encoding': 'hex', 'value': value.hex()} if isinstance(value, bytes) else value
+            for key, value in dict(row).items()}
+
+
 class HistoryParser(ArtifactParser):
     artifact = "history"
 
@@ -20,14 +26,14 @@ class HistoryParser(ArtifactParser):
             if "visits" in tables:
                 for row in connection.execute("SELECT v.id, v.visit_time, v.transition, u.url, u.title FROM visits v JOIN urls u ON v.url=u.id"):
                     yield ForensicEvent(self.artifact, str(path), "url_visit", chromium_timestamp(row["visit_time"]),
-                                        "visit_time", self.sid, url=row["url"], locator=f"visits:{row['id']}", details=dict(row))
+                                        "visit_time", self.sid, url=row["url"], locator=f"visits:{row['id']}", details=_record(row))
             else:
                 for row in connection.execute("SELECT * FROM urls"):
                     yield ForensicEvent(self.artifact, str(path), "url_summary", chromium_timestamp(row["last_visit_time"]),
-                                        "last_visit_time", self.sid, url=row["url"], locator=f"urls:{row['id']}", details=dict(row))
+                                        "last_visit_time", self.sid, url=row["url"], locator=f"urls:{row['id']}", details=_record(row))
             if "downloads" in tables:
                 for row in connection.execute("SELECT * FROM downloads"):
-                    record = dict(row)
+                    record = _record(row)
                     chain = []
                     if "downloads_url_chains" in tables:
                         chain = [r[0] for r in connection.execute("SELECT url FROM downloads_url_chains WHERE id=? ORDER BY chain_index", (row["id"],))]
