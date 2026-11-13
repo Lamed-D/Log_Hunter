@@ -33,6 +33,15 @@ ARTIFACT_LABELS = {
     "image": "디스크 이미지",
 }
 
+ARTIFACT_NAV_STATUS = {
+    "not_analyzed": "분석 입력 미확인",
+    "no_data": "기록 없음",
+    "ok": "분석 완료",
+    "partial": "일부 분석",
+    "failed": "분석 실패",
+    "mixed": "일부 종류만 분석",
+}
+
 USB_DEVICE_KINDS = {
     'unknown': '알 수 없는 장치', 'keyboard': '키보드', 'mouse': '마우스',
     'storage': 'USB 저장 장치', 'camera': '카메라', 'audio': '오디오 장치',

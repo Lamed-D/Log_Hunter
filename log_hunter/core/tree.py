@@ -6,7 +6,7 @@ from pathlib import PureWindowsPath
 
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (DETAIL_LABELS, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, DETAIL_LABELS, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -40,12 +40,14 @@ class TreeNode:
     count: int = 0
     children: list = field(default_factory=list)
     fs: dict = None  # file system item read from the image: {image, volume, parts, directory, browsable, ...}
+    analysis_state: str = ""
 
     @property
     def text(self):
         if self.kind in ("group", "snapshot") or (self.fs is not None and not self.count):
             return self.label  # folders/files without records: no "(0)" noise
-        return f"{self.label} ({self.count})"
+        status = f" · {ARTIFACT_NAV_STATUS[self.analysis_state]}" if self.analysis_state else ""
+        return f"{self.label} ({self.count}){status}"
 
     def walk(self):
         yield self
@@ -98,12 +100,12 @@ def category_of(artifact):
     return "other"
 
 
-def build_tree(events, relations=(), errors=(), sid_map=None, origins=None, sources=()):
+def build_tree(events, relations=(), errors=(), sid_map=None, origins=None, sources=(), summaries=()):
     """Return the root nodes. Counts are events, except under 분석 결과 (relations / errors).
     `sources` adds analyzed files that produced no events, so the file tree is complete."""
     origins = origins or OriginIndex()
     sid_map = sid_map or {}
-    return [_data_sources(events, origins, sources), _data_artifacts(events), _analysis_results(relations, errors),
+    return [_data_sources(events, origins, sources), _data_artifacts(events, summaries, errors), _analysis_results(relations, errors),
             _accounts(events, sid_map)]
 
 
@@ -137,21 +139,35 @@ def _sort(node):
         _sort(child)
 
 
-def _data_artifacts(events):
+def _data_artifacts(events, summaries=(), errors=()):
     counts = Counter(event.artifact for event in events)
     root = TreeNode("art", "찾은 기록", "all", None, len(events))
     known = set()
+    def state(artifacts):
+        rows = [r for r in summaries if r.get("artifact") in artifacts]
+        states = {r.get("state") for r in rows}
+        problems = [e for e in errors if e.artifact in artifacts and e.severity in ("warning", "error")]
+        count = sum(counts[a] for a in artifacts)
+        if states & {"failed", "partial"} or problems:
+            failed = "failed" in states or any(e.severity == "error" for e in problems)
+            return "failed" if failed and not count and not states - {"failed"} else "partial"
+        covered = {r.get("artifact") for r in rows} | {a for a in artifacts if counts[a]}
+        if not covered:
+            return "not_analyzed"
+        if any(a not in covered for a in artifacts):
+            return "mixed"
+        return "ok" if count else "no_data"
+
     for key, label, artifacts in ARTIFACT_CATEGORIES:
         known.update(artifacts)
-        present = [a for a in artifacts if counts[a]]
-        if not present:
-            continue
+        present = list(artifacts)
         category = TreeNode(f"art:{key}", label, "artifacts", tuple(present), sum(counts[a] for a in present))
+        category.analysis_state = state(present)
         groups = _artifact_groups(present)
         if len(groups) > 1:
             category.children = [TreeNode(f"art:{key}:{group[0]}", artifact_label("tasks" if group[0] in TASK_ARTIFACTS
                                                                                   else group[0]), "artifacts", group,
-                                          sum(counts[a] for a in group)) for group in groups]
+                                          sum(counts[a] for a in group), analysis_state=state(group)) for group in groups]
         task_group = next((g for g in groups if g[0] in TASK_ARTIFACTS), None)
         if task_group:  # 의심 신호만 보기: a filter, the signals are leads and not findings
             tasks = next((c for c in category.children if c.value == task_group), category)
