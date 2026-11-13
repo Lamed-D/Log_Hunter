@@ -475,8 +475,6 @@ def run(live=None):
         nav_nodes.clear()
         nav_state["node"] = None
         view_var.set("보기: 전체")
-        if not result and not opened_images:
-            return
         nav_state["origins"] = OriginIndex([*extractions, *loaded_case.get("origins", ())])
         for extraction in extractions:  # images analyzed without the instant "open" step still get their file system
             if extraction.volumes:
@@ -484,10 +482,10 @@ def run(live=None):
                                                                  "volumes": extraction.volumes})
         if result:
             roots = build_tree(result.events, result.relations, result.errors, sid_map, nav_state["origins"],
-                               [e.source for e in result.evidence])
+                               [e.source for e in result.evidence], summaries=result.summaries)
             nav_state["counts"] = fs_model.prefix_counts(result.events, nav_state["origins"])
         else:
-            roots = [TreeNode("src", "데이터 출처", "source")]
+            roots = build_tree([])
             nav_state["counts"] = {}
         for image, info in opened_images.items():
             image_node = next((n for n in roots[0].children if n.label == info["name"]), None)
@@ -583,7 +581,10 @@ def run(live=None):
             _show_tagged_files()
         else:
             nav_state["node"] = value
-            view_var.set(f"보기: {value.label}")
+            view_var.set(f"보기: {value.text}")
+            if value.kind == "artifacts":
+                artifact_hint.set(" / ".join(dict.fromkeys(ARTIFACT_DESCRIPTIONS.get(a, artifact_label(a))
+                                                         for a in value.value)))
             refresh()
             fs = value.fs
             if fs and not fs.get("directory"):
@@ -2054,6 +2055,7 @@ def run(live=None):
         finish_close()
 
     root.protocol("WM_DELETE_WINDOW", on_close)
+    _populate_nav()
     root.after(100, poll)
     if live is not None:
         root.after(500, lambda: analyze_this_pc(live))

@@ -49,10 +49,40 @@ class TreeModelTests(unittest.TestCase):
         run = find(self.roots, "art:run_programs")
         self.assertEqual(run.label, "실행한 프로그램")
         self.assertEqual(run.count, 3)
-        self.assertEqual([c.value for c in run.children], [("prefetch",), ("bam",)])
-        self.assertIsNone(find(self.roots, "art:shell_bags"))  # empty categories are hidden
+        self.assertEqual([c.value for c in run.children], [("prefetch",), ("bam",), ("userassist",)])
+        self.assertEqual(find(self.roots, "art:shell_bags").analysis_state, "not_analyzed")
         self.assertEqual(find(self.roots, "art:other").count, 1)
         self.assertEqual(find(self.roots, "art").count, len(self.events))
+
+    def test_empty_tree_keeps_all_supported_types_in_friendly_categories(self):
+        from log_hunter.core.pipeline import PARSERS
+        roots = build_tree([])
+        categories = find(roots, "art").children
+        self.assertEqual(len(categories), len(ARTIFACT_CATEGORIES))
+        self.assertEqual({a for c in categories for a in c.value}, set(PARSERS))
+        self.assertTrue(all(c.analysis_state == "not_analyzed" for c in categories))
+        self.assertTrue(all("분석 입력 미확인" in c.text for c in categories))
+
+    def test_parser_summary_distinguishes_empty_failed_partial_and_missing(self):
+        summaries = [{"artifact": "bam", "state": "no_data"},
+                     {"artifact": "prefetch", "state": "failed"},
+                     {"artifact": "history", "state": "ok"},
+                     {"artifact": "history", "state": "failed"}]
+        roots = build_tree([event("history", "History")], summaries=summaries)
+        self.assertEqual(find(roots, "art:run_programs:bam").analysis_state, "no_data")
+        self.assertEqual(find(roots, "art:run_programs:prefetch").analysis_state, "failed")
+        self.assertEqual(find(roots, "art:run_programs:userassist").analysis_state, "not_analyzed")
+        self.assertEqual(find(roots, "art:web_history:history").analysis_state, "partial")
+        self.assertEqual(find(roots, "art:autostart").value,
+                         ("run", "startup", "services", "tasks", "taskcache"))
+        self.assertTrue(matches(find(roots, "art:web_history"), event("history", "History"), OriginIndex()))
+
+    def test_old_results_and_warnings_do_not_claim_no_records_or_success(self):
+        roots = build_tree([event("bam", "SYSTEM")], errors=[ParserError("SYSTEM", "bam", "x", "bad", "warning")])
+        self.assertEqual(find(roots, "art:run_programs:bam").analysis_state, "partial")
+        self.assertEqual(find(roots, "art:run_programs:userassist").analysis_state, "not_analyzed")
+        roots = build_tree([], errors=[ParserError("SYSTEM", "bam", "x", "bad", "warning")])
+        self.assertEqual(find(roots, "art:run_programs:bam").analysis_state, "partial")
 
     def test_data_source_file_tree(self):
         evidence = find(self.roots, "src:" + "\\".join((DIRECT_SOURCE, "C:\\", "Evidence")))

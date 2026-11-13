@@ -63,7 +63,7 @@ class TaskViewTest(unittest.TestCase):
         run = ForensicEvent("run", r"C:\Evidence\NTUSER.DAT", "autorun", details={})
         events = [merged(), plain, run]
         autostart = next(c for c in build_tree(events)[1].children if c.key == "art:autostart")
-        tasks = next(c for c in autostart.children if c.value == ("tasks",))
+        tasks = next(c for c in autostart.children if "tasks" in c.value)
         signal = tasks.children[0]
         self.assertEqual(signal.text, "의심 신호만 보기 (1)")
         self.assertEqual([e for e in events if matches(signal, e, None)], [events[0]])
@@ -135,8 +135,10 @@ class TaskViewTest(unittest.TestCase):
         run = ForensicEvent("run", r"C:\Evidence\NTUSER.DAT", "autorun", details={})
         events = [merged_task, registration, run]
         autostart = next(c for c in build_tree(events)[1].children if c.key == "art:autostart")
-        self.assertEqual([c.text for c in autostart.children], ["자동 실행 프로그램 (1)", "예약된 작업 (2)"])
-        tasks = autostart.children[1]
+        self.assertEqual([c.label for c in autostart.children],
+                         ["자동 실행 프로그램", "시작프로그램 폴더", "백그라운드 서비스", "예약된 작업"])
+        tasks = next(c for c in autostart.children if "tasks" in c.value)
+        self.assertEqual(tasks.count, 2)
         self.assertEqual([e for e in events if matches(tasks, e, None)], [merged_task, registration])
         self.assertEqual(tasks.children[0].text, "의심 신호만 보기 (2)")
         self.assertEqual(columns.columns_for(tasks), columns.CATEGORY_COLUMNS["scheduled_tasks"])
