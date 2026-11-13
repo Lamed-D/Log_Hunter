@@ -726,9 +726,12 @@ TAG_MENU = {"subcategories": "{color} 하위 분류", "new_subcategory": "새 �
             "rename_sub": "하위 분류 이름 바꾸기", "delete_sub": "하위 분류 지우기",
             "rename_sub_prompt": "'{name}'의 새 이름:",
             "delete_sub_confirm": "'{name}' 하위 분류를 지울까요?\n이 하위 분류가 붙은 기록·파일에서도 떼어 냅니다(색 태그는 그대로).",
+            "save": "태그 저장", "save_done": "태그·메모 {count:,}건과 색상·하위 분류 설정을 저장했습니다.",
+            "save_error": "태그를 저장하지 못했습니다: {error}", "file_type": "분석자 태그 JSON",
             "load": "태그 불러오기", "load_none": "이 파일에는 저장된 분석자 태그가 없습니다.",
             "load_done": "태그·메모 {count:,}건을 불러왔습니다. 예전 '주목/추적 필요/정상으로 확인'은 빨강/노랑/초록으로 바뀌었습니다.",
-            "load_error": "태그를 읽지 못했습니다: {error}\n보고서 저장으로 만든 case.sqlite를 고르세요."}
+            "load_error": "태그를 읽지 못했습니다: {error}\n태그 저장으로 만든 JSON 또는 기존 case.sqlite를 고르세요.",
+            "file_load_done": "태그·메모 {count:,}건과 색상·하위 분류 설정을 불러왔습니다. 같은 항목의 태그·메모는 불러온 값으로 바뀝니다."}
 # 태그한 파일의 이미지가 태그할 때와 크기·수정 시각이 다를 때 (같은 경로에 다른 이미지일 수 있음)
 TAGGED_IMAGE_CHANGED = "이미지 바뀜 · 확인 필요"
 TAGGED_IMAGE_CHANGED_NOTE = "태그한 뒤 이미지 파일의 크기나 수정 시각이 바뀐 파일이 있습니다. 같은 파일인지 확인하세요"

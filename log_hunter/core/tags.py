@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import tempfile
 from datetime import datetime, timezone
 
 from .labels import TAG_COLOR_DEFAULT_NAMES, TAG_COLOR_WORDS, tag_label
@@ -70,6 +71,61 @@ def normalize_tag(tag):
 
 def tag_color(tag):
     return str(tag).partition("/")[0]
+
+
+def save_tag_file(path, book):
+    """Save only examiner tags, notes and preferences; atomically replace the selected file."""
+    from pathlib import Path
+    path = Path(path)
+    payload = {"format": "log-hunter-tags", "version": 1,
+               "preferences": book.preferences(), "rows": book.rows()}
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=".tags-", suffix=".tmp", delete=False) as stream:
+            temporary = stream.name
+            json.dump(payload, stream, ensure_ascii=False, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary and os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def load_tag_file(path):
+    """Validate a standalone file completely before the caller changes the current book."""
+    with open(path, encoding="utf-8-sig") as stream:
+        data = json.load(stream)
+    if not isinstance(data, dict) or data.get("format") != "log-hunter-tags" or data.get("version") != 1:
+        raise ValueError("지원하지 않는 태그 파일입니다.")
+    preferences, rows = data.get("preferences"), data.get("rows")
+    if not isinstance(preferences, dict) or not isinstance(rows, list):
+        raise ValueError("태그 파일의 설정 또는 항목 목록이 올바르지 않습니다.")
+    names, subs = preferences.get("color_names"), preferences.get("subcategories")
+    if not isinstance(names, dict) or not isinstance(subs, dict):
+        raise ValueError("태그 색상 설정이 올바르지 않습니다.")
+    for color in COLORS:
+        if not isinstance(names.get(color), str) or not names[color].strip():
+            raise ValueError("태그 색상 이름이 올바르지 않습니다.")
+        if not isinstance(subs.get(color), list) or any(not isinstance(s, str) or not s.strip() for s in subs[color]):
+            raise ValueError("태그 하위 분류가 올바르지 않습니다.")
+    keys = set()
+    for row in rows:
+        if (not isinstance(row, dict) or not isinstance(row.get("key"), str) or not row["key"]
+                or row["key"] in keys or row.get("key_version") != KEY_VERSION
+                or row.get("tag_format") != TAG_FORMAT or row.get("target") not in ("event", "file")
+                or not isinstance(row.get("ref"), dict) or not isinstance(row.get("tags"), list)
+                or not isinstance(row.get("note"), str) or not isinstance(row.get("updated_at"), str)):
+            raise ValueError("태그 항목의 형식이 올바르지 않습니다.")
+        keys.add(row["key"])
+        for tag in row["tags"]:
+            if not isinstance(tag, str):
+                raise ValueError("태그 값이 올바르지 않습니다.")
+            normalize_tag(tag)
+    book = TagBook(**{"color_names": names, "subcategories": subs})
+    book.load_rows(rows)
+    return book
 
 
 def migrate_row(row):
