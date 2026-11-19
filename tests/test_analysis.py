@@ -689,7 +689,7 @@ class AnalysisTests(unittest.TestCase):
 
     def test_pipeline_has_registered_parsers(self):
         from log_hunter.core.pipeline import PARSERS
-        self.assertEqual(len(PARSERS), 36)
+        self.assertEqual(len(PARSERS), 37)
         self.assertNotIn("mountpoints2", PARSERS)
         self.assertIn("tasks", PARSERS)
         self.assertIn("network", PARSERS)

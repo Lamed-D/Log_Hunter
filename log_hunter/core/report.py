@@ -155,7 +155,7 @@ def _write_html_report(path, payload, evidence, events, errors, relations, summa
     tasks_panel = _tasks_panel(tasks, lambda path: origins.get(str(path), str(path))) + "\n  " if tasks else ''
     usb_tab = f'<div class="tab" data-panel="usb">{html.escape(USB_REPORT_TEXT["tab"])}</div>\n    ' if usb else ''
     usb_panel = _usb_panel(usb, lambda path: origins.get(str(path), str(path))) + "\n  " if usb else ''
-    web = [e for e in events if e.artifact in ("history", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks")]  # own tab only when there are browser records
+    web = [e for e in events if e.artifact in ("history", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks", "webcache")]  # own tab only when there are browser records
     web_tab = f'<div class="tab" data-panel="web">{html.escape(WEB_TEXT["tab"])}</div>\n    ' if web else ''
     web_panel = _web_panel(web, lambda path: origins.get(str(path), str(path))) + "\n  " if web else ''
     page = f'''<!doctype html>

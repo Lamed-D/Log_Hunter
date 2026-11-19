@@ -382,6 +382,8 @@ CATEGORY_FIELDS = {"cookies": _column_properties("web_cookies"), "favicons": _co
                    "autofill": _column_properties("web_autofill"), "browser_extensions": _column_properties("web_extensions"),
                    "browser_profiles": _column_properties("web_profiles"), "bookmarks": _column_properties("web_bookmarks"),
                    "email": _column_properties("email"),
+                   "webcache": lambda event, ctx: (_column_properties("web_cookies")(event, ctx) if event.action == "cookie_stored"
+                                                   else web_properties(event, ctx)),
                    "mru": recent_properties, "lnk": recent_properties, "jumplist": jump_list_properties,
                    "shellbag": recent_properties,"tasks": task_properties, "taskcache": task_properties, "evtx": evtx_properties, "wlan": wifi_properties, "defender": defender_properties, "prefetch": prefetch_properties, "usb": usb_properties, "recyclebin": recycle_properties,
                    "history": web_properties}

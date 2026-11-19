@@ -11,7 +11,7 @@ _ACTIVITY_MAP = {
     "bam": "user_activity",
     "history": "user_activity",
     "cookies": "user_activity", "favicons": "user_activity", "autofill": "user_activity",
-    "browser_extensions": "system_config", "browser_profiles": "user_activity", "bookmarks": "user_activity", "email": "user_activity",
+    "browser_extensions": "system_config", "browser_profiles": "user_activity", "bookmarks": "user_activity", "email": "user_activity", "webcache": "user_activity",
     "jumplist": "user_activity",
     "run": "system_config",
     "tasks": "system_config",

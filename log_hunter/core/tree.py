@@ -23,7 +23,7 @@ ARTIFACT_CATEGORIES = [
     ("recycle_bin", "휴지통", ("recyclebin",)),
     ("shell_bags", "열어본 폴더", ("shellbag",)),
     ("usb_devices", "USB·외부 장치 연결", ("usb",)),
-    ("web_history", "웹 기록", ("history", "cache", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks")),
+    ("web_history", "웹 기록", ("history", "cache", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks", "webcache")),
     ("email", "이메일", ("email",)),
     ("autostart","자동 실행 항목", ("run", "startup", "services", "tasks", "taskcache")),
     ("commands", "입력한 명령어", ("psreadline",)),
@@ -195,6 +195,9 @@ def _data_artifacts(events, summaries=(), errors=()):
             execution_groups = _execution_groups(key, events, present)
             if execution_groups.children:
                 category.children.append(execution_groups)
+        if "webcache" in present:  # the legacy cache database holds visits, cookies and downloads together
+            legacy = next((c for c in category.children if c.value == ("webcache",)), category)
+            legacy.children = _action_nodes(key, "webcache", events)
         if "history" in present:  # 방문 / 다운로드: one browser database, two kinds of record
             history = next((c for c in category.children if c.value == ("history",)), category)
             history.children = _action_nodes(key, "history", events)
@@ -250,6 +253,8 @@ def _target_groups(category, events):
 
 # Sub-nodes that split one artifact by what its records are: (node name, actions).
 ACTION_NODES = {
+    "webcache": (("visits", ("url_visit",)), ("summaries", ("url_summary",)), ("cookies", ("cookie_stored",)),
+                 ("downloads", ("download",))),
     "history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)), ("searches", ("web_search",))),
     "jumplist": (("files", ("jump_list_file",)), ("items", ("recent_file_access",))),
     "cache": (("entries", ("cache_entry", "cache_url_candidate")), ("status", ("cache_folder_status",))),
@@ -261,7 +266,7 @@ ACTION_NODES = {
 
 def _action_nodes(category, artifact, events):
     counts = Counter(e.action for e in events if e.artifact == artifact)
-    labels = {"jumplist": JUMP_LIST_TEXT, "cache": CACHE_TEXT, "history": WEB_TEXT,
+    labels = {"jumplist": JUMP_LIST_TEXT, "cache": CACHE_TEXT, "history": WEB_TEXT, "webcache": WEB_TEXT,
               "mft": FILE_INVENTORY_TEXT}[artifact]["nodes"]
     return [TreeNode(f"art:{category}:{artifact}:{name}", labels[name], "action_set", (artifact, actions),
                      sum(counts[a] for a in actions)) for name, actions in ACTION_NODES[artifact]]
