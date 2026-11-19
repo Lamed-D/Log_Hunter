@@ -162,6 +162,41 @@ def _extract_cfbf_streams(data, on_error=None):
 class JumpListParser(ArtifactParser):
     artifact = "jumplist"
 
+    def parse_with_file_record(self, path, metadata=None):
+        """Retain the file even when none of its entries can be decoded."""
+        path = Path(path)
+        metadata = metadata or {}
+        before = len(self.errors)
+        entries = list(self.parse(path))
+        diagnostics = self.errors[before:]
+        file_id = str(path.resolve())
+        app_id = _app_id_from_filename(path.name)
+        size = metadata.get("size")
+        if size is None:
+            try:
+                size = path.stat().st_size
+            except OSError:
+                pass
+        reason = diagnostics[0].message if diagnostics else "읽을 수 있는 내부 항목이 없습니다" if not entries else None
+        state = ("failed" if any(error.severity == "error" for error in diagnostics) else
+                 "no_entries" if not entries else "partial" if diagnostics or any(e.status != "ok" for e in entries) else "parsed")
+        yield ForensicEvent(
+            self.artifact, str(path), "jump_list_file", metadata.get("modified"),
+            "si_modified" if metadata.get("modified") else None,
+            sid=self.sid, path=metadata.get("image_path") or str(path), locator="file",
+            status="error" if state == "failed" else "ok" if state == "parsed" else "partial",
+            details={
+                "jump_list_file_id": file_id, "app_id": app_id, "app_name": KNOWN_APP_IDS.get(app_id, app_id),
+                "item_count": len(entries), "file_parse_state": state, "file_parse_reason": reason,
+                "file_size": size, "source_path": metadata.get("image_path"),
+                "file_times": {key: metadata.get(key) for key in ("created", "modified", "mft_modified", "accessed")},
+                "mft_record": metadata.get("mft_record"), "mft_sequence": metadata.get("mft_sequence"),
+            },
+        )
+        for event in entries:
+            event.details["jump_list_file_id"] = file_id
+            yield event
+
     def parse(self, path):
         source = Path(path)
         if source.is_dir():
@@ -371,3 +406,37 @@ class JumpListParser(ArtifactParser):
                 status="partial",
                 details=details,
             )
+
+
+def deleted_jump_list_records(events):
+    """One recovery candidate per unused MFT record, without opening deleted data."""
+    groups = {}
+    for event in events:
+        if event.artifact != "mft" or event.details.get("in_use") is not False or event.details.get("directory"):
+            continue
+        name = next((row["name"] for row in event.details.get("names", ())
+                     if row["name"].casefold().endswith((".automaticdestinations-ms", ".customdestinations-ms"))), None)
+        if name is None:
+            continue
+        key = (event.source, event.locator)
+        if key not in groups:
+            app_id = _app_id_from_filename(name)
+            groups[key] = ForensicEvent(
+                "jumplist", event.source, "jump_list_file", path=event.path or name,
+                locator=event.locator, status="partial",
+                details={"jump_list_file_id": f"{event.source}:{event.locator}",
+                         "app_id": app_id, "app_name": KNOWN_APP_IDS.get(app_id, app_id),
+                         "item_count": None, "file_parse_state": "deleted",
+                         "file_parse_reason": "미사용 MFT 레코드에 파일 이름이 남아 있습니다",
+                         "file_size": event.details.get("data_size"), "file_times": {},
+                         "source_path": event.path, "mft_sequence": event.details.get("sequence"),
+                         "source_locator": event.locator},
+            )
+        row = groups[key]
+        field = {"si_created": "created", "si_modified": "modified",
+                 "si_mft_changed": "mft_modified", "si_accessed": "accessed"}.get(event.time_field)
+        if field:
+            row.details["file_times"][field] = event.timestamp
+        if field == "modified" and event.timestamp:
+            row.timestamp, row.time_field = event.timestamp, event.time_field
+    return list(groups.values())

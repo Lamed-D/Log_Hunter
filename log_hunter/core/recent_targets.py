@@ -39,7 +39,7 @@ def attach_target_keys(events):
     """Set details target_key (this record) and target_group (the group it is shown in). A name-only record joins the
     one full-path group with that last name; with none or several candidates it stays its own group. The way it was
     joined is kept in target_match ('path' / 'name') so a name match is never shown as a confirmed same file."""
-    recent = [e for e in events if e.artifact in RECENT_ARTIFACTS]
+    recent = [e for e in events if e.artifact in RECENT_ARTIFACTS and e.action != "jump_list_file"]
     by_name = defaultdict(set)
     for event in recent:
         key = target_key(event)
