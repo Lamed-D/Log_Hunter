@@ -217,9 +217,9 @@ class Pipeline:
                                              include_mft=include_mft, progress=extract_progress,
                                              verification_progress=verification_progress, verification_cancel=verification_cancel)
         self.file_times = {**self.file_times, **file_times([extraction])}
-        return apply_image_metadata(
-            self.analyze(extraction.inputs, sid, environment, progress, file_inventory=extraction.file_inventory),
-            extraction)
+        result = self.analyze(extraction.inputs, sid, environment, progress, file_inventory=extraction.file_inventory)
+        result.settings["include_mft"] = bool(include_mft)
+        return apply_image_metadata(result, extraction)
 
     def analyze_image(self, image_path, workdir, sid=None, environment=None, progress=None,
                       include_mft=False, extract_progress=None, verify=False,
