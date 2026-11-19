@@ -687,9 +687,9 @@ class AnalysisTests(unittest.TestCase):
         cats_tamp = classify_event(1102, "Security", "Microsoft-Windows-Security-Auditing")
         self.assertIn("TAMPERING", cats_tamp)
 
-    def test_pipeline_has_26_parsers(self):
+    def test_pipeline_has_registered_parsers(self):
         from log_hunter.core.pipeline import PARSERS
-        self.assertEqual(len(PARSERS), 33)
+        self.assertEqual(len(PARSERS), 36)
         self.assertNotIn("mountpoints2", PARSERS)
         self.assertIn("tasks", PARSERS)
         self.assertIn("network", PARSERS)

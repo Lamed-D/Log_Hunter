@@ -153,7 +153,7 @@ class TreeFromImageTests(unittest.TestCase):
             roots = build_tree(result.events, result.relations, result.errors, {}, origins,
                                [e.source for e in result.evidence])
             config = find(roots, "src:" + "\\".join(("case.E01", "볼륨 0", "Windows", "System32", "config")))
-            self.assertEqual(sorted(c.label for c in config.children), ["SOFTWARE", "SYSTEM", "SYSTEM.LOG1"])
+            self.assertEqual(sorted(c.label for c in config.children), ["SAM", "SOFTWARE", "SYSTEM", "SYSTEM.LOG1"])
             prefetch = find(roots, "src:" + "\\".join(("case.E01", "볼륨 0", "Windows", "Prefetch")))
             self.assertEqual(len(prefetch.children), 40)  # files with no parsed records still appear
             self.assertEqual(prefetch.count, sum(e.artifact == "prefetch" for e in result.events))

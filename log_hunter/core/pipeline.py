@@ -44,6 +44,7 @@ from log_hunter.parser.defender import DefenderParser
 from log_hunter.parser.chromium_extra import AutofillParser, CookiesParser, FaviconsParser
 from log_hunter.parser.chromium_prefs import BookmarksParser, BrowserExtensionsParser, BrowserProfilesParser
 from log_hunter.parser.email_message import EmailParser
+from log_hunter.parser.windows_inventory import InstalledProgramsParser, LocalAccountsParser, OSInfoParser, combine_os_records
 
 PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "mru": MRUParser,
            "usb": USBParser, "amcache": AmcacheParser, "psreadline": PSReadLineParser, "history": HistoryParser,
@@ -55,7 +56,9 @@ PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "
            "defender": DefenderParser,
            "cookies": CookiesParser, "favicons": FaviconsParser, "autofill": AutofillParser,
            "browser_extensions": BrowserExtensionsParser, "browser_profiles": BrowserProfilesParser,
-           "bookmarks": BookmarksParser, "email": EmailParser}
+           "bookmarks": BookmarksParser, "email": EmailParser, "windows_installed": InstalledProgramsParser,
+           "windows_os": OSInfoParser, "windows_accounts": LocalAccountsParser}
+INVENTORY_HIVES = ("windows_installed", "windows_os", "windows_accounts")
 # Browser SQLite databases: read through a recovered working copy (journal/WAL merged), never in place.
 BROWSER_SQLITE = ("history", "cookies", "favicons", "autofill")
 
@@ -264,7 +267,7 @@ class Pipeline:
                 sources = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
                 if artifact in (*BROWSER_SQLITE, "srum"):
                     sources += [Path(str(path) + suffix) for suffix in ("-wal", "-shm", "-journal") if Path(str(path) + suffix).exists()]
-                if artifact in ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag", "network", "services", "rdp", "taskcache"):
+                if artifact in ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag", "network", "services", "rdp", "taskcache", *INVENTORY_HIVES):
                     sources += [Path(str(path) + suffix) for suffix in (".LOG1", ".LOG2") if Path(str(path) + suffix).exists()]
                 for source in sources:
                     before[source] = sha256(source)
@@ -275,7 +278,7 @@ class Pipeline:
                     item = register_evidence(source, source, "OFFLINE")
                     item.metadata = {"log_replay": False, "source_sidecar": not path.is_dir() and source != path}
                     result.evidence.append(item)
-                if artifact in ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag", "network", "services", "taskcache"):
+                if artifact in ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag", "network", "services", "taskcache", *INVENTORY_HIVES):
                     with path.open("rb") as stream:
                         header = stream.read(12)
                     if header[:4] == b"regf" and header[4:8] != header[8:12]:
@@ -366,6 +369,7 @@ class Pipeline:
                 event.details.update(time_details)
         from .task_merge import merge_tasks
         result.events = merge_tasks(result.events, result.evidence)
+        result.events = combine_os_records(result.events)
         result.events = timeline(normalize_event_timestamp(event) for event in result.events)
         attach_target_keys(result.events)
         from log_hunter.parser.usb_inventory import usb_device_inventory

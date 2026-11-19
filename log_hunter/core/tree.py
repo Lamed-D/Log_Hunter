@@ -14,7 +14,9 @@ from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, JUMP_LIST_T
 ARTIFACT_CATEGORIES = [
     ('security_detections', '백신 파일 기록', ('defender',)),
     ("run_programs", "실행한 프로그램", ("prefetch", "bam", "userassist")),
-    ("installed_programs", "설치된 프로그램", ("amcache",)),
+    ("installed_programs", "설치된 프로그램", ("amcache", "windows_installed")),
+    ("windows_system", "Windows 설치 정보", ("windows_os",)),
+    ("windows_accounts", "Windows 계정과 프로필", ("windows_accounts",)),
     ("recent_documents", "최근 문서", ("mru", "lnk", "jumplist")),
     ('thumbnail_cache', '파일 미리 보기 흔적', ('thumbcache',)),
     ("recycle_bin", "휴지통", ("recyclebin",)),
