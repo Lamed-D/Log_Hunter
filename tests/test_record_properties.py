@@ -23,9 +23,9 @@ def prefetch(time, **details):
 
 class FormatTests(unittest.TestCase):
     def test_time_format(self):
-        self.assertEqual(rf.format_time("2026-10-30T17:42:15+00:00"), "2026-10-30 17:42:15 (UTC)")
-        self.assertEqual(rf.format_time("2026-10-30T17:42:15.123456+00:00", (540, "한국 표준시")),
-                         "2026-10-30 17:42:15 (UTC) / 2026-10-31 02:42:15 (한국 표준시 +09:00)")
+        self.assertEqual(rf.format_time("2026-10-30T17:42:15+00:00"), "2026-10-30 17:42:15 UTC")
+        # Always UTC: other offsets are converted, no local time is added next to it.
+        self.assertEqual(rf.format_time("2026-10-31T02:42:15.123456+09:00"), "2026-10-30 17:42:15 UTC")
         self.assertEqual(rf.format_time("2026-10-30T17:42:15"), "2026-10-30 17:42:15 (시간대 미상)")
         self.assertEqual(rf.format_time(None), "알 수 없음")
         self.assertEqual(rf.format_time("garbage"), "garbage")
@@ -47,11 +47,11 @@ class CategoryTests(unittest.TestCase):
         self.assertEqual(fields[L["modified"]], "알 수 없음")  # never blank
         self.assertEqual(fields[L["file_size"]], "12,345 바이트")
         self.assertEqual(fields[L["exe_path"]], VOL + r"\WINDOWS\SYSTEM32\CMD.EXE")
-        self.assertEqual(fields[L["last_run"]], "2024-01-09 00:00:00 (UTC)")
+        self.assertEqual(fields[L["last_run"]], "2024-01-09 00:00:00 UTC")
         self.assertEqual(fields[L["exe_exists"]], L["exe_unknown"])
         tabs = {name: lines for name, lines, _ in props.tabs}
         self.assertEqual(len(tabs[L["previous_runs"]]), 8)  # at most eight run times
-        self.assertTrue(tabs[L["previous_runs"]][0].endswith("2024-01-09 00:00:00 (UTC)"))
+        self.assertTrue(tabs[L["previous_runs"]][0].endswith("2024-01-09 00:00:00 UTC"))
         self.assertEqual(len(tabs[L["references"]]), 2)
         self.assertIn("A1B2C3D4", tabs[L["volumes"]][0])
         self.assertIn(L["raw_json"], tabs)
@@ -75,7 +75,7 @@ class CategoryTests(unittest.TestCase):
                                 "last_arrival", details=ident)
         fields = dict(rf.properties(reg, rf.Context(siblings=[arrival])).fields)
         self.assertEqual(fields[L["vid_pid"]], "FFFF / 0001")
-        self.assertEqual(fields["마지막 연결"], "2024-01-03 00:00:00 (UTC)")
+        self.assertEqual(fields["마지막 연결"], "2024-01-03 00:00:00 UTC")
         self.assertEqual(fields["최초 설치"], "알 수 없음")
         recycled = ForensicEvent("recyclebin", r"C:\Evidence\$IABC.txt", "파일 삭제", "2024-01-02T00:00:00+00:00",
                                  "deletion_time", details={"original_path": r"C:\Users\alice\a.txt", "file_size": 4096,

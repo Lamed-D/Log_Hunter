@@ -465,6 +465,8 @@ COLUMN_LABELS = {
     "lnk_target_written": "대상 수정", "lnk_target_accessed": "대상 접근",
     "jump_list_item_count": "내부 항목 수", "jump_list_file_state": "파일 해석 상태",
 }
+# 날짜 필터: 입력한 날짜는 UTC 기준으로 해석 (화면의 모든 시각도 UTC)
+FILTER_TEXT = {"start": "시작 (UTC):", "end": "종료 (UTC):"}
 # 최근 파일·폴더: 같은 대상 묶어 보기(출처별 기록), 바로가기 한 줄 보기, 원본 위치와 시각의 의미
 RECENT_TEXT = {
     "nodes": {"targets": "같은 대상 묶어 보기", "single": "출처가 하나뿐인 대상", "shortcuts": "바로가기별 (한 줄에 하나)"},

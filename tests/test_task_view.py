@@ -35,7 +35,7 @@ class TaskViewTest(unittest.TestCase):
         shown = {key: task_view.cell(key, merged()) for key in task_view.COLUMNS}
         self.assertEqual(shown["task_name"], r"\Example\Updater")
         self.assertEqual(shown["task_command"], r"C:\Users\alice\AppData\Local\updater.exe --quiet")
-        self.assertEqual(shown["registration_time"], "2024-01-01 10:00:00 (UTC)")
+        self.assertEqual(shown["registration_time"], "2024-01-01 10:00:00 UTC")
         self.assertEqual(shown["last_completed_time"], "알 수 없음")
         self.assertEqual(shown["task_hidden"], "숨겨진 작업 단서 (보안 설명자 없음)")
         self.assertEqual(shown["task_source"], "레지스트리·작업 파일 둘 다")

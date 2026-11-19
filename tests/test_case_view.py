@@ -40,7 +40,7 @@ class CaseViewTest(unittest.TestCase):
                     "events": 1234, "source_state": "linked"},
                    {"path": r"C:\Evidence\gone\case.sqlite", "name": "gone", "saved_at": "", "events": None, "source_state": ""}]
         rows = case_view.recent_rows(entries, exists=lambda p: "alice" in p)
-        self.assertEqual(rows[0][1][:4], ("alice", "2024-01-01 10:00:00 (UTC)", "1,234", "원본 연결됨"))
+        self.assertEqual(rows[0][1][:4], ("alice", "2024-01-01 10:00:00 UTC", "1,234", "원본 연결됨"))
         self.assertFalse(rows[0][2])
         self.assertEqual(rows[1][1][:4], ("gone", "알 수 없음", "알 수 없음", "파일 없음"))
         self.assertTrue(rows[1][2])
@@ -59,7 +59,7 @@ class CaseViewTest(unittest.TestCase):
                             {"path": r"C:\Evidence\NTUSER.DAT", "kind": "file", "status": "present_unverified"}]}
         title, line, warnings = case_view.case_status(info, 1234)
         self.assertEqual(title, "Log Hunter - alice-case (저장한 분석)")
-        self.assertEqual(line, "저장한 분석 'alice-case' · 저장 2024-01-01 10:00:00 (UTC) · 도구 0.9 · 기록 1,234건")
+        self.assertEqual(line, "저장한 분석 'alice-case' · 저장 2024-01-01 10:00:00 UTC · 도구 0.9 · 기록 1,234건")
         self.assertEqual(warnings[0], "저장 후 바뀜")
         self.assertIn("일부만 불러왔습니다", warnings[1])
         self.assertIn("settings", warnings[2])

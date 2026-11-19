@@ -17,7 +17,7 @@ from log_hunter.image import (extract_artifacts, is_admin, is_live_path, live_de
 from . import charts, content, detail, fs_model, nav, nav_tools, view_model
 from .file_list import FileListView
 from . import relation_view, recycle_view
-from log_hunter.core.labels import CASE_TEXT, NAV_TEXT, RECYCLE_TEXT, SID_TEXT
+from log_hunter.core.labels import CASE_TEXT, FILTER_TEXT, NAV_TEXT, RECYCLE_TEXT, SID_TEXT
 from . import record_fields
 from .properties import PropertiesDialog
 from .folder_nav import FolderHistory, crumbs, folder_key, parent_key
@@ -152,12 +152,12 @@ def run(live=None):
                  state="readonly", width=24).pack(side="left", padx=3)
 
     # Date range filter
-    ttk.Label(filter_bar, text="시작:").pack(side="left", padx=(10, 2))
+    ttk.Label(filter_bar, text=FILTER_TEXT["start"]).pack(side="left", padx=(10, 2))
     start_date = tk.StringVar()
     start_entry = ttk.Entry(filter_bar, textvariable=start_date, width=20)
     start_entry.pack(side="left")
     start_entry.insert(0, "")
-    ttk.Label(filter_bar, text="종료:").pack(side="left", padx=(5, 2))
+    ttk.Label(filter_bar, text=FILTER_TEXT["end"]).pack(side="left", padx=(5, 2))
     end_date = tk.StringVar()
     end_entry = ttk.Entry(filter_bar, textvariable=end_date, width=20)
     end_entry.pack(side="left")

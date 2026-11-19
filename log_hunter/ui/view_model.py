@@ -47,10 +47,20 @@ def display_target(event):
     return event.path or event.process or event.url or (event.details or {}).get("command") or ""
 
 
+def _utc(value):
+    from .record_fields import format_time
+    return format_time(value)
+
+
+def _time_text(event):
+    from .record_fields import event_time_text
+    return event_time_text(event)
+
+
 def timeline_row(event, sid_map):
     """(values in TIMELINE_COLUMNS order, color tag or "")."""
     username = display_name(event.sid, sid_map)
-    values = (artifact_label(event.artifact), event.timestamp or "알 수 없음",
+    values = (artifact_label(event.artifact), _time_text(event),
               time_field_label(event.time_field) if event.time_field else "", event.sid or "", username,
               action_label(event.action), display_target(event), status_label(event.status))
     return values, event.artifact if event.artifact in ARTIFACT_COLORS else ""
@@ -61,7 +71,7 @@ def matches_search(event, text, sid_map):
     if not text:
         return True
     username = display_name(event.sid, sid_map)
-    fields = (event.artifact or "", event.timestamp or "", event.action or "", display_target(event),
+    fields = (event.artifact or "", event.timestamp or "", _time_text(event), event.action or "", display_target(event),
               event.sid or "", username, artifact_label(event.artifact), action_label(event.action),
               time_field_label(event.time_field) if event.time_field else "", status_label(event.status))
     return any(text in field.lower() for field in fields)
@@ -202,7 +212,7 @@ def relation_events(relation, events):
 
 
 def evidence_rows(evidence):
-    return [(evidence_origin(e), e.sha256[:16] + "...", method_label(e.method), e.collected_at or "") for e in evidence]
+    return [(evidence_origin(e), e.sha256[:16] + "...", method_label(e.method), _utc(e.collected_at) if e.collected_at else "") for e in evidence]
 
 
 def stats_lines(result):
@@ -210,7 +220,7 @@ def stats_lines(result):
     processes = {e.process for e in result.events if e.process}
     sids = {e.sid for e in result.events if e.sid}
     timestamps = [e.timestamp for e in result.events if e.timestamp]
-    time_range = f"{min(timestamps)} ~ {max(timestamps)}" if timestamps else "알 수 없음"
+    time_range = f"{_utc(min(timestamps))} ~ {_utc(max(timestamps))}" if timestamps else "알 수 없음"
     lines = [f"찾은 기록: {len(result.events)}건", f"기록 종류: {len(Counter(e.artifact for e in result.events))}개",
              f"사용자: {len(sids)}명", f"실행된 프로그램: {len(processes)}개", f"연관 관계: {len(result.relations)}건",
              f"오류/경고: {len(result.errors)}건", f"기간: {time_range}", f"분석한 파일: {len(result.evidence)}개"]

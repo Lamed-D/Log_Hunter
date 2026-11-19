@@ -10,7 +10,7 @@ from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, DEFENDER_TEXT, JUMP_L
 from log_hunter.core.tree import category_of
 from . import task_view
 from log_hunter.core.sid_resolver import display_name
-from log_hunter.core.timestamp import display_event_time
+from .record_fields import event_time_text, format_time
 
 
 @dataclass(frozen=True)
@@ -173,9 +173,10 @@ def cell(key, event, sid_map, origins):
     if key == "artifact":
         return artifact_label(event.artifact)
     if key == "timestamp":
-        if event.artifact == "shellbag":
-            return display_event_time(event) or "알 수 없음"
-        return event.timestamp or "알 수 없음"
+        return event_time_text(event)
+    if key in TIME_VALUE_KEYS:  # other times kept in the details, shown the same UTC way
+        value = _time_value(key, event, details)
+        return format_time(value) if value else ""
     if key == "time_field":
         return time_field_label(event.time_field) if event.time_field else ""
     if key == "sid":
@@ -232,6 +233,19 @@ def cell(key, event, sid_map, origins):
         return _WEB_CELLS[key](event, details) if event.artifact in WEB_ARTIFACTS else ""
     value = details.get(key)
     return "" if value is None else str(value)
+
+
+# Columns that hold a time from the record details: shown as UTC text like the main time column.
+TIME_VALUE_KEYS = ("download_start", "download_end", "lnk_file_created", "lnk_file_modified", "lnk_target_created",
+                   "lnk_target_written", "lnk_target_accessed", "cookie_created", "cookie_expires", "first_used", "last_used")
+
+
+def _time_value(key, event, details):
+    if key.startswith("lnk_"):
+        return (details.get("lnk_times") or {}).get(key) if event.artifact == "lnk" else None
+    if key.startswith("download_"):
+        return details.get(key) if event.action == "download" else None
+    return details.get(key)
 
 
 def source_location(event, origins=None):
