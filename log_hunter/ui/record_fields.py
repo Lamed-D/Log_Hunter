@@ -205,6 +205,8 @@ def web_properties(event, ctx):
     where = (L["browser"], _text(" · ".join(str(x) for x in (d.get("browser"), d.get("profile")) if x) or None))
     if event.action == "download":
         return _download_properties(event, ctx, d, where)
+    if event.action == "web_search":
+        return _column_properties("web_searches")(event, ctx)
     fields = [
         (L["title"], _text(d.get("title"))),
         (L["url"], _text(event.url or d.get("url"))),
@@ -374,7 +376,27 @@ def jump_list_properties(event, ctx):
     return fields, [_raw_tab(event)], None
 
 
-CATEGORY_FIELDS = {"mru": recent_properties, "lnk": recent_properties, "jumplist": jump_list_properties,
+def _column_properties(set_name):
+    """Properties that show the same fields as the record's own table columns (browser records, e-mail), then the
+    time meaning, the user and where the record was read."""
+    def build(event, ctx):
+        from . import columns
+        user = display_name(event.sid, ctx.sid_map)
+        fields = [(column_label(c.key), columns.cell(c.key, event, ctx.sid_map, None) or UNKNOWN_VALUE)
+                  for c in columns.CATEGORY_COLUMNS[set_name] if c.key not in ("user", "origin", "time_field", "timestamp")]
+        fields = [(L["timestamp"], event_time_text(event)),
+                  (L["time_field"], time_field_label(event.time_field) if event.time_field else UNKNOWN_VALUE),
+                  *fields, (L["user"], f"{user} ({event.sid})" if user else _text(event.sid)),
+                  (L["source"], _text(ctx.source_text or event.source))]
+        return fields, [_raw_tab(event)], None
+    return build
+
+
+CATEGORY_FIELDS = {"cookies": _column_properties("web_cookies"), "favicons": _column_properties("web_icons"),
+                   "autofill": _column_properties("web_autofill"), "browser_extensions": _column_properties("web_extensions"),
+                   "browser_profiles": _column_properties("web_profiles"), "bookmarks": _column_properties("web_bookmarks"),
+                   "email": _column_properties("email"),
+                   "mru": recent_properties, "lnk": recent_properties, "jumplist": jump_list_properties,
                    "shellbag": recent_properties,"tasks": task_properties, "taskcache": task_properties, "evtx": evtx_properties, "wlan": wifi_properties, "defender": defender_properties, "prefetch": prefetch_properties, "usb": usb_properties, "recyclebin": recycle_properties,
                    "history": web_properties}
 
