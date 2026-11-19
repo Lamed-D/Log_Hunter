@@ -156,6 +156,22 @@ def where(filters, *, indexed, fts=False, tag_match=None):
             add("q.artifact='usb' AND q.usb_hidden IS NULL") if value is None else add("q.artifact='usb' AND q.usb_hidden=?", value)
         elif kind == 'task_signals':
             add("q.artifact IN ('tasks','taskcache') AND q.task_signals=1")
+        elif kind == 'action_set':  # one artifact split by what its records are (방문/다운로드, 목록 파일/내부 항목, ...)
+            if (not isinstance(value, (list, tuple)) or len(value) != 2 or not isinstance(value[0], str)
+                    or not isinstance(value[1], (list, tuple)) or not all(isinstance(v, str) for v in value[1])):
+                raise QueryInputError('action node requires an artifact and action keys')
+            actions = list(value[1])
+            add('q.artifact=? AND q.action IN (' + (','.join('?' for _ in actions) or 'NULL') + ')', value[0], *actions)
+        elif kind == 'lnk_shortcuts':
+            add("q.artifact='lnk' AND q.lnk_rep=1")
+        elif kind == 'target_groups':
+            add('q.target_group IS NOT NULL')
+        elif kind == 'target_group':
+            if not isinstance(value, str):
+                raise QueryInputError('target group requires a group key')
+            add('q.target_group=?', value)
+        elif kind == 'target_single':  # targets only one kind of record left (the tree's set is not needed)
+            add('lh_single_target(q.target_group)=1')
         else:
             raise QueryInputError('unsupported tree node; event_set requires database event_ids')
     tag = filters.get('tag')

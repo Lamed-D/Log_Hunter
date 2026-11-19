@@ -68,6 +68,8 @@ class CaseQuery(QueryDetails):
             self.db.create_function('lh_quick', 3, self._quick)
             self.db.create_function('lh_tag', 2, self._tag)
             self.db.create_function('lh_parts_len', 1, lambda text: len(json.loads(text)))
+            self._single_targets = None
+            self.db.create_function('lh_single_target', 1, lambda group: int(group in (self._single_targets or ())))
             self.db.create_function('lh_child', 2, lambda text, depth: json.dumps(json.loads(text)[:depth + 1], ensure_ascii=False))
             names = _tables(self.db)
             selected = self.db.execute('SELECT id,name FROM cases ' + ('WHERE id=? ' if case_id is not None else '') +
@@ -197,7 +199,18 @@ class CaseQuery(QueryDetails):
         return ('(SELECT ' + ','.join(columns) + ' FROM events e WHERE e.case_id=? AND lh_valid(e.data)=1) q',
                 '1', [self.case_id])
 
+    def _prepare_targets(self, filters):
+        """Targets only one kind of record left, computed once before a query that needs them."""
+        node = (filters or {}).get('node') or {}
+        if node.get('kind') != 'target_single' or self._single_targets is not None:
+            return
+        base, initial, params = self._base()
+        rows = self._execute('SELECT q.target_group FROM ' + base + ' WHERE (' + initial + ') AND q.target_group IS NOT NULL '
+                             'GROUP BY q.target_group HAVING COUNT(DISTINCT q.artifact)=1', params)
+        self._single_targets = frozenset(r[0] for r in (rows.fetchall() if rows is not None else ()))
+
     def _selection(self, filters, extra='1', extra_params=()):
+        self._prepare_targets(filters)
         base, initial, params = self._base()
         condition, values = filters_sql.where(filters, indexed=self.indexed, fts=self.fts)
         return base, '(' + initial + ') AND (' + condition + ') AND (' + extra + ')', params + values + list(extra_params)
