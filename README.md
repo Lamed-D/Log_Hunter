@@ -196,7 +196,7 @@ python -m log_hunter report --from outputs/image-case/case.sqlite --output outpu
 
 ## 지원하는 기록
 
-현재 37종의 입력 이름을 지원합니다. CLI의 `--input`에는 아래 이름을 사용합니다.
+현재 39종의 입력 이름을 지원합니다. CLI의 `--input`에는 아래 이름을 사용합니다.
 
 | 살펴볼 내용 | 입력 이름 | 주요 정보 |
 | --- | --- | --- |
@@ -205,7 +205,8 @@ python -m log_hunter report --from outputs/image-case/case.sqlite --output outpu
 | 자동 실행·예약 작업 | `run`, `startup`, `services`, `tasks`, `taskcache` | 로그인 시 실행 항목, 서비스, 예약 작업 파일과 레지스트리 등록 정보 |
 | 명령어·보안 이벤트 | `psreadline`, `evtx`, `defender` | PowerShell 명령 이력, Windows 이벤트, Defender 탐지·조치 기록 |
 | 파일·폴더 사용과 삭제 | `mru`, `lnk`, `jumplist`, `shellbag`, `recyclebin`, `mft`, `thumbcache` | 최근 항목, 바로가기, 폴더 기록, 휴지통, 파일 시각, 미리 보기 캐시 정보 |
-| 웹 사용 기록 | `history`, `cache`, `cookies`, `favicons`, `autofill`, `browser_extensions`, `browser_profiles`, `bookmarks`, `webcache` | 크롬·엣지의 방문·다운로드(저장 경로·주소 역할)·검색어, 캐시, 쿠키와 자동 완성(값은 읽지 않음), 사이트 아이콘, 확장 프로그램, 프로필, 책갈피·즐겨찾기, IE·레거시 엣지 웹 캐시 데이터베이스의 방문·쿠키 |
+| 지운 기록 후보 | `registry_deleted`, `browser_deleted` | 레지스트리 파일 빈 칸에 남은 지운 키·값, 브라우저 기록 파일 빈 페이지에 남은 웹 주소(후보와 신뢰도로 표시) |
+| 웹 사용 기록 | `history`, `cache`, `cookies`, `favicons`, `autofill`, `browser_extensions`, `browser_profiles`, `bookmarks`, `webcache` | 크롬·엣지의 방문·다운로드(저장 경로·주소 역할)·검색어, 캐시, 쿠키와 자동 완성(값은 읽지 않음), 사이트 아이콘, 확장 프로그램, 프로필, 책갈피·즐겨찾기, IE·레거시 엣지 웹 캐시 데이터베이스(ESE)의 방문·쿠키 |
 | 이메일 | `email` | 사용자 폴더에 저장된 .eml 메일의 보낸·받는 주소, 제목, 보낸 시각, 첨부 이름(본문은 저장하지 않음) |
 | USB·외부 장치 | `usb` | 장치 등록 정보, 식별자, 설치·연결·분리 관련 속성 시각 |
 | 네트워크·원격 접속 | `network`, `wlan`, `rdp`, `srum` | 네트워크·Wi-Fi 프로필, 원격 접속 관련 설정, 앱·네트워크 사용량(원본 SRUDB.dat 또는 SQLite로 내보낸 파일) |
