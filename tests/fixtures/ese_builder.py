@@ -4,8 +4,8 @@ import struct
 
 PAGE = 32768
 HEADER = 80
-TEXT, LONG_TEXT, LONG_BINARY, I16, I32, U32, I64 = 10, 12, 11, 3, 4, 14, 15
-FIXED = {I16: 2, I32: 4, U32: 4, I64: 8}
+TEXT, LONG_TEXT, LONG_BINARY, I16, I32, U32, I64, DATETIME = 10, 12, 11, 3, 4, 14, 15, 8
+FIXED = {I16: 2, I32: 4, U32: 4, I64: 8, DATETIME: 8}
 
 
 def _page(objid, flags, values):
@@ -40,7 +40,7 @@ def record(columns, values):
             fixed += bytes(FIXED[kind])
             nulls[(cid - 1) // 8] |= 1 << ((cid - 1) % 8)
         else:
-            fixed += struct.pack({I16: "<h", I32: "<i", U32: "<I", I64: "<q"}[kind], values[cid])
+            fixed += struct.pack({I16: "<h", I32: "<i", U32: "<I", I64: "<q", DATETIME: "<d"}[kind], values[cid])
     variable_ids = [i for i in sorted(columns) if 128 <= i < 256]
     last_variable = max([i for i in variable_ids if i in values] or [127])
     ends, data, end = b"", b"", 0

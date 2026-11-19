@@ -208,7 +208,7 @@ python -m log_hunter report --from outputs/image-case/case.sqlite --output outpu
 | 웹 사용 기록 | `history`, `cache`, `cookies`, `favicons`, `autofill`, `browser_extensions`, `browser_profiles`, `bookmarks`, `webcache` | 크롬·엣지의 방문·다운로드(저장 경로·주소 역할)·검색어, 캐시, 쿠키와 자동 완성(값은 읽지 않음), 사이트 아이콘, 확장 프로그램, 프로필, 책갈피·즐겨찾기, IE·레거시 엣지 웹 캐시 데이터베이스의 방문·쿠키 |
 | 이메일 | `email` | 사용자 폴더에 저장된 .eml 메일의 보낸·받는 주소, 제목, 보낸 시각, 첨부 이름(본문은 저장하지 않음) |
 | USB·외부 장치 | `usb` | 장치 등록 정보, 식별자, 설치·연결·분리 관련 속성 시각 |
-| 네트워크·원격 접속 | `network`, `wlan`, `rdp`, `srum` | 네트워크·Wi-Fi 프로필, 원격 접속 관련 설정, SQLite로 내보낸 앱·네트워크 사용량 |
+| 네트워크·원격 접속 | `network`, `wlan`, `rdp`, `srum` | 네트워크·Wi-Fi 프로필, 원격 접속 관련 설정, 앱·네트워크 사용량(원본 SRUDB.dat 또는 SQLite로 내보낸 파일) |
 
 같은 자료에서도 Windows 버전과 파일 형식에 따라 읽을 수 있는 항목이 달라집니다. 각 기록의 출처·시각 의미·진단을 결과와 함께 확인합니다.
 
