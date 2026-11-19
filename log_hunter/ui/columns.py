@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from log_hunter.core.export import csv_safe
 from log_hunter.core import thumbcache_view, wifi_view
 from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, DEFENDER_TEXT, USB_BASIS_LABELS, USB_CONFIDENCE_LABELS, USB_DEVICE_KINDS, USB_GROUP_AUXILIARY, USB_GROUP_BASIS_LABELS, USB_GROUP_NOT_CONFIRMED,
-                                    USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, WEB_TEXT, action_label,
+                                    USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, WEB_TEXT, RECENT_TEXT, action_label,
                                     artifact_label, column_label, status_label, time_field_label)
 from log_hunter.core.tree import category_of
 from . import task_view
@@ -29,6 +29,13 @@ CATEGORY_COLUMNS = {
     "run_programs": (*_HEAD, Column("program", 380), *_TAIL),
     "installed_programs": (*_HEAD, Column("program", 380), Column("publisher", 170), Column("version", 100), *_TAIL),
     "recent_documents": (*_HEAD, Column("document", 420), *_TAIL),
+    # 같은 대상 묶어 보기: the records of one target from every source, each with where it was read and what its time means.
+    "recent_targets": (*_HEAD, Column("time_field", 260), Column("document", 360), Column("source_location", 380),
+                       Column("target_match", 190), Column("user", 100), Column("origin", 300)),
+    # 바로가기별: one row per shortcut file with all its times side by side.
+    "shortcuts": (Column("lnk_file_created", 170), Column("document", 380), Column("lnk_file_modified", 170),
+                  Column("lnk_target_created", 170), Column("lnk_target_written", 170), Column("lnk_target_accessed", 170),
+                  Column("source_location", 340), Column("user", 100)),
     "recycle_bin": (*_HEAD, Column("original_path", 420), Column("file_size", 100), Column("recycle_pair", 300), *_TAIL),
     "shell_bags": (*_HEAD, Column("folder", 420), *_TAIL),
     # Kind is the engine's reading of recorded identifiers; the time is a key/property time, not a confirmed connection.
@@ -100,6 +107,10 @@ def columns_for(node):
         return CATEGORY_COLUMNS["scheduled_tasks"]
     if node is not None and node.kind in ("device_kind", "usb_device", "usb_hidden"):
         return CATEGORY_COLUMNS["usb_devices"]
+    if node is not None and node.kind in ("target_groups", "target_group", "target_single"):
+        return CATEGORY_COLUMNS["recent_targets"]
+    if node is not None and node.kind == "lnk_shortcuts":
+        return CATEGORY_COLUMNS["shortcuts"]
     if node is not None and node.kind == "action_set" and node.value[0] == "history":
         return CATEGORY_COLUMNS["web_downloads" if node.value[1] == ("download",) else "web_visits"]
     if node is None or node.kind != "artifacts":
@@ -169,10 +180,31 @@ def cell(key, event, sid_map, origins):
         return thumbcache_view.cell(key, event)
     if key == "network":
         return details.get("profile_name") or details.get("ssid_name") or target
+    if key == "source_location":
+        return source_location(event, origins)
+    if key == "target_match":
+        return RECENT_TEXT["match"].get(details.get("target_match"), "")
+    if key.startswith("lnk_file_") or key.startswith("lnk_target_"):
+        return str((details.get("lnk_times") or {}).get(key) or "") if event.artifact == "lnk" else ""
     if key in _WEB_CELLS:
         return _WEB_CELLS[key](event, details) if event.artifact == "history" else ""
     value = details.get(key)
     return "" if value is None else str(value)
+
+
+def source_location(event, origins=None):
+    """Where a recent-file record was read: the registry key path, the shortcut file inside the image, or the
+    Jump List file and the position inside it."""
+    origin = origins.text(event.source) if origins else str(event.source or "")
+    if event.artifact in ("mru", "shellbag"):
+        key = (event.details or {}).get("registry_key") if event.artifact == "shellbag" else None
+        return f"{RECENT_TEXT['where'][event.artifact]} {event.locator or key or ''}".strip()
+    if event.artifact == "lnk":
+        return f"{RECENT_TEXT['where']['lnk']} {origin}"
+    if event.artifact == "jumplist":
+        inner = str(event.locator or "").split(":", 1)[-1] if event.locator else ""
+        return f"{RECENT_TEXT['where']['jumplist']} {origin}" + (f" @ {inner}" if inner else "")
+    return origin
 
 
 def _download_only(key):

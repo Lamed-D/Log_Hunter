@@ -289,6 +289,7 @@ def parse_lnk(data, codepage=None):
 
 class LNKParser(ArtifactParser):
     artifact = "lnk"
+    file_times = None  # {resolved extracted path casefold: {created, modified, accessed}} set by image analysis
 
     def parse(self, path):
         source = Path(path)
@@ -323,18 +324,30 @@ class LNKParser(ArtifactParser):
                 if val is not None and val != "" and val != [] and val != 0:
                     details[key] = val
 
-            for time_field, timestamp in timestamps:
-                if timestamp:
-                    yield ForensicEvent(
-                        self.artifact, str(lnk_file), "shortcut_target",
-                        timestamp, time_field, sid=self.sid,
-                        path=target, locator=str(lnk_file.name),
-                        details=details,
-                    )
+            # The shortcut file's own times come from the file system it was copied out of (image MFT), never from
+            # the copy: created is a first-open candidate, modified a last-open candidate.
+            own = (self.file_times or {}).get(str(lnk_file.resolve()).casefold()) or {}
+            own_times = [("lnk_file_created", own.get("created")), ("lnk_file_modified", own.get("modified"))]
+            details["lnk_times"] = {field: ts for field, ts in timestamps + own_times if ts}
+            if own.get("accessed"):
+                details["lnk_file_accessed"] = own["accessed"]
+            # One record per time keeps the timeline sortable; lnk_representative marks the one row that stands for
+            # the whole shortcut (all its times are in lnk_times) so the list can show one shortcut per row.
+            emitted = False
+            for action, entries in (("shortcut_target", timestamps), ("shortcut_file", own_times)):
+                for time_field, timestamp in entries:
+                    if timestamp:
+                        yield ForensicEvent(
+                            self.artifact, str(lnk_file), action,
+                            timestamp, time_field, sid=self.sid,
+                            path=target, locator=str(lnk_file.name),
+                            details={**details, "lnk_representative": not emitted},
+                        )
+                        emitted = True
 
-            if not any(ts for _, ts in timestamps):
+            if not emitted:
                 yield ForensicEvent(
                     self.artifact, str(lnk_file), "shortcut_target",
                     sid=self.sid, path=target, locator=str(lnk_file.name),
-                    status="partial", details=details,
+                    status="partial", details={**details, "lnk_representative": True},
                 )

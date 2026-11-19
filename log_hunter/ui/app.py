@@ -5,7 +5,7 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, filedialog, messagebox, simpledialog
-from log_hunter.core.pipeline import Pipeline, PARSERS, PERMISSION_HINT, apply_image_metadata
+from log_hunter.core.pipeline import Pipeline, PARSERS, PERMISSION_HINT, apply_image_metadata, file_times
 from log_hunter.core.tree import OriginIndex, TreeNode, build_tree, event_properties, source_name
 from log_hunter.core.auto_detect import detect_inputs
 from log_hunter.core.sid_resolver import display_name, is_service_sid, resolve_sids
@@ -1059,7 +1059,7 @@ def run(live=None):
         def worker():
             try:
                 mapping = _resolve_sids(batch)
-                analysis = Pipeline().analyze(batch, progress=report)
+                analysis = Pipeline(file_times(extractions)).analyze(batch, progress=report)
                 for extraction in extractions:
                     if used & set(extraction.file_index()):
                         apply_image_metadata(analysis, extraction)
@@ -1624,7 +1624,8 @@ def run(live=None):
             file_extra=content.record_file_extra(evt.source, result.evidence if result else (), extractions),
             file_size=_file_size(evt.source), sid_map=sid_map,
             source_text=nav_state["origins"].text(evt.source) if nav_state.get("origins") else None,
-            origin=nav_state["origins"].text if nav_state.get("origins") else None)
+            origin=nav_state["origins"].text if nav_state.get("origins") else None,
+            related=[e for e in events if (evt.details or {}).get("target_group") and (e.details or {}).get("target_group") == evt.details["target_group"]])
         image, target = _image_of(evt.source), None
         if evt.artifact == "prefetch" and image:
             target = record_fields.prefetch_exe_target(evt)

@@ -4,9 +4,10 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import PureWindowsPath
 
+from .recent_targets import target_label
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, DETAIL_LABELS, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, DETAIL_LABELS, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -175,6 +176,12 @@ def _data_artifacts(events, summaries=(), errors=()):
             if flagged:
                 tasks.children = [*tasks.children, TreeNode(f"art:{key}:tasks:signals", TASK_TEXT["signal_node"],
                                                             "task_signals", task_group, flagged)]
+        if "lnk" in present:  # one row per shortcut: the representative record carries all its times
+            lnk = next((c for c in category.children if c.value == ("lnk",)), category)
+            count = sum(1 for e in events if e.artifact == "lnk" and (e.details or {}).get("lnk_representative"))
+            lnk.children = [TreeNode(f"art:{key}:lnk:shortcuts", RECENT_TEXT["nodes"]["shortcuts"], "lnk_shortcuts", None, count)]
+        if key == "recent_documents":
+            category.children = [*category.children, _target_groups(key, events)]
         if "history" in present:  # 방문 / 다운로드: one browser database, two kinds of record
             history = next((c for c in category.children if c.value == ("history",)), category)
             history.children = _action_nodes(key, "history", events)
@@ -187,6 +194,27 @@ def _data_artifacts(events, summaries=(), errors=()):
         root.children.append(TreeNode("art:other", "기타 기록", "artifacts", tuple(others), sum(counts[a] for a in others),
                                       [TreeNode(f"art:other:{a}", artifact_label(a), "artifacts", (a,), counts[a]) for a in others]))
     return root
+
+
+def _target_groups(category, events):
+    """같은 대상 묶어 보기: one node per target recorded by two or more kinds of record (recent documents, shortcuts,
+    Jump Lists, opened folders), then one node for targets only one kind recorded."""
+    members = {}
+    for event in events:
+        group = (event.details or {}).get("target_group")
+        if group:
+            members.setdefault(group, []).append(event)
+    kinds = {g: {e.artifact for e in rows} for g, rows in members.items()}
+    shared = sorted((g for g in members if len(kinds[g]) > 1), key=lambda g: (-len(kinds[g]), -len(members[g]), g))
+    children = [TreeNode(f"art:{category}:target:{g}", RECENT_TEXT["group"].format(
+        name=target_label(g, members[g]), kinds=len(kinds[g]), count=len(members[g])), "target_group", g, len(members[g]))
+        for g in shared]
+    single = frozenset(g for g in members if len(kinds[g]) == 1)
+    if single:
+        children.append(TreeNode(f"art:{category}:target:single", RECENT_TEXT["nodes"]["single"], "target_single", single,
+                                 sum(len(members[g]) for g in single)))
+    total = sum(len(rows) for rows in members.values())
+    return TreeNode(f"art:{category}:targets", RECENT_TEXT["nodes"]["targets"], "target_groups", None, total, children)
 
 
 # Sub-nodes that split one artifact by what its records are: (node name, actions).
@@ -308,6 +336,14 @@ def matches(node, event, origins):
                 and not usb_hidden(details))
     if node.kind == "task_signals":
         return event.artifact in TASK_ARTIFACTS and _task_flagged(event)
+    if node.kind == "lnk_shortcuts":
+        return event.artifact == "lnk" and bool((event.details or {}).get("lnk_representative"))
+    if node.kind == "target_groups":
+        return bool((event.details or {}).get("target_group"))
+    if node.kind == "target_group":
+        return (event.details or {}).get("target_group") == node.value
+    if node.kind == "target_single":
+        return (event.details or {}).get("target_group") in node.value
     if node.kind == "action_set":
         artifact, actions = node.value
         return event.artifact == artifact and event.action in actions
