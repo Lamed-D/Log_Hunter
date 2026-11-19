@@ -14,10 +14,11 @@ from log_hunter.core.timestamp import normalize_event_timestamp
 from log_hunter.core.wlan_profiles import link_wlan_profiles
 from log_hunter.parser.usb_inventory import usb_device_inventory
 from .case_db import load_case
-from .source_link import _file_state, _path_key
+from .source_link import _file_state, _fingerprint_image, _image_sets, _path_key
 
 
 DEPENDENT_ARTIFACTS = (frozenset(TASK_ARTIFACTS), {"usb", "userassist"}, {"network", "wlan"})
+DIRECTORY_ARTIFACTS = {"cache", "wlan", "recyclebin", "startup", "defender", "tasks"}
 
 
 def _saved_inputs(result, info):
@@ -37,19 +38,28 @@ def _saved_inputs(result, info):
         if artifact not in PARSERS or not path or not isinstance(path, str):
             raise ValueError("저장된 입력의 종류 또는 원본 위치를 확인할 수 없습니다")
         original = locations.get(_path_key(path), Path(path))
-        if not original.is_absolute() or _path_key(original) not in expected:
+        folder = original.is_dir() and artifact in DIRECTORY_ARTIFACTS
+        if not original.is_absolute() or (not folder and _path_key(original) not in expected):
             raise ValueError("저장된 입력에 확인 가능한 원본 해시가 없습니다")
-        if not original.is_file():
-            raise ValueError("저장된 개별 원본 파일을 찾을 수 없습니다")
+        if not folder and not original.is_file():
+            raise ValueError("저장된 원본 입력을 찾을 수 없습니다")
         inputs.append((artifact, original, row.get("sid")))
     return inputs, expected, locations
 
 
 def _inspect_inputs(inputs, expected):
-    inspected, states, families, changed = {}, {}, [], []
+    inspected, states, folders, families, changed = {}, {}, {}, [], []
     for artifact, path, _ in inputs:
         family = []
-        for member in [path, *input_sidecars(artifact, path)]:
+        if path.is_dir():
+            paths = sorted(p for p in path.rglob("*") if p.is_file())
+            folders[path] = set(paths)
+            previous = {Path(key) for key in expected if Path(key).is_relative_to(path)}
+            members = sorted(set(paths) | previous)
+            family.append(_path_key(path))
+        else:
+            members = [path, *input_sidecars(artifact, path)]
+        for member in members:
             key = _path_key(member)
             family.append(key)
             if key not in inspected:
@@ -63,8 +73,8 @@ def _inspect_inputs(inputs, expected):
                     inspected[key] = None
                     states[member] = None
         families.append(family)
-        changed.append(any(inspected[key] != expected.get(key) for key in family))
-    return changed, families, states
+        changed.append(any(inspected.get(key) != expected.get(key) for key in family))
+    return changed, families, states, folders
 
 
 def _selected_inputs(inputs, changed):
@@ -76,15 +86,53 @@ def _selected_inputs(inputs, changed):
     return [index for index, (artifact, _, _) in enumerate(inputs) if changed[index] or artifact in affected]
 
 
-def reanalyze_case(path, progress=None):
+def _reanalyze_image(result, info, workdir, progress):
+    image = result.image
+    original = image.get("image_path")
+    if not original or image.get("additional_images") or (image.get("image") or {}).get("snapshot"):
+        raise ValueError("별도 스냅숏이나 여러 이미지를 포함한 분석은 원본별로 다시 분석하세요")
+    derived = {_path_key(row["extracted"]) for row in image.get("files", ()) if row.get("extracted")}
+    derived.update(_path_key(path) for path in (image.get("cache_paths") or {}))
+    if any(_path_key(row["path"]) not in derived for row in result.inputs):
+        raise ValueError("이미지와 개별 입력을 함께 사용한 분석은 원본별로 다시 분석하세요")
+    expected = _image_sets(image, info.sources)
+    if not expected:
+        raise ValueError("저장된 이미지 세그먼트의 해시를 모두 확인할 수 없습니다")
+    paths, actual, states = _fingerprint_image(original)
+    changed = actual not in expected
+    counts = {"inputs": 1, "changed": int(changed), "reanalyzed": int(changed), "reused": int(not changed)}
+    if not changed:
+        return result, counts, info.sources
+    if workdir is None:
+        raise ValueError("변경된 이미지의 별도 추출 폴더가 필요합니다")
+    destination = Path(workdir).resolve()
+    if destination.parent in {paths[0].parent, Path(info.path).resolve().parent}:
+        raise ValueError("원본 또는 이전 케이스가 있는 폴더와 다른 출력 폴더를 지정하세요")
+    include_mft = result.settings.get("include_mft", any(row["artifact"] == "mft" for row in result.inputs))
+    fresh = Pipeline().analyze_image(paths[0], destination, sid=result.settings.get("sid"),
+                                     environment=result.settings.get("environment"), include_mft=include_mft,
+                                     progress=progress)
+    if any(_file_state(path) != state for path, state in zip(paths, states)):
+        raise ValueError("원본 이미지가 재분석 중 변경됐습니다")
+    fresh.tags = result.tags
+    sources = [{"kind": "image", "path": str(path), "resolved_path": str(path), "expected_sha256": digest}
+               for path, digest in zip(paths, actual)]
+    return fresh, counts, sources
+
+
+def reanalyze_case(path, progress=None, *, workdir=None):
     """Return a refreshed result and counts; the saved case and original files stay read-only."""
     result, info = load_case(path)
-    if result.image or not result.inputs or result.settings.get("additional_analyses"):
-        raise ValueError("개별 파일로 저장한 단일 분석에서 변경분 재분석을 실행하세요")
     if info.partial or info.verification.get("database", {}).get("status") == "changed":
         raise ValueError("저장 결과를 검증할 수 없어 기존 기록을 재사용할 수 없습니다")
+    if result.settings.get("additional_analyses"):
+        raise ValueError("여러 분석을 병합한 케이스는 원본별로 다시 분석하세요")
+    if result.image:
+        return _reanalyze_image(result, info, workdir, progress)
+    if not result.inputs:
+        raise ValueError("저장된 원본 입력 목록이 없습니다")
     inputs, expected, locations = _saved_inputs(result, info)
-    changed, families, states = _inspect_inputs(inputs, expected)
+    changed, families, states, folders = _inspect_inputs(inputs, expected)
     selection = _selected_inputs(inputs, changed)
     counts = {"inputs": len(inputs), "changed": sum(changed), "reanalyzed": len(selection),
               "reused": len(inputs) - len(selection)}
@@ -100,6 +148,9 @@ def reanalyze_case(path, progress=None):
         current = _file_state(source) if source.is_file() else None
         if current != initial:
             raise ValueError("원본 또는 보조 파일이 재분석 중 변경됐습니다")
+    for directory, members in folders.items():
+        if {p for p in directory.rglob("*") if p.is_file()} != members:
+            raise ValueError("원본 폴더의 구성 파일이 재분석 중 변경됐습니다")
     if any(error.locator == "sha256" for error in fresh.errors):
         raise ValueError("원본 파일의 무결성을 확인하지 못했습니다")
 
