@@ -47,6 +47,16 @@ CATEGORY_COLUMNS = {
     "web_history": (*_HEAD, Column("url", 460), *_TAIL),
     "web_visits": (Column("timestamp", 170), Column("web_title", 260), Column("url", 420), Column("referrer_url", 300),
                    Column("browser", 120), Column("user", 100), Column("time_field", 110), Column("origin", 340)),
+    "web_searches": (Column("timestamp", 170), Column("search_term", 260), Column("url", 420), Column("browser", 120),
+                     Column("user", 100), Column("time_field", 160), Column("origin", 340)),
+    # Cookies and autofill: names, sites, counts and times only; the stored values are never read.
+    "web_cookies": (Column("timestamp", 170), Column("cookie_site", 220), Column("cookie_name", 200), Column("cookie_path", 120),
+                    Column("cookie_created", 170), Column("cookie_expires", 170), Column("browser", 120), Column("user", 100),
+                    Column("time_field", 130), Column("origin", 300)),
+    "web_icons": (Column("timestamp", 170), Column("page_url", 380), Column("icon_url", 320), Column("browser", 120),
+                  Column("user", 100), Column("origin", 300)),
+    "web_autofill": (Column("timestamp", 170), Column("field_name", 220), Column("use_count", 90), Column("first_used", 170),
+                     Column("browser", 120), Column("user", 100), Column("time_field", 160), Column("origin", 300)),
     # One row per download; every URL keeps its role so the page that linked is not read as the file source.
     "web_downloads": (Column("download_start", 170), Column("download_file", 200), Column("download_save_path", 340),
                       Column("download_url", 320), Column("final_url", 320), Column("referrer_url", 280),
@@ -73,6 +83,9 @@ CATEGORY_COLUMNS = {
                                                                   (170, 120, 120, 220, 260, 120, 100, 170))),
                         Column("origin", 340), Column("description", 320), Column("status", 80)),
 }
+# One record kind selected on its own that has its own column set.
+_ARTIFACT_SETS = {("cookies",): "web_cookies", ("favicons",): "web_icons", ("autofill",): "web_autofill"}
+WEB_ARTIFACTS = ("history", "cookies", "favicons", "autofill")
 _SET_NAMES = {DEFAULT: "default", **{cols: name for name, cols in CATEGORY_COLUMNS.items()}}
 
 
@@ -113,7 +126,11 @@ def columns_for(node):
     if node is not None and node.kind == "lnk_shortcuts":
         return CATEGORY_COLUMNS["shortcuts"]
     if node is not None and node.kind == "action_set" and node.value[0] == "history":
-        return CATEGORY_COLUMNS["web_downloads" if node.value[1] == ("download",) else "web_visits"]
+        actions = node.value[1]
+        return CATEGORY_COLUMNS["web_downloads" if actions == ("download",) else
+                                "web_searches" if actions == ("web_search",) else "web_visits"]
+    if node is not None and node.kind == "artifacts" and tuple(node.value) in _ARTIFACT_SETS:
+        return CATEGORY_COLUMNS[_ARTIFACT_SETS[tuple(node.value)]]
     if node is None or node.kind != "artifacts":
         return DEFAULT
     categories = {category_of(a) for a in node.value}
@@ -190,7 +207,7 @@ def cell(key, event, sid_map, origins):
     if key.startswith("lnk_file_") or key.startswith("lnk_target_"):
         return str((details.get("lnk_times") or {}).get(key) or "") if event.artifact == "lnk" else ""
     if key in _WEB_CELLS:
-        return _WEB_CELLS[key](event, details) if event.artifact == "history" else ""
+        return _WEB_CELLS[key](event, details) if event.artifact in WEB_ARTIFACTS else ""
     value = details.get(key)
     return "" if value is None else str(value)
 

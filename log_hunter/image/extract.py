@@ -42,6 +42,10 @@ ARTIFACT_SPECS = [
     ("Users/*/AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt", ("psreadline",), ()),
     ("Users/*/AppData/Local/Google/Chrome/User Data/*/History", ("history",), SQLITE_SIDECARS),
     ("Users/*/AppData/Local/Microsoft/Edge/User Data/*/History", ("history",), SQLITE_SIDECARS),
+    *[(f"Users/*/AppData/Local/{browser}/User Data/*/{name}", (artifact,), SQLITE_SIDECARS)
+      for browser in ("Google/Chrome", "Microsoft/Edge")
+      for name, artifact in (("Network/Cookies", "cookies"), ("Cookies", "cookies"), ("Favicons", "favicons"),
+                             ("Web Data", "autofill"))],
 ]
 MFT_SPEC = ("$MFT", ("mft",), ())
 _UNSAFE = re.compile(r'[<>:"|?*/\\\x00-\x1f]')

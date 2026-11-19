@@ -40,6 +40,7 @@ from log_hunter.parser.mountpoints2 import read_volume_hints, attach_volume_hint
 from log_hunter.parser.rdp import RDPParser
 from log_hunter.parser.thumbcache import ThumbcacheParser
 from log_hunter.parser.defender import DefenderParser
+from log_hunter.parser.chromium_extra import AutofillParser, CookiesParser, FaviconsParser
 
 PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "mru": MRUParser,
            "usb": USBParser, "amcache": AmcacheParser, "psreadline": PSReadLineParser, "history": HistoryParser,
@@ -48,7 +49,10 @@ PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "
            "network": NetworkProfileParser, "taskcache": TaskCacheParser, "tasks": TaskSchedulerParser, "recyclebin": RecycleBinParser,
            "wlan": WLANParser, "startup": StartupParser, "services": ServicesParser,
            "rdp": RDPParser, "thumbcache": ThumbcacheParser,
-           "defender": DefenderParser}
+           "defender": DefenderParser,
+           "cookies": CookiesParser, "favicons": FaviconsParser, "autofill": AutofillParser}
+# Browser SQLite databases: read through a recovered working copy (journal/WAL merged), never in place.
+BROWSER_SQLITE = ("history", "cookies", "favicons", "autofill")
 
 
 @dataclass
@@ -239,7 +243,7 @@ class Pipeline:
             recovery_dir = None
             try:
                 sources = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
-                if artifact in ("history", "srum"):
+                if artifact in (*BROWSER_SQLITE, "srum"):
                     sources += [Path(str(path) + suffix) for suffix in ("-wal", "-shm", "-journal") if Path(str(path) + suffix).exists()]
                 if artifact in ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag", "network", "services", "rdp", "taskcache"):
                     sources += [Path(str(path) + suffix) for suffix in (".LOG1", ".LOG2") if Path(str(path) + suffix).exists()]
@@ -271,14 +275,14 @@ class Pipeline:
                                 parser.error(path, "header", f"dirty hive: LOG 복구 불가 ({reasons})", "warning")
                         except Exception as exc:
                             parser.error(path, "header", f"dirty hive: LOG 복구 시도 중 오류 ({exc})", "warning")
-                sqlite_input = artifact == "history"
+                sqlite_input = artifact in BROWSER_SQLITE
                 if artifact == "srum":
                     with path.open("rb") as stream:
                         sqlite_input = stream.read(16) == b"SQLite format 3\x00"
                 if sqlite_input:
                     with tempfile.TemporaryDirectory(prefix="log-hunter-history-") as temporary:
                         merged = merge_history(path, temporary)
-                        parsed = parser.parse(merged, origin=path) if artifact == "history" else parser.parse(merged)
+                        parsed = parser.parse(merged, origin=path) if artifact in BROWSER_SQLITE else parser.parse(merged)
                         for event in parsed:
                             event.source = str(path)
                             result.events.append(event)

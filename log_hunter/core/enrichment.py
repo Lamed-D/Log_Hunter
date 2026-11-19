@@ -10,6 +10,7 @@ _ACTIVITY_MAP = {
     "userassist": "user_activity",
     "bam": "user_activity",
     "history": "user_activity",
+    "cookies": "user_activity", "favicons": "user_activity", "autofill": "user_activity",
     "jumplist": "user_activity",
     "run": "system_config",
     "tasks": "system_config",
