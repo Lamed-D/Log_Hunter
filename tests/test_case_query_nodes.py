@@ -83,6 +83,15 @@ class CaseQueryNodeTests(unittest.TestCase):
         targets = {r["group"]: (r["kinds"], r["records"]) for r in counts["targets"]}
         self.assertEqual(targets[r"path:c:\users\alice\report.docx"], (2, 3))  # shortcut + recent list (name match)
 
+    def test_quick_page_reads_first_records_only_from_an_indexed_case(self):
+        from log_hunter.core.timeline import timeline
+        from log_hunter.ui.case_view import quick_page
+        events, total = quick_page(self.path, 3)
+        self.assertEqual(total, len(self.events))
+        self.assertEqual([e.locator or e.action for e in events], [e.locator or e.action for e in timeline(self.events)[:3]])
+        self.assertIsNone(quick_page(self.legacy, 3))  # no current index: the normal full load shows it
+        self.assertIsNone(quick_page(Path(self.temp.name) / "missing.sqlite", 3))
+
     def test_bad_view_node_values_are_rejected(self):
         from log_hunter.database.query_common import QueryInputError
         with open_case_query(self.path) as query:

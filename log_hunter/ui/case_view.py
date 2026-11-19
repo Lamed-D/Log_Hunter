@@ -104,6 +104,21 @@ def case_status(info, events, derived=()):
     return T["title"].format(name=name), status, warnings
 
 
+def quick_page(path, limit):
+    """(first records in timeline order, total) read straight from a saved analysis with an up-to-date query index,
+    or None (no index, damaged or older format: the normal full load shows it)."""
+    from log_hunter.database.case_query import open_case_query
+    from log_hunter.database.query_common import QueryInputError
+    try:
+        with open_case_query(path) as query:
+            if not query.indexed or query.partial:
+                return None
+            page = query.query_events({}, limit=limit)
+            return list(page.events), query.count_events({})
+    except (QueryInputError, OSError):
+        return None
+
+
 def saved_extractions(result):
     """The image extractions kept in a saved analysis (image path, image info, extracted file map), shaped like an
     extraction so records still show their place inside the image ("[case.E01] 볼륨 0\\...") after the copies are gone."""
