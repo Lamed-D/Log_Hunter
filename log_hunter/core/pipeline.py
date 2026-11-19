@@ -162,6 +162,24 @@ def merge_history(source, working_directory):
     return normalized
 
 
+HASH_WORKERS = 8
+
+
+def hash_files(paths):
+    """{path: SHA-256 hex or the exception raised}. Many small files (a cache folder) are dominated by open latency,
+    so they are hashed on a few threads; the digests are the same full-content SHA-256 as one at a time."""
+    def one(path):
+        try:
+            return sha256(path)
+        except Exception as exc:  # re-raised by the caller for that path
+            return exc
+    if len(paths) < 16:
+        return {path: one(path) for path in paths}
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=HASH_WORKERS) as pool:
+        return dict(zip(paths, pool.map(one, paths)))
+
+
 def file_times(extractions):
     """{extracted copy (resolved, casefold): its MFT times inside the image}, for records that need their own file's times."""
     times = {}
@@ -265,6 +283,9 @@ class Pipeline:
         result.profiles = profiles
         result.sid_names = dict(profiles)
         registered = set()
+        # SHA-256 measured right after the previous reader of the same file finished. It is that file's state at the
+        # start of the next reader too, so a file read by several record kinds (a hive) is not hashed twice in a row.
+        latest_digest = {}
         volume_hints = []
         for index, (artifact, path, owner) in enumerate(expanded, 1):
             if progress:
@@ -280,13 +301,17 @@ class Pipeline:
             try:
                 sources = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
                 sources += [sidecar for sidecar in input_sidecars(artifact, path) if sidecar.exists()]
+                known = {source: latest_digest.pop(str(Path(source).resolve()).casefold(), None) for source in sources}
+                hashed = hash_files([s for s, digest in known.items() if not digest])
                 for source in sources:
-                    before[source] = sha256(source)
+                    before[source] = known[source] or hashed[source]
+                    if isinstance(before[source], BaseException):
+                        raise before[source]
                     key = str(Path(source).resolve()).casefold()
                     if key in registered:
                         continue
                     registered.add(key)
-                    item = register_evidence(source, source, "OFFLINE")
+                    item = register_evidence(source, source, "OFFLINE", digest=before[source])
                     item.metadata = {"log_replay": False, "source_sidecar": not path.is_dir() and source != path}
                     result.evidence.append(item)
                 if artifact in ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag", "network", "services", "taskcache", *INVENTORY_HIVES):
@@ -348,11 +373,17 @@ class Pipeline:
                 if recovery_dir is not None:
                     # The recovered copy holds evidence content; don't leave it behind in TEMP.
                     shutil.rmtree(recovery_dir, ignore_errors=True)
+                afters = hash_files(list(before))
                 for source, digest in before.items():
                     try:
-                        if sha256(source) != digest:
+                        after = afters[source]
+                        if isinstance(after, BaseException):
+                            raise after
+                        if after != digest:
                             parser.error(source, "sha256", "분석 중 원본 무결성 변경 감지")
                             failed = True
+                        else:
+                            latest_digest[str(Path(source).resolve()).casefold()] = after
                     except PermissionError:
                         parser.error(source, "sha256", PERMISSION_HINT)
                         failed = True

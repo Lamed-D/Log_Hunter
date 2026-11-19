@@ -15,8 +15,10 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def register_evidence(source, destination, method, metadata=None):
-    return Evidence(str(source), str(destination), sha256(destination), method,
+def register_evidence(source, destination, method, metadata=None, digest=None):
+    """Evidence record of `destination`. `digest` is its SHA-256 when the caller has just computed it from the same
+    file (the analysis' before-hash), so the file is not read a second time."""
+    return Evidence(str(source), str(destination), digest or sha256(destination), method,
                     datetime.now(timezone.utc).isoformat(), metadata or {})
 
 

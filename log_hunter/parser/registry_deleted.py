@@ -39,7 +39,7 @@ def _name(raw, length, ascii_flag):
         text = raw[:length].decode("latin1" if ascii_flag else "utf-16-le")
     except UnicodeDecodeError:
         return None
-    if not text or any(ord(c) < 0x20 for c in text):
+    if not text or not text.isprintable():
         return None
     return text
 
@@ -93,20 +93,27 @@ class RegistryDeletedParser(ArtifactParser):
         live_paths = set()
         names = {}
         for offset, (allocated, payload) in cells.items():
-            key = parse_nk(payload)
-            if key:
-                names[offset] = (key[0], key[2], allocated)
+            if payload[:2] == b"nk":
+                key = parse_nk(payload)
+                if key:
+                    names[offset] = (key[0], key[2], allocated)
+        chains = {}
+
+        def chain(offset, depth=0):
+            """Names from the hive root down to `offset` (memoized; loops and depth are bounded)."""
+            if offset in chains:
+                return chains[offset]
+            chains[offset] = None  # marks the walk in progress: a loop ends here
+            name, parent, _allocated = names[offset]
+            above = () if parent == offset or parent not in names or depth > MAX_PATH_DEPTH else chain(parent, depth + 1)
+            chains[offset] = (*(above or ()), name)
+            return chains[offset]
 
         def full_path(parent):
-            parts, seen = [], set()
-            while parent in names and parent not in seen and len(parts) < MAX_PATH_DEPTH:
-                seen.add(parent)
-                name, grand, _allocated = names[parent]
-                parts.append(name)
-                if grand == parent:
-                    break
-                parent = grand
-            return "\\".join(reversed(parts[:-1])) if parts else None  # drop the hive's root key name
+            if parent not in names:
+                return None
+            parts = chain(parent)
+            return "\\".join(parts[1:]) if parts else None  # drop the hive's root key name
 
         for offset, (allocated, payload) in cells.items():
             if allocated and offset in names:
