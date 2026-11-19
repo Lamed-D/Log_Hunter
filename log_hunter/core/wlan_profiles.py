@@ -22,6 +22,8 @@ def link_wlan_profiles(events):
             'profile_name':match.details.get('profile_name'),
             'date_created_local':match.details.get('date_created'),
             'date_last_connected_local':match.details.get('date_last_connected'),
+            'date_created_utc':match.details.get('date_created_utc'),
+            'date_last_connected_utc':match.details.get('date_last_connected_utc'),
             'timezone_known':match.details.get('timezone_known',False),
             'identity_confirmed':False,
             'basis':'exact_ssid_profile_name_candidate',

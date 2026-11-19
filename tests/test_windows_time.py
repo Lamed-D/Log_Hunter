@@ -1,12 +1,64 @@
 """Synthetic evidence clock conversion tests."""
 import struct
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-from log_hunter.core.windows_time import WindowsTimeRules, local_time_to_utc, read_windows_time_rules
+from log_hunter.core.models import ForensicEvent
+from log_hunter.core.windows_time import (WindowsTimeRules, clock_for_source, local_time_to_utc,
+                                         read_evidence_clocks, read_windows_time_rules, resolve_event_metadata_clock)
+from fixtures.synthetic_windows_case import put, registry_bytes, text
 
 
 class WindowsTimeTests(unittest.TestCase):
+    def test_annual_rule_and_scope_are_read_from_the_same_installation(self):
+        def dword(name, value):
+            return name, 4, struct.pack("<i", value)
+
+        system, software, other = {}, {}, {}
+        for tree, bias in ((system, -540), (other, 300)):
+            put(tree, "Select", [dword("Current", 1)])
+            put(tree, r"ControlSet001\Control\TimeZoneInformation",
+                [dword("Bias", bias), text("TimeZoneKeyName", "Synthetic Standard Time")])
+        zone = r"Microsoft\Windows NT\CurrentVersion\Time Zones\Synthetic Standard Time\Dynamic DST"
+        put(software, zone, [dword("FirstEntry", 2024), dword("LastEntry", 2024),
+                             ("2024", 3, struct.pack("<iii16H", -480, 0, 0, *([0] * 16)))])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inputs = []
+            for label, name, tree in (("volume0", "SYSTEM", system), ("volume0", "SOFTWARE", software),
+                                      ("volume1", "SYSTEM", other)):
+                path = root / label / "Windows" / "System32" / "config" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(registry_bytes(tree, name))
+                inputs.append(path)
+            clocks = read_evidence_clocks(inputs)
+            first = clock_for_source(clocks, root / "volume0" / "NTUSER.DAT")
+            second = clock_for_source(clocks, root / "volume1" / "NTUSER.DAT")
+            self.assertIsNone(clock_for_source(clocks, root / "volume2" / "NTUSER.DAT"))
+        raw = "2024-01-02T01:00:00"
+        stamp, details = local_time_to_utc(raw, first)
+        self.assertEqual(stamp, "2024-01-01T17:00:00+00:00")
+        self.assertIn("SOFTWARE", details["time_basis"])
+        self.assertIsNone(local_time_to_utc("2025-01-02T01:00:00", first)[0])
+        self.assertEqual(local_time_to_utc(raw, second)[0], "2024-01-02T06:00:00+00:00")
+
+    def test_network_observation_and_task_declaration_keep_distinct_semantics(self):
+        clock = WindowsTimeRules("Synthetic", "SYSTEM\\ControlSet001", -540, -540, (0,) * 8, (0,) * 8)
+        raw = "2024-01-02T01:00:00"
+        network = ForensicEvent("network", "synthetic", "network_profile", details={"date_last_connected": raw})
+        resolve_event_metadata_clock(network, clock)
+        self.assertEqual(network.timestamp, "2024-01-01T16:00:00+00:00")
+        self.assertEqual(network.details["timestamp_raw_local"], raw)
+        self.assertEqual(network.time_field, "network_last_connected")
+        task = ForensicEvent("tasks", "synthetic", "task_definition",
+                             details={"registration_date": raw, "triggers": [{"startboundary": raw + "+09:00"}]})
+        resolve_event_metadata_clock(task, clock)
+        self.assertIsNone(task.timestamp)
+        self.assertEqual(task.details["registration_date_utc"], network.timestamp)
+        self.assertEqual(task.details["triggers"][0]["startboundary_utc"], network.timestamp)
+
     def test_fixed_bias_and_missing_rules(self):
         clock = WindowsTimeRules("Synthetic", "SYSTEM\\ControlSet001", -540, -540, (0,) * 8, (0,) * 8)
         stamp, details = local_time_to_utc("2024-01-02T01:00:00", clock)

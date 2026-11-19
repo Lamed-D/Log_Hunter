@@ -1,8 +1,9 @@
 """Convert Windows evidence wall clocks using the recorded SYSTEM hive rules."""
 import calendar
 import struct
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from log_hunter.parser.registry import Hive, current_controlset
 
@@ -15,11 +16,14 @@ class WindowsTimeRules:
     daylight_bias: int
     standard_date: tuple[int, ...]
     daylight_date: tuple[int, ...]
+    annual: dict | None = None
 
     def metadata(self):
-        result = asdict(self)
-        result["standard_date"] = list(self.standard_date)
-        result["daylight_date"] = list(self.daylight_date)
+        result = {"name": self.name, "registry_key": self.registry_key,
+                  "standard_bias": self.standard_bias, "daylight_bias": self.daylight_bias,
+                  "standard_date": list(self.standard_date), "daylight_date": list(self.daylight_date)}
+        if self.annual is not None:
+            result["annual"] = {str(year): rules.metadata() for year, rules in self.annual.items()}
         return result
 
 
@@ -38,7 +42,40 @@ def _transition(rule, year):
     return datetime(year, month, day, hour, minute, second, ms * 1000)
 
 
-def read_windows_time_rules(path):
+def _annual_rules(software, name):
+    if not software or not name or "\\" in name:
+        return None
+    locator = r"Microsoft\Windows NT\CurrentVersion\Time Zones" + "\\" + name + r"\Dynamic DST"
+    try:
+        hive = Hive(software)
+        if hive.data[4:8] != hive.data[8:12]:
+            return None
+        values = {v["name"].casefold(): v for v in hive.open(locator).values() if "error" not in v}
+    except (OSError, ValueError, KeyError):
+        return None
+    first = values.get("firstentry", {}).get("value")
+    last = values.get("lastentry", {}).get("value")
+    if not isinstance(first, int) or not isinstance(last, int) or not 1 <= first <= last <= 9999:
+        return {}
+    result = {}
+    for year in range(first, last + 1):
+        entry = values.get(str(year))
+        if entry is None or entry["type"] != 3 or len(entry["raw"]) != 44:
+            continue
+        raw = struct.unpack("<iii16H", entry["raw"])
+        bias, standard, daylight = raw[:3]
+        std_date, dst_date = raw[3:11], raw[11:]
+        if bool(std_date[1]) != bool(dst_date[1]):
+            continue
+        standard_bias = bias + standard if std_date[1] else bias
+        daylight_bias = bias + daylight if dst_date[1] else bias
+        if max(abs(standard_bias), abs(daylight_bias)) < 1440:
+            result[year] = WindowsTimeRules(name, f"SOFTWARE\\{locator}\\{year}", standard_bias,
+                                           daylight_bias, std_date, dst_date)
+    return result
+
+
+def read_windows_time_rules(path, software=None):
     hive = Hive(path)
     if hive.data[4:8] != hive.data[8:12]:
         return None
@@ -73,8 +110,39 @@ def read_windows_time_rules(path):
     if max(abs(standard_bias), abs(daylight_bias)) >= 1440:
         raise ValueError("invalid time zone bias")
     name = values.get("timezonekeyname", {}).get("value")
-    return WindowsTimeRules(name if isinstance(name, str) else "", "SYSTEM\\" + loc,
-                            standard_bias, daylight_bias, standard, daylight)
+    name = name if isinstance(name, str) else ""
+    annual = None if disabled else _annual_rules(software, name)
+    return WindowsTimeRules(name, "SYSTEM\\" + loc, standard_bias, daylight_bias, standard, daylight, annual)
+
+
+def read_evidence_clocks(paths):
+    """Index Windows installation clocks using the enclosing volume when identifiable."""
+    systems = sorted({Path(path).resolve() for path in paths if Path(path).name.casefold() == "system"})
+    software = {Path(path).resolve().parent: Path(path) for path in paths if Path(path).name.casefold() == "software"}
+    clocks = {}
+    for system in systems:
+        installation = tuple(part.casefold() for part in system.parts[-4:-1])
+        scope = system.parents[3] if installation == ("windows", "system32", "config") else None
+        try:
+            rules = read_windows_time_rules(system, software.get(system.parent))
+        except (OSError, ValueError, KeyError):
+            rules = None
+        clocks[system] = (scope, rules)
+    return clocks
+
+
+def clock_for_source(clocks, source):
+    if not clocks:
+        return None
+    path = Path(source).resolve()
+    candidates = [rules for scope, rules in clocks.values() if scope is not None and path.is_relative_to(scope)]
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates and len(clocks) == 1:
+        scope, rules = next(iter(clocks.values()))
+        if scope is None:
+            return rules
+    return None
 
 
 def local_time_to_utc(raw, rules):
@@ -86,6 +154,10 @@ def local_time_to_utc(raw, rules):
         wall = datetime.fromisoformat(raw)
         if wall.tzinfo is not None:
             return None, details
+        if rules.annual is not None:
+            rules = rules.annual.get(wall.year)
+            if rules is None:
+                return None, details
         standard = timedelta(minutes=rules.standard_bias)
         daylight = timedelta(minutes=rules.daylight_bias)
         if not rules.standard_date[1] or standard == daylight:
@@ -110,3 +182,42 @@ def local_time_to_utc(raw, rules):
                    time_basis=f"로컬 기록 → UTC 환산, 시간대 근거: {rules.registry_key}",
                    time_zone_name=rules.name)
     return utc.replace(tzinfo=timezone.utc).isoformat(), details
+
+
+def resolve_record_clock(raw, rules):
+    """Normalize an explicit offset or apply the attributable Windows wall-clock rule."""
+    try:
+        stamp = datetime.fromisoformat(raw)
+        if stamp.utcoffset() is not None:
+            return stamp.astimezone(timezone.utc).isoformat(), {
+                "time_basis": "원래 시각의 UTC 오프셋", "timezone_known": True}
+    except (TypeError, ValueError, OverflowError):
+        return None, {"time_basis": "시각 형식 미상"}
+    return local_time_to_utc(raw, rules)
+
+
+def resolve_event_metadata_clock(event, clock):
+    """Retain both UTC and raw dates for network observations and task declarations."""
+    details = event.details
+    if event.artifact == "network" and event.action == "network_profile":
+        times = {}
+        for field in ("date_last_connected", "date_created"):
+            raw = details.get(field)
+            if raw:
+                times[field] = resolve_record_clock(raw, clock)
+                stamp, basis = times[field]
+                details[field + "_utc"] = stamp
+                details[field + "_basis"] = basis["time_basis"]
+        if times:
+            field = next(iter(times))
+            event.timestamp, provenance = times[field]
+            event.time_field = "network_last_connected" if field == "date_last_connected" else "network_profile_created"
+            details.update(provenance)
+    elif event.artifact == "tasks":
+        for target, keys in [(details, ("registration_date",)),
+                             *((trigger, ("startboundary", "endboundary")) for trigger in details.get("triggers", ()))]:
+            for field in keys:
+                if target.get(field):
+                    stamp, provenance = resolve_record_clock(target[field], clock)
+                    target[field + "_utc"] = stamp
+                    target[field + "_basis"] = provenance["time_basis"]

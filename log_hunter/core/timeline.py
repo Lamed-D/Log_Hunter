@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 # (format, step to the next value at that precision)
 FILTER_DATE_FORMATS = (("%Y-%m-%d %H:%M:%S", timedelta(seconds=1)), ("%Y-%m-%d %H:%M", timedelta(minutes=1)),
+                       ("%Y-%m-%dT%H:%M:%S", timedelta(seconds=1)), ("%Y-%m-%dT%H:%M", timedelta(minutes=1)),
                        ("%Y-%m-%d", timedelta(days=1)), ("%Y/%m/%d", timedelta(days=1)))
 
 
@@ -22,7 +23,13 @@ def parse_filter_date(text, end=False):
             except OverflowError:
                 value = datetime.max
         return value.replace(tzinfo=timezone.utc).isoformat()
-    return text
+    try:
+        value = datetime.fromisoformat(text)
+        if value.utcoffset() is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).isoformat()
+    except (ValueError, OverflowError):
+        return text
 
 
 def timeline(events, artifact=None, sid=None, start=None, end=None, query=None):

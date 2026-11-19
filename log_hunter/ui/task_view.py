@@ -14,7 +14,7 @@ from .record_fields import format_time
 
 COLUMNS = ("task_name", "task_command", "run_user", "registration_time", "last_run_time", "last_completed_time",
            "task_hidden", "task_source", "task_signals")
-TIME_KEYS = {"registration_time": ("registration_time", "registration_date"),
+TIME_KEYS = {"registration_time": ("registration_time", "registration_date_utc", "registration_date"),
              "last_run_time": ("last_run_time",), "last_completed_time": ("last_completed_time",)}
 F = T["fields"]
 
