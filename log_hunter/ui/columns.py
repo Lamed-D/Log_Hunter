@@ -2,7 +2,7 @@
 import csv
 from dataclasses import dataclass
 
-from log_hunter.core.export import csv_safe
+from log_hunter.core.export import CSV_ENCODING, COMMON_FIELDS, DOWNLOAD_FIELDS, common_row, csv_safe
 from log_hunter.core import thumbcache_view, wifi_view
 from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, DEFENDER_TEXT, JUMP_LIST_TEXT, USB_BASIS_LABELS, USB_CONFIDENCE_LABELS, USB_DEVICE_KINDS, USB_GROUP_AUXILIARY, USB_GROUP_BASIS_LABELS, USB_GROUP_NOT_CONFIRMED,
                                     USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, WEB_TEXT, RECENT_TEXT, action_label,
@@ -388,11 +388,58 @@ def row(event, columns, sid_map, origins):
     return tuple(cell(c.key, event, sid_map, origins) for c in columns)
 
 
-def save_csv(path, columns, rows):
-    """Exactly what the table shows (shown headers, shown order), formula-safe."""
-    with open(path, "w", newline="", encoding="utf-8-sig") as stream:
+def csv_headers(columns):
+    """Shown headers in the shown order, then the shared timeline columns under their own names."""
+    return [*headers(columns), *_COMMON]
+
+
+_COMMON = list(dict.fromkeys([*COMMON_FIELDS, *DOWNLOAD_FIELDS]))
+
+
+def save_csv(path, columns, rows, events=None, sid_names=None, source_paths=None):
+    """Exactly what the table shows (shown headers, shown order) followed by the shared timeline columns
+    (timestamp_utc, time_meaning, ... with the same values as the timeline CSV), formula-safe. The file must
+    not exist yet: a saved table is never overwritten."""
+    events = list(events) if events is not None else None
+    with open(path, "x", newline="", encoding=CSV_ENCODING) as stream:
         writer = csv.writer(stream)
-        writer.writerow(headers(columns))
-        for values in rows:
-            writer.writerow([csv_safe(v) for v in values])
+        writer.writerow(csv_headers(columns) if events is not None else headers(columns))
+        for index, values in enumerate(rows):
+            line = [csv_safe(v) for v in values]
+            if events is not None:
+                shared = common_row(events[index], sid_names, source_paths)
+                line += [shared[key] for key in _COMMON]
+            writer.writerow(line)
     return len(rows)
+
+
+CATEGORY_CSV_GUIDE = "열_설명.csv"
+
+
+def save_category_csvs(folder, events, sid_names=None, origins=None, source_paths=None):
+    """One CSV per record category (that category's table columns + the shared columns) in a new folder, plus a
+    column guide. Returns {file name: rows}. The folder must not exist yet (nothing is overwritten)."""
+    from pathlib import Path
+    from log_hunter.core.labels import COMMON_FIELD_DESCRIPTIONS
+    from log_hunter.core.tree import ARTIFACT_CATEGORIES, TreeNode
+    folder = Path(folder)
+    folder.mkdir(parents=False, exist_ok=False)
+    written, guide = {}, []
+    groups = [(key, label, artifacts) for key, label, artifacts in ARTIFACT_CATEGORIES]
+    known = {a for _k, _l, artifacts in groups for a in artifacts}
+    groups.append(("other", "기타 기록", tuple(sorted({e.artifact for e in events} - known))))
+    for key, label, artifacts in groups:
+        rows = [e for e in events if e.artifact in artifacts]
+        if not rows:
+            continue
+        cols = columns_for(TreeNode(f"art:{key}", label, "artifacts", tuple(artifacts)))
+        name = f"{key}.csv"
+        save_csv(folder / name, cols, [row(e, cols, sid_names or {}, origins) for e in rows], rows, sid_names, source_paths)
+        written[name] = len(rows)
+        guide += [(name, label, header, column_label(c.key)) for c, header in zip(cols, headers(cols))]
+        guide += [(name, label, field, COMMON_FIELD_DESCRIPTIONS.get(field, field)) for field in _COMMON]
+    with open(folder / CATEGORY_CSV_GUIDE, "x", newline="", encoding=CSV_ENCODING) as stream:
+        writer = csv.writer(stream)
+        writer.writerow(["파일", "분류", "열", "뜻"])
+        writer.writerows([[csv_safe(v) for v in line] for line in guide])
+    return written
