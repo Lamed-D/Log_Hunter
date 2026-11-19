@@ -7,7 +7,7 @@ ARTIFACT_COLORS = {
     "evtx": "#e74c3c", "prefetch": "#3498db", "mft": "#2ecc71", "services": "#9b59b6",
     "startup": "#b8860b",
     "userassist": "#e67e22", "bam": "#1abc9c", "run": "#f39c12", "mru": "#8e44ad",
-    "usb": "#d35400", "amcache": "#27ae60", "psreadline": "#c0392b", "history": "#2980b9",
+    "usb": "#d35400", "amcache": "#27ae60", "psreadline": "#c0392b", "history": "#2980b9", "cookies": "#5d8aa8", "favicons": "#7fa7c9", "autofill": "#4a6fa5",
     "cache": "#7f8c8d", "shellbag": "#16a085", "srum": "#e91e63", "lnk": "#ff9800",
     "jumplist": "#795548", "network": "#607d8b", "tasks": "#9c27b0", "taskcache": "#9c27b0",
     "wlan": "#00bcd4", "recyclebin": "#ff5722",

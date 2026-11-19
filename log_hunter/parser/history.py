@@ -97,5 +97,13 @@ class HistoryParser(ArtifactParser):
                                         "start_time", self.sid, path=fields["download_save_path"] or record.get("full_path"),
                                         url=fields["final_url"], locator=f"downloads:{row['id']}",
                                         details={**record, "url_chain": chain, **fields, **where})
+            if "keyword_search_terms" in tables:
+                # The browser's own record of words typed into a search engine; its time is the result page's last visit.
+                for row in connection.execute("SELECT k.rowid AS rid, k.term, u.url, u.last_visit_time FROM keyword_search_terms k "
+                                              "LEFT JOIN urls u ON u.id=k.url_id"):
+                    visited = chromium_timestamp(row["last_visit_time"]) if row["last_visit_time"] else None
+                    yield ForensicEvent(self.artifact, str(path), "web_search", visited, "search_last_visit" if visited else None,
+                                        self.sid, url=row["url"], locator=f"keyword_search_terms:{row['rid']}",
+                                        details={"search_term": row["term"], "url": row["url"], **where})
         finally:
             connection.close()

@@ -20,7 +20,7 @@ ARTIFACT_CATEGORIES = [
     ("recycle_bin", "휴지통", ("recyclebin",)),
     ("shell_bags", "열어본 폴더", ("shellbag",)),
     ("usb_devices", "USB·외부 장치 연결", ("usb",)),
-    ("web_history", "웹 기록", ("history", "cache")),
+    ("web_history", "웹 기록", ("history", "cache", "cookies", "favicons", "autofill")),
     ("autostart", "자동 실행 항목", ("run", "startup", "services", "tasks", "taskcache")),
     ("commands", "입력한 명령어", ("psreadline",)),
     ("network", "네트워크·Wi-Fi", ("network", "wlan")),
@@ -218,7 +218,7 @@ def _target_groups(category, events):
 
 
 # Sub-nodes that split one artifact by what its records are: (node name, actions).
-ACTION_NODES = {"history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)))}
+ACTION_NODES = {"history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)), ("searches", ("web_search",)))}
 
 
 def _action_nodes(category, artifact, events):

@@ -20,7 +20,8 @@ class OrderTests(unittest.TestCase):
             self.assertEqual(keys[0], first, name)
             second = {"usb_devices": "device_kind_name", "security_detections": "action",
                       "scheduled_tasks": "task_name", "web_visits": "web_title",
-                      "web_downloads": "download_file", "shortcuts": "document"}.get(name, "artifact")
+                      "web_downloads": "download_file", "shortcuts": "document", "web_searches": "search_term",
+                      "web_cookies": "cookie_site", "web_icons": "page_url", "web_autofill": "field_name"}.get(name, "artifact")
             self.assertEqual(keys[1], second, name)  # one artifact only: what kind of record it is
             self.assertEqual(len(keys), len(set(keys)), name)
             self.assertEqual(columns.set_name(cols), name)
