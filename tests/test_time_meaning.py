@@ -1,4 +1,5 @@
 """Synthetic checks for declared and locally observed timestamps."""
+import codecs
 import struct
 import tempfile
 import unittest
@@ -12,7 +13,7 @@ from log_hunter.parser.mru import MRUParser, _parse_last_visited_entry
 from log_hunter.parser.shellbag import ShellBagParser
 from log_hunter.parser.recyclebin import RecycleBinParser
 from log_hunter.parser.mft import parse_record
-from log_hunter.parser.userassist import resolve_guid_path
+from log_hunter.parser.userassist import UserAssistParser, resolve_guid_path
 from log_hunter.core.pipeline import Pipeline
 from log_hunter.core.timestamp import display_event_time, filetime
 from fixtures.synthetic_windows_case import STAMP, put, registry_bytes
@@ -21,6 +22,21 @@ from test_text_encoding import shell_item
 
 
 class TimeMeaningTests(unittest.TestCase):
+    def test_userassist_session_control_value_is_separate_from_execution_values(self):
+        tree = {}
+        location = r"Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist\Synthetic\Count"
+        put(tree, location, [
+            (codecs.encode("UEME_CTLSESSION", "rot_13"), 3, b"synthetic session control"),
+            (codecs.encode("example.exe", "rot_13"), 3, struct.pack("<IIQ", 0, 5, STAMP)),
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "NTUSER.DAT"
+            source.write_bytes(registry_bytes(tree, source.name))
+            parser = UserAssistParser()
+            rows = list(parser.parse(source))
+        self.assertEqual([row.path for row in rows], ["example.exe"])
+        self.assertEqual([error.severity for error in parser.errors], ["excluded"])
+
     def test_network_profile_keeps_local_value_out_of_utc_timeline(self):
         raw = struct.pack('<8H', 2024, 2, 4, 29, 12, 34, 56, 123)
         profile = SimpleNamespace(name='synthetic', values=lambda: [
