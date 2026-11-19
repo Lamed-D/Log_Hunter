@@ -91,7 +91,7 @@ def _write_html_report(path, payload, evidence, events, errors, relations, summa
     timestamps = [e.timestamp for e in events if e.timestamp]
     time_range = ""
     if timestamps:
-        time_range = f"{min(timestamps)[:19]} ~ {max(timestamps)[:19]} UTC"
+        time_range = f"{min(timestamps)[:19].replace('T', ' ')} UTC ~ {max(timestamps)[:19].replace('T', ' ')} UTC"
 
     error_count = sum(1 for e in errors if e.severity == "error")
     warn_count = sum(1 for e in errors if e.severity == "warning")
@@ -256,13 +256,13 @@ footer {{ text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75r
       <input type="text" id="search" placeholder="검색 (파일 경로, 프로그램, 웹 주소, 사용자...)">
       <select id="artifactFilter"><option value="">전체 기록 종류</option>{artifact_options}</select>
       <select id="statusFilter"><option value="">전체 상태</option>{"".join(f'<option value="{s}">{status_label(s)}</option>' for s in ("ok", "partial", "warning"))}</select>
-      <input type="text" id="startDate" placeholder="시작 (YYYY-MM-DD)" style="max-width:160px">
-      <input type="text" id="endDate" placeholder="종료 (YYYY-MM-DD)" style="max-width:160px">
+      <input type="text" id="startDate" placeholder="시작 (YYYY-MM-DD, UTC)" title="날짜는 UTC 기준입니다" style="max-width:180px">
+      <input type="text" id="endDate" placeholder="종료 (YYYY-MM-DD, UTC)" title="날짜는 UTC 기준입니다" style="max-width:180px">
     </div>
     <div id="filterCount" style="color:var(--fg2);font-size:0.8rem;padding:4px 0;"></div>
     <div class="table-scroll">
       <table id="eventTable">
-        <thead><tr><th>시각</th><th>시각의 의미</th><th>기록 종류</th><th>무슨 일</th><th>파일/프로그램/주소</th><th>사용자</th><th>상태</th></tr></thead>
+        <thead><tr><th>시각 (UTC)</th><th>시각의 의미</th><th>기록 종류</th><th>무슨 일</th><th>파일/프로그램/주소</th><th>사용자</th><th>상태</th></tr></thead>
         <tbody id="eventBody"></tbody>
       </table>
     </div>
@@ -361,7 +361,7 @@ function renderEvents() {{
     const idx = currentPage * PAGE_SIZE + i;
     const target = String(e.path || e.process || e.url || (e.details && e.details.command) || '');
     return `<tr class="status-${{esc(e.status)}}" data-idx="${{idx}}" style="cursor:pointer">` +
-      `<td>${{e.timestamp ? esc(e.timestamp.slice(0,19)) : '알 수 없음'}}</td>` +
+      `<td>${{e.timestamp ? esc(e.timestamp.slice(0,19).replace('T',' ')) + ' UTC' : (e.details && e.details.timestamp_raw_local ? esc(String(e.details.timestamp_raw_local).slice(0,19).replace('T',' ')) + ' (시간대 미상)' : '알 수 없음')}}</td>` +
       `<td>${{e.time_field ? esc(lab('time', e.time_field)) : ''}}</td>` +
       `<td title="${{esc(e.artifact)}}">${{esc(lab('artifact', e.artifact))}}</td>` +
       `<td title="${{esc(e.action)}}">${{esc(lab('action', e.action))}}</td>` +

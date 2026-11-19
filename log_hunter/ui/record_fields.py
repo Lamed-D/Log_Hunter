@@ -2,23 +2,23 @@
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import PureWindowsPath
 
 from log_hunter.core.labels import (DEFENDER_TEXT, JUMP_LIST_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, RECENT_TEXT, WEB_TEXT, action_label,
                                     artifact_label, column_label, time_field_label)
 from log_hunter.parser.history import URL_ROLES
 from log_hunter.core.sid_resolver import display_name
-from log_hunter.core.timestamp import display_event_time
+from log_hunter.core.timestamp import event_time_fields
 from .view_model import display_target
 
 PREFETCH_RUN_LIMIT = 8
 _VOLUME_GUID = re.compile(r"^\\VOLUME\{[0-9A-F]+-([0-9A-F]{8})\}$", re.IGNORECASE)
 
 
-def format_time(value, tz=None):
-    """'2026-10-30 17:42:15 (UTC)', 24-hour clock. `tz` = (offset minutes, name) adds the local time when it is known.
-    A time without an offset is shown as recorded with '(시간대 미상)'; nothing at all is '알 수 없음'."""
+def format_time(value):
+    """'2026-10-30 17:42:15 UTC', 24-hour clock, always UTC (no local conversion). A time recorded without an offset
+    is shown as recorded with '(시간대 미상)' and never treated as UTC; nothing at all is '알 수 없음'."""
     if not value:
         return UNKNOWN_VALUE
     try:
@@ -27,14 +27,17 @@ def format_time(value, tz=None):
         return str(value)
     if moment.tzinfo is None:
         return f"{moment:%Y-%m-%d %H:%M:%S} (시간대 미상)"
-    utc = moment.astimezone(timezone.utc)
-    text = f"{utc:%Y-%m-%d %H:%M:%S} (UTC)"
-    if tz:
-        minutes, name = tz
-        local = utc + timedelta(minutes=minutes)
-        sign = "+" if minutes >= 0 else "-"
-        text += f" / {local:%Y-%m-%d %H:%M:%S} ({name} {sign}{abs(minutes) // 60:02d}:{abs(minutes) % 60:02d})"
-    return text
+    return f"{moment.astimezone(timezone.utc):%Y-%m-%d %H:%M:%S} UTC"
+
+
+def event_time_text(event):
+    """An event's time as shown everywhere on screen: its UTC value, or the original local value marked 시간대 미상."""
+    fields = event_time_fields(event)
+    if fields["timestamp_utc"]:
+        return format_time(fields["timestamp_utc"])
+    if fields["timestamp_raw_local"]:
+        return format_time(str(fields["timestamp_raw_local"]))
+    return UNKNOWN_VALUE
 
 
 def size_text(value):
@@ -61,7 +64,6 @@ class Context:
     file_size: int = None
     sid_map: dict = field(default_factory=dict)
     exe_state: str = None
-    tz: tuple = None
     source_text: str = None  # where the source file really is ("[image] volume path"), not the extracted copy
     origin: object = None  # maps any analyzed file path the same way (paths inside record details)
     related: list = field(default_factory=list)  # records of the same target from other sources (recent files)
@@ -77,7 +79,7 @@ class Properties:
 
 def common_fields(event, ctx):
     user = display_name(event.sid, ctx.sid_map)
-    moment = (display_event_time(event) or UNKNOWN_VALUE) if event.artifact == "shellbag" else format_time(event.timestamp, ctx.tz)
+    moment = event_time_text(event)
     return [
         (L["artifact"], artifact_label(event.artifact)),
         (L["action"], action_label(event.action)),
@@ -133,22 +135,22 @@ def prefetch_properties(event, ctx):
     extra = ctx.file_extra or {}
     fields = [
         (L["pf_name"], PureWindowsPath(str(event.source)).name or UNKNOWN_VALUE),
-        (L["created"], format_time(extra.get("created"), ctx.tz)),
-        (L["modified"], format_time(extra.get("modified"), ctx.tz)),
+        (L["created"], format_time(extra.get("created"))),
+        (L["modified"], format_time(extra.get("modified"))),
         (L["file_size"], size_text(ctx.file_size)),
         (L["exe_name"], _text(event.process)),
         (L["exe_path"], _text(_exe_reference(event))),
         (L["run_count"], _text(details.get("run_count"))),
-        (L["last_run"], format_time(runs[0] if runs else None, ctx.tz)),
+        (L["last_run"], format_time(runs[0] if runs else None)),
         (L["exe_exists"], ctx.exe_state or L["exe_unknown"]),
     ]
     volumes = []
     for volume in details.get("volumes") or ():
         if isinstance(volume, dict):
             volumes.append(f"{volume.get('path', UNKNOWN_VALUE)}  ·  {L['serial']} {volume.get('serial') or UNKNOWN_VALUE}"
-                           f"  ·  {L['volume_created']} {format_time(volume.get('creation_time'), ctx.tz)}")
+                           f"  ·  {L['volume_created']} {format_time(volume.get('creation_time'))}")
     tabs = [
-        (L["previous_runs"], [f"{i}. {format_time(t, ctx.tz)}" for i, t in enumerate(runs[:PREFETCH_RUN_LIMIT], 1)]
+        (L["previous_runs"], [f"{i}. {format_time(t)}" for i, t in enumerate(runs[:PREFETCH_RUN_LIMIT], 1)]
          or [UNKNOWN_VALUE], False),
         (L["references"], [str(r) for r in details.get("references") or ()] or [UNKNOWN_VALUE], True),
         (L["volumes"], volumes or [UNKNOWN_VALUE], False),
@@ -177,7 +179,7 @@ def usb_properties(event, ctx):
         (L["device_kind"], _text(d.get("device_kind_name"))),
         (L["vid_pid"], vid_pid),
         (L["serial"], _text(d.get("serial"))),
-        *[(time_field_label(key), format_time(times.get(key), ctx.tz))
+        *[(time_field_label(key), format_time(times.get(key)))
           for key in ("first_install", "last_arrival", "last_removal")],
     ]
     return fields, [_raw_tab(event)], None
@@ -190,7 +192,7 @@ def recycle_properties(event, ctx):
     pair = pair_text(d) or (UNKNOWN_VALUE if exists is None else (L["pair_yes"] if exists else L["pair_no"]))
     fields = [
         (L["original_path"], _text(d.get("original_path"))),
-        (L["deleted_at"], format_time(event.timestamp, ctx.tz)),
+        (L["deleted_at"], event_time_text(event)),
         (L["file_size"], size_text(d.get("file_size"))),
         (L["pair_file"], pair),
         (L["pair_where"], _text(info.get("image_path"))),
@@ -207,7 +209,7 @@ def web_properties(event, ctx):
         (L["title"], _text(d.get("title"))),
         (L["url"], _text(event.url or d.get("url"))),
         (WEB_TEXT["roles"]["referrer_url"], _text(d.get("referrer_url"))),
-        (L["visited_at"], format_time(event.timestamp, ctx.tz)),
+        (L["visited_at"], event_time_text(event)),
         (L["visit_count"], _text(d.get("visit_count"))),
         where,
         (L["source"], _text(ctx.source_text or event.source)),
@@ -223,8 +225,8 @@ def _download_properties(event, ctx, d, where):
         (L["download_file"], _text(PureWindowsPath(str(save)).name if save else None)),
         (column_label("download_save_path"), _text(save)),
         *[(WEB_TEXT["roles"][role], _text(d.get(role))) for role in ("download_url", "final_url", "referrer_url")],
-        (L["download_start"], format_time(d.get("download_start") or event.timestamp, ctx.tz)),
-        (L["download_end"], format_time(d.get("download_end"), ctx.tz)),
+        (L["download_start"], format_time(d.get("download_start") or event.timestamp)),
+        (L["download_end"], format_time(d.get("download_end"))),
         (L["download_size"], size_text(d.get("download_size"))),
         (L["download_state"], WEB_TEXT["states"].get(state, _text(state)) if state else UNKNOWN_VALUE),
         where,
@@ -240,7 +242,7 @@ def _download_properties(event, ctx, d, where):
 def defender_properties(event, ctx):
     from .columns import defender_cell, defender_unconfirmed
     d, F = event.details or {}, DEFENDER_TEXT["fields"]
-    time = format_time(event.timestamp, ctx.tz)
+    time = event_time_text(event)
     if not event.timestamp and d.get("log_time_raw"):
         time = DEFENDER_TEXT["time_raw"].format(unknown=UNKNOWN_VALUE, raw=d["log_time_raw"])
     where = ctx.source_text or event.source
@@ -298,7 +300,7 @@ def evtx_properties(event, ctx):
     where = ctx.source_text or event.source
     fields = [
         (L["artifact"], artifact_label(event.artifact)), (L["action"], action_label(event.action)),
-        (L["timestamp"], format_time(event.timestamp, ctx.tz)),
+        (L["timestamp"], event_time_text(event)),
         (L["time_field"], time_field_label(event.time_field) if event.time_field else UNKNOWN_VALUE),
         (E["meaning"], _text(meaning)), (E["registered"], registered),
         (E["provider"], _text(d.get("provider"))), (E["event_id"], _text(d.get("event_id"))),
@@ -331,7 +333,7 @@ def recent_properties(event, ctx):
     d = event.details or {}
     origins = type("O", (), {"text": staticmethod(ctx.origin)})() if ctx.origin else None
     user = display_name(event.sid, ctx.sid_map)
-    moment = display_event_time(event) or UNKNOWN_VALUE if event.artifact == "shellbag" else format_time(event.timestamp, ctx.tz)
+    moment = event_time_text(event)
     fields = [
         (L["target"], _text(display_target(event))),
         (L["artifact"], artifact_label(event.artifact)),
@@ -342,10 +344,10 @@ def recent_properties(event, ctx):
         (column_label("target_match"), RECENT_TEXT["match"].get(d.get("target_match"), UNKNOWN_VALUE)),
         (L["user"], f"{user} ({event.sid})" if user else _text(event.sid)),
     ]
-    times = [RECENT_TEXT["time_line"].format(label=_meaning(field), time=format_time(value, ctx.tz))
+    times = [RECENT_TEXT["time_line"].format(label=_meaning(field), time=format_time(value))
              for field, value in sorted((d.get("lnk_times") or {}).items(), key=lambda kv: kv[1])]
     related = sorted((e for e in ctx.related if e is not event), key=lambda e: (e.timestamp is None, e.timestamp or ""))
-    others = [f"{artifact_label(e.artifact)} · {format_time(e.timestamp, ctx.tz) if e.timestamp else UNKNOWN_VALUE}"
+    others = [f"{artifact_label(e.artifact)} · {event_time_text(e)}"
               f" · {_meaning(e.time_field)} · {source_location(e, origins)}" for e in related]
     tabs = [(RECENT_TEXT["times_tab"], times or [RECENT_TEXT["time_line"].format(
         label=_meaning(event.time_field), time=moment)], False),

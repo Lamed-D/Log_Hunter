@@ -68,7 +68,7 @@ footer { text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75re
 <body>
 <header>
   <h1>Log Hunter 분석 보고서</h1>
-  <div class="meta">생성 시각: 2026-03-14 10:03:00 UTC | 시간 범위: 2026-03-14T09:58:00 ~ 2026-03-14T10:02:00 UTC | 증거 파일: 6개</div>
+  <div class="meta">생성 시각: 2026-03-14 10:03:00 UTC | 시간 범위: 2026-03-14 09:58:00 UTC ~ 2026-03-14 10:02:00 UTC | 증거 파일: 6개</div>
 </header>
 <div class="container">
   <div class="stats">
@@ -98,13 +98,13 @@ footer { text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75re
       <input type="text" id="search" placeholder="검색 (파일 경로, 프로그램, 웹 주소, 사용자...)">
       <select id="artifactFilter"><option value="">전체 기록 종류</option><option value="psreadline">PowerShell 명령어 기록 (5)</option><option value="defender">백신 파일 기록 (1)</option><option value="userassist">사용자가 직접 실행한 프로그램 (1)</option><option value="history">웹 방문·다운로드·검색어 (2)</option><option value="run">자동 실행 프로그램 (1)</option><option value="thumbcache">파일 미리 보기 흔적 (1)</option><option value="prefetch">프로그램 실행 기록 (2)</option></select>
       <select id="statusFilter"><option value="">전체 상태</option><option value="ok">정상</option><option value="partial">일부 손상</option><option value="warning">주의</option></select>
-      <input type="text" id="startDate" placeholder="시작 (YYYY-MM-DD)" style="max-width:160px">
-      <input type="text" id="endDate" placeholder="종료 (YYYY-MM-DD)" style="max-width:160px">
+      <input type="text" id="startDate" placeholder="시작 (YYYY-MM-DD, UTC)" title="날짜는 UTC 기준입니다" style="max-width:180px">
+      <input type="text" id="endDate" placeholder="종료 (YYYY-MM-DD, UTC)" title="날짜는 UTC 기준입니다" style="max-width:180px">
     </div>
     <div id="filterCount" style="color:var(--fg2);font-size:0.8rem;padding:4px 0;"></div>
     <div class="table-scroll">
       <table id="eventTable">
-        <thead><tr><th>시각</th><th>시각의 의미</th><th>기록 종류</th><th>무슨 일</th><th>파일/프로그램/주소</th><th>사용자</th><th>상태</th></tr></thead>
+        <thead><tr><th>시각 (UTC)</th><th>시각의 의미</th><th>기록 종류</th><th>무슨 일</th><th>파일/프로그램/주소</th><th>사용자</th><th>상태</th></tr></thead>
         <tbody id="eventBody"></tbody>
       </table>
     </div>
@@ -165,7 +165,7 @@ footer { text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75re
     </div>
   </div>
 
-  <div class="panel" id="web"><div style="color:var(--fg2);padding:8px 0">브라우저 기록의 방문과 다운로드를 나눠 보입니다. 다운로드의 &#x27;최종 주소&#x27;가 파일을 내려 준 곳이고, 참조 페이지·탭 주소는 다운로드를 시작한 화면입니다. 주소는 글자로만 보이며 연결하지 않습니다. 시각은 UTC입니다.</div><h3>방문 (1)</h3><div class="table-scroll"><table><thead><tr><th>시각</th><th>제목</th><th>주소</th><th>참조 페이지</th><th>브라우저</th><th>사용자</th><th>시각의 의미</th><th>출처 파일</th></tr></thead><tbody><tr><td>2026-03-14T09:58:00+00:00</td><td>Free Tools</td><td>https://example.com/tools</td><td></td><td></td><td>로컬 사용자 (RID 1001)</td><td>방문</td><td>C:\Evidence\synthetic\evidence\History</td></tr></tbody></table></div><h3>다운로드 (1)</h3><div class="table-scroll"><table><thead><tr><th>시작 시각</th><th>파일 이름</th><th>저장 경로</th><th>다운로드 주소</th><th>최종 주소</th><th>참조 페이지</th><th>종료 시각</th><th>크기(바이트)</th><th>상태</th><th>브라우저</th><th>사용자</th><th>출처 파일</th></tr></thead><tbody><tr><td>2026-03-14T09:59:00+00:00</td><td>setup.exe</td><td>C:\Users\alice\Downloads\setup.exe</td><td>https://example.com/dl?id=1</td><td>https://example.com/setup.exe</td><td></td><td>2026-03-14T09:59:00+00:00</td><td>482304</td><td></td><td></td><td>로컬 사용자 (RID 1001)</td><td>C:\Evidence\synthetic\evidence\History</td></tr></tbody></table></div></div>
+  <div class="panel" id="web"><div style="color:var(--fg2);padding:8px 0">브라우저 기록의 방문과 다운로드를 나눠 보입니다. 다운로드의 &#x27;최종 주소&#x27;가 파일을 내려 준 곳이고, 참조 페이지·탭 주소는 다운로드를 시작한 화면입니다. 주소는 글자로만 보이며 연결하지 않습니다. 시각은 UTC입니다.</div><h3>방문 (1)</h3><div class="table-scroll"><table><thead><tr><th>시각</th><th>제목</th><th>주소</th><th>참조 페이지</th><th>브라우저</th><th>사용자</th><th>시각의 의미</th><th>출처 파일</th></tr></thead><tbody><tr><td>2026-03-14 09:58:00 UTC</td><td>Free Tools</td><td>https://example.com/tools</td><td></td><td></td><td>로컬 사용자 (RID 1001)</td><td>방문</td><td>C:\Evidence\synthetic\evidence\History</td></tr></tbody></table></div><h3>다운로드 (1)</h3><div class="table-scroll"><table><thead><tr><th>시작 시각</th><th>파일 이름</th><th>저장 경로</th><th>다운로드 주소</th><th>최종 주소</th><th>참조 페이지</th><th>종료 시각</th><th>크기(바이트)</th><th>상태</th><th>브라우저</th><th>사용자</th><th>출처 파일</th></tr></thead><tbody><tr><td>2026-03-14 09:59:00 UTC</td><td>setup.exe</td><td>C:\Users\alice\Downloads\setup.exe</td><td>https://example.com/dl?id=1</td><td>https://example.com/setup.exe</td><td></td><td>2026-03-14 09:59:00 UTC</td><td>482304</td><td></td><td></td><td>로컬 사용자 (RID 1001)</td><td>C:\Evidence\synthetic\evidence\History</td></tr></tbody></table></div></div>
   <div class="panel" id="thumbcache"><div style="color:var(--fg2);padding:8px 0">탐색기 미리 보기 캐시 (thumbcache). 캐시가 있다는 것은 그 파일을 실제로 열었거나 지웠다는 확정이 아닙니다. 원본 파일 경로와 연결하지 않았고, 시각 정보도 없습니다. 캐시 안의 그림은 해독하거나 보고서에 넣지 않습니다.</div><div class="table-scroll"><table><thead><tr><th>캐시 ID</th><th>형식 (시그니처만)</th><th>데이터 크기(바이트)</th><th>위치 (캐시 파일 안)</th><th>이미지 데이터 SHA-256</th><th>해시 상태</th><th>저장 체크섬</th><th>확인할 점</th><th>출처 파일</th><th>상태</th></tr></thead><tbody><tr><td>0000000001001001</td><td>BMP</td><td>58</td><td>항목 0x18 · 데이터 0x66</td><td>aa17a30f6ec6d08cd44f4567a44e4b0916ca968a7b2d0a7bb9cdb9a34b461825</td><td>완료</td><td>검증 안 됨</td><td></td><td>C:\Evidence\synthetic\evidence\thumbcache_256.db</td><td>정상</td></tr></tbody></table></div></div>
   <div class="panel" id="raw">
     <pre style="font-family:var(--mono);font-size:0.75rem;color:var(--fg2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:80vh;overflow-y:auto">{
@@ -2660,7 +2660,7 @@ function renderEvents() {
     const idx = currentPage * PAGE_SIZE + i;
     const target = String(e.path || e.process || e.url || (e.details && e.details.command) || '');
     return `<tr class="status-${esc(e.status)}" data-idx="${idx}" style="cursor:pointer">` +
-      `<td>${e.timestamp ? esc(e.timestamp.slice(0,19)) : '알 수 없음'}</td>` +
+      `<td>${e.timestamp ? esc(e.timestamp.slice(0,19).replace('T',' ')) + ' UTC' : (e.details && e.details.timestamp_raw_local ? esc(String(e.details.timestamp_raw_local).slice(0,19).replace('T',' ')) + ' (시간대 미상)' : '알 수 없음')}</td>` +
       `<td>${e.time_field ? esc(lab('time', e.time_field)) : ''}</td>` +
       `<td title="${esc(e.artifact)}">${esc(lab('artifact', e.artifact))}</td>` +
       `<td title="${esc(e.action)}">${esc(lab('action', e.action))}</td>` +

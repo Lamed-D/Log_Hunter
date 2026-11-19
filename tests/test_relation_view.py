@@ -34,7 +34,7 @@ class RelationViewTest(unittest.TestCase):
         self.assertIn("묶인 기록 2건", text)
         rows = rv.member_rows(pair, self.events)
         self.assertEqual({row[1][0] for row in rows}, {"A", "B"})
-        self.assertTrue(all("(UTC)" in row[1][3] for row in rows))
+        self.assertTrue(all(row[1][3].endswith(" UTC") for row in rows))
 
     def test_execution_chain_explains_what_it_does_not_mean(self):
         chain = [r for r in self.relations if r.get("type") == "execution_chain"]

@@ -60,7 +60,7 @@ class ViewModelTests(unittest.TestCase):
         self.assertIn("찾은 기록: 2건", view_model.summary_text(self.result))
         row = view_model.relation_rows(self.result.relations, self.events)[0]
         self.assertEqual(row[2], "프로그램: a")
-        self.assertIn("기간: 2024-01-01T10:00:00+00:00 ~ 2024-01-02T01:00:00+00:00", view_model.stats_lines(self.result))
+        self.assertIn("기간: 2024-01-01 10:00:00 UTC ~ 2024-01-02 01:00:00 UTC", view_model.stats_lines(self.result))
 
 
 class ChartTests(unittest.TestCase):

@@ -84,7 +84,7 @@ class RecentViewTests(unittest.TestCase):
         rows = [e for e in self.events if matches(node, e, OriginIndex())]
         cols = columns.columns_for(node)
         row = dict(zip([c.key for c in cols], columns.row(rows[0], cols, {}, None)))
-        self.assertEqual((row["lnk_file_created"], row["lnk_target_accessed"]), (T2, T1))
+        self.assertEqual((row["lnk_file_created"], row["lnk_target_accessed"]), ("2024-01-01 01:00:00 UTC", "2024-01-01 00:00:00 UTC"))
         self.assertEqual(row["lnk_target_written"], "")
 
     def test_source_location_names_key_shortcut_and_jump_list_position(self):
