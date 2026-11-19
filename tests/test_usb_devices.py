@@ -54,8 +54,9 @@ def usb_hive(damaged=False, container=True):
         key(path+'\\Device Parameters', [text('TestParameter', 'synthetic')])
         if index == 0:
             for prop in ('0064','0065','0066','0067'):
+                value_type = 0xffff0010 if prop in ('0064', '0066') else 3
                 key(path+'\\Properties\\{83da6326-97a6-4088-9453-a1923f573b29}\\'+prop,
-                    [('', 3, b'bad' if damaged and prop == '0064' else struct.pack('<Q', STAMP))])
+                    [('', value_type, b'bad' if damaged and prop == '0064' else struct.pack('<Q', STAMP))])
     key('ControlSet002\\Control\\Class\\'+GUID+'\\0000',
         [text('ProviderName','TEST'), text('DriverVersion','1.0'), text('DriverDate','01-01-2024')])
     key('MountedDevices', [('\\DosDevices\\E:', 3, '\\??\\USBSTOR#TESTSERIAL0001'.encode('utf-16-le'))])
@@ -103,6 +104,9 @@ class USBDevicesTests(unittest.TestCase):
         self.assertEqual(keyboard.time_field,'key_lastwrite')
         self.assertEqual({e.time_field for e in events if e.action != 'device_registration'},
                          {'install','first_install','last_arrival','last_removal'})
+        self.assertEqual({e.details['registry_value_type'] for e in events if e.action != 'device_registration'},
+                         {3, 0xffff0010})
+        self.assertTrue(all(e.timestamp.endswith('+00:00') for e in events))
         storage, = [e for e in registrations if e.details['is_storage_device']]
         self.assertEqual(storage.details['drive_letters'],['E:'])
         self.assertTrue(all('drive_letters' not in e.details for e in registrations if not e.details['is_storage_device']))
