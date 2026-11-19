@@ -122,6 +122,7 @@ def parse_file_name(value):
         name = raw.decode('utf-16-le', errors='replace')
         damaged = True
     return {"parent": parent & 0xFFFFFFFFFFFF, "name": name, "namespace": namespace,
+            "parent_sequence": parent >> 48,
             "size": real_size, "directory": bool(flags & FN_DIRECTORY),
             **({'name_decode_error':True, 'name_raw_hex':raw.hex()} if damaged else {})}
 

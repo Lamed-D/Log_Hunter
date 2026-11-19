@@ -7,7 +7,7 @@ from pathlib import PureWindowsPath
 from .recent_targets import target_label
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, JUMP_LIST_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -196,6 +196,8 @@ def _data_artifacts(events, summaries=(), errors=()):
         if "cache" in present:
             cache = next((c for c in category.children if c.value == ("cache",)), category)
             cache.children = _action_nodes(key, "cache", events)
+        if "mft" in present:
+            category.children = _action_nodes(key, "mft", events)
         if "usb" in present:  # 장치 종류별: a filter by the engine's recorded-identifier classification
             usb = next((c for c in category.children if c.value == ("usb",)), category)
             usb.children = _device_kind_nodes(key, events)
@@ -233,12 +235,16 @@ ACTION_NODES = {
     "history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)), ("searches", ("web_search",))),
     "jumplist": (("files", ("jump_list_file",)), ("items", ("recent_file_access",))),
     "cache": (("entries", ("cache_entry", "cache_url_candidate")), ("status", ("cache_folder_status",))),
+    "mft": (("inventory", ("ntfs_file_inventory", "deleted_file_candidate")), ("deleted", ("deleted_file_candidate",)),
+            ("mismatch", ("extension_mismatch",)), ("encrypted", ("encrypted_file",)),
+            ("photos", ("photo_metadata",)), ("timestamps", ("file_metadata",))),
 }
 
 
 def _action_nodes(category, artifact, events):
     counts = Counter(e.action for e in events if e.artifact == artifact)
-    labels = {"jumplist": JUMP_LIST_TEXT, "cache": CACHE_TEXT, "history": WEB_TEXT}[artifact]["nodes"]
+    labels = {"jumplist": JUMP_LIST_TEXT, "cache": CACHE_TEXT, "history": WEB_TEXT,
+              "mft": FILE_INVENTORY_TEXT}[artifact]["nodes"]
     return [TreeNode(f"art:{category}:{artifact}:{name}", labels[name], "action_set", (artifact, actions),
                      sum(counts[a] for a in actions)) for name, actions in ACTION_NODES[artifact]]
 

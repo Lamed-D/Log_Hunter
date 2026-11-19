@@ -77,6 +77,7 @@ class ImageExtraction:
     warnings: list = field(default_factory=list)
     verification: dict = field(default_factory=dict)
     cache_paths: dict = field(default_factory=dict)
+    file_inventory: list = field(default_factory=list)
 
     def to_dict(self):
         result = {"image_path": self.image_path, "output": self.output, "image": self.image,
@@ -227,6 +228,12 @@ def _extract_volume(ntfs, volume_index, root, specs, result, progress):
                 image_path = "\\" + "\\".join(names)
                 if _copy(ntfs, entry, destination, image_path, volume_index, ("cache",), result) and progress:
                     progress(len(result.files), image_path)
+    if MFT_SPEC in specs:
+        from .inventory import scan_file_inventory
+        try:
+            result.file_inventory.extend(scan_file_inventory(ntfs, volume_index, result.image_path))
+        except (NTFSError, OSError, ValueError) as exc:
+            result.warnings.append(f"[볼륨 {volume_index}] 파일 목록을 끝까지 읽을 수 없습니다 ({exc})")
 
 
 def _unique(destination):
