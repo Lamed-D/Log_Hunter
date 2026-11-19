@@ -381,7 +381,7 @@ def _column_properties(set_name):
 CATEGORY_FIELDS = {"cookies": _column_properties("web_cookies"), "favicons": _column_properties("web_icons"),
                    "autofill": _column_properties("web_autofill"), "browser_extensions": _column_properties("web_extensions"),
                    "browser_profiles": _column_properties("web_profiles"), "bookmarks": _column_properties("web_bookmarks"),
-                   "email": _column_properties("email"),
+                   "email": _column_properties("email"), "registry_deleted": _column_properties("deleted_records"),
                    "webcache": lambda event, ctx: (_column_properties("web_cookies")(event, ctx) if event.action == "cookie_stored"
                                                    else web_properties(event, ctx)),
                    "mru": recent_properties, "lnk": recent_properties, "jumplist": jump_list_properties,

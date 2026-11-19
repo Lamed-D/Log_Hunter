@@ -37,6 +37,7 @@ ARTIFACT_LABELS = {
     "bookmarks": "즐겨찾기·책갈피",
     "email": "저장된 이메일 (머리글)",
     "webcache": "IE·레거시 엣지 웹 기록 (WebCache)",
+    "registry_deleted": "삭제된 레지스트리 후보",
     "cache": "웹 캐시 (임시 파일)",
     "srum": "앱·네트워크 사용량",
     "network": "접속한 네트워크",
@@ -102,6 +103,7 @@ ARTIFACT_DESCRIPTIONS = {
     "browser_extensions": "브라우저 프로필에 설치된 확장 프로그램의 이름·ID·버전·권한·설치 시각 (Preferences)",
     "browser_profiles": "브라우저 프로필 목록과 로그인한 계정 이름, 마지막 사용 시각 (Local State)",
     "bookmarks": "브라우저 책갈피와 즐겨찾기 바로가기(.url)의 주소와 저장 시각 (Bookmarks)",
+    "registry_deleted": "레지스트리 파일의 빈 칸에 남은 지워진 키·값 (하이브 free cell). 후보일 뿐이며 이전 버전이거나 일부가 덮였을 수 있습니다",
     "webcache": "인터넷 익스플로러와 예전 엣지가 쓰는 웹 캐시 데이터베이스의 방문·쿠키·다운로드 (WebCacheV01.dat). 쿠키 값과 캐시된 내용은 읽지 않습니다",
     "email": "사용자 폴더에 저장된 메일 파일의 보낸·받는 주소, 제목, 보낸 시각, 첨부 이름 (.eml). 본문과 첨부 내용은 저장하지 않습니다",
     "cache": "브라우저가 저장해 둔 웹 페이지 조각과 그 주소 (캐시)",
@@ -160,6 +162,8 @@ ACTION_LABELS = {
     "browser_profile": "브라우저 프로필",
     "bookmark_saved": "책갈피 저장",
     "email_message": "메일 메시지",
+    "deleted_registry_key": "삭제된 레지스트리 키 후보",
+    "deleted_registry_value": "삭제된 레지스트리 값 후보",
     "activity_update": "앱 사용 기록",
     "network_profile": "네트워크 접속",
     "wlan_profile": "Wi-Fi 저장",
@@ -480,6 +484,8 @@ COLUMN_LABELS = {
     "tab_referrer_url": "탭 참조 주소", "site_url": "사이트 주소", "download_start": "시작 시각", "download_end": "종료 시각",
     "download_size": "크기(바이트)", "download_state": "상태",
     "source_location": "원본 위치", "target_match": "묶은 근거",
+    "key_path": "키 경로", "value_name": "값 이름", "value_type": "값 종류", "value_preview": "값 미리 보기",
+    "deleted_confidence": "신뢰도", "confidence_reason": "신뢰도 이유",
     "search_term": "검색어", "cookie_site": "사이트", "cookie_name": "쿠키 이름", "cookie_path": "경로",
     "cookie_created": "만든 시각", "cookie_expires": "만료 시각", "page_url": "페이지 주소", "icon_url": "아이콘 주소",
     "field_name": "입력 칸 이름", "use_count": "사용 횟수", "first_used": "처음 저장", "last_used": "마지막 사용",
@@ -526,6 +532,9 @@ NODE_HINTS = {
     "lnk_shortcuts": "바로가기 파일 하나를 한 줄로, 바로가기 자체와 대상 파일의 시각을 나란히 보입니다",
     "action_set": "같은 브라우저 기록 파일에서 나온 기록을 종류별로 나눠 보입니다",
 }
+# 삭제된 기록 후보의 신뢰도
+DELETED_CONFIDENCE = {"intact": "구조 온전", "old_copy": "이전 버전일 수 있음", "partial": "일부만 읽힘",
+                      "value_only": "값만 남음 (키 미상)"}
 # 날짜 필터: 입력한 날짜는 UTC 기준으로 해석 (화면의 모든 시각도 UTC)
 FILTER_TEXT = {"start": "시작 (UTC):", "end": "종료 (UTC):"}
 # 최근 파일·폴더: 같은 대상 묶어 보기(출처별 기록), 바로가기 한 줄 보기, 원본 위치와 시각의 의미

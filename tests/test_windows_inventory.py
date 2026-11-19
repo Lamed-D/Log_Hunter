@@ -37,7 +37,7 @@ class WindowsInventoryTests(unittest.TestCase):
             image.write_bytes(ntfs.build())
             result = Pipeline().analyze_image(image, root / 'work')
             sam_copy = next(Path(item.source) for item in result.evidence if Path(item.source).name == 'SAM')
-            self.assertEqual([row[0] for row in detect_inputs([sam_copy])], ['windows_accounts'])
+            self.assertEqual([row[0] for row in detect_inputs([sam_copy])], ['windows_accounts', 'registry_deleted'])
         programs = [e for e in result.events if e.artifact == 'windows_installed']
         self.assertEqual(len(programs), 2)
         self.assertEqual({e.details['registry_view'] for e in programs}, {'default', 'wow64'})

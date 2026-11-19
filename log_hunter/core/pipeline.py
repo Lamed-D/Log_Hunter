@@ -45,6 +45,7 @@ from log_hunter.parser.chromium_extra import AutofillParser, CookiesParser, Favi
 from log_hunter.parser.chromium_prefs import BookmarksParser, BrowserExtensionsParser, BrowserProfilesParser
 from log_hunter.parser.email_message import EmailParser
 from log_hunter.parser.webcache import WebCacheParser
+from log_hunter.parser.registry_deleted import RegistryDeletedParser
 from log_hunter.parser.windows_inventory import InstalledProgramsParser, LocalAccountsParser, OSInfoParser, combine_os_records
 
 PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "mru": MRUParser,
@@ -57,7 +58,7 @@ PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "
            "defender": DefenderParser,
            "cookies": CookiesParser, "favicons": FaviconsParser, "autofill": AutofillParser,
            "browser_extensions": BrowserExtensionsParser, "browser_profiles": BrowserProfilesParser,
-           "bookmarks": BookmarksParser, "email": EmailParser, "webcache": WebCacheParser, "windows_installed": InstalledProgramsParser,
+           "bookmarks": BookmarksParser, "email": EmailParser, "webcache": WebCacheParser, "registry_deleted": RegistryDeletedParser, "windows_installed": InstalledProgramsParser,
            "windows_os": OSInfoParser, "windows_accounts": LocalAccountsParser}
 INVENTORY_HIVES = ("windows_installed", "windows_os", "windows_accounts")
 # Browser SQLite databases: read through a recovered working copy (journal/WAL merged), never in place.
