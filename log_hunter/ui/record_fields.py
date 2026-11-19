@@ -9,6 +9,7 @@ from log_hunter.core.labels import (DEFENDER_TEXT, PROPERTY_LABELS as L, PROPERT
                                     artifact_label, column_label, time_field_label)
 from log_hunter.parser.history import URL_ROLES
 from log_hunter.core.sid_resolver import display_name
+from log_hunter.core.timestamp import display_event_time
 from .view_model import display_target
 
 PREFETCH_RUN_LIMIT = 8
@@ -75,10 +76,11 @@ class Properties:
 
 def common_fields(event, ctx):
     user = display_name(event.sid, ctx.sid_map)
+    moment = (display_event_time(event) or UNKNOWN_VALUE) if event.artifact == "shellbag" else format_time(event.timestamp, ctx.tz)
     return [
         (L["artifact"], artifact_label(event.artifact)),
         (L["action"], action_label(event.action)),
-        (L["timestamp"], format_time(event.timestamp, ctx.tz)),
+        (L["timestamp"], moment),
         (L["time_field"], time_field_label(event.time_field) if event.time_field else UNKNOWN_VALUE),
         (L["user"], f"{user} ({event.sid})" if user else _text(event.sid)),
         (L["target"], _text(display_target(event))),

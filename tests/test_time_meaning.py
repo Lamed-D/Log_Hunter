@@ -13,7 +13,11 @@ from log_hunter.parser.shellbag import ShellBagParser
 from log_hunter.parser.recyclebin import RecycleBinParser
 from log_hunter.parser.mft import parse_record
 from log_hunter.parser.userassist import resolve_guid_path
+from log_hunter.core.pipeline import Pipeline
+from log_hunter.core.timestamp import display_event_time, filetime
+from fixtures.synthetic_windows_case import STAMP, put, registry_bytes
 from test_image import _record, _resident
+from test_text_encoding import shell_item
 
 
 class TimeMeaningTests(unittest.TestCase):
@@ -112,6 +116,36 @@ class TimeMeaningTests(unittest.TestCase):
         self.assertFalse(any(e.details.get('deleted_folder_evidence') for e in events))
         self.assertIsNone(events[0].timestamp)
         self.assertIsNotNone(events[1].timestamp)
+
+    def test_shellbag_hive_preserves_key_and_fat_time_bases(self):
+        item = bytearray(shell_item("Evidence", extension=True))
+        extension, = struct.unpack_from("<H", item, len(item) - 2)
+        for offset, hour in ((8, 1), (extension + 8, 2), (extension + 12, 3)):
+            struct.pack_into("<HH", item, offset, ((2024 - 1980) << 9) | (1 << 5) | 2, hour << 11)
+        user_tree = {}
+        put(user_tree, r"Software\Microsoft\Windows\Shell\BagMRU",
+            [("0", 3, item), ("MRUListEx", 3, struct.pack("<2I", 0, 0xffffffff))])
+        system_tree = {}
+        put(system_tree, "Select", [("Current", 4, struct.pack("<I", 1))])
+        put(system_tree, r"ControlSet001\Control\TimeZoneInformation",
+            [("Bias", 4, struct.pack("<i", -540))])
+        with tempfile.TemporaryDirectory() as directory:
+            user = Path(directory) / "NTUSER.DAT"
+            system = Path(directory) / "SYSTEM"
+            user.write_bytes(registry_bytes(user_tree, user.name))
+            system.write_bytes(registry_bytes(system_tree, system.name))
+            without_clock = Pipeline().analyze([("shellbag", user)]).events
+            with_clock = Pipeline().analyze([("shellbag", user), ("services", system)]).events
+        unknown = {e.time_field: e for e in without_clock}
+        known = {e.time_field: e for e in with_clock}
+        self.assertEqual(known["key_lastwrite"].timestamp, filetime(STAMP))
+        self.assertEqual(known["key_lastwrite"].details["mru_rank"], 0)
+        for field, hour in (("modified", 1), ("created", 2), ("accessed", 3)):
+            key = "shell_item_" + field
+            self.assertIsNone(unknown[key].timestamp)
+            self.assertIn("시간대 미상", display_event_time(unknown[key]))
+            self.assertEqual(known[key].timestamp, f"2024-01-01T{hour + 15}:00:00+00:00")
+            self.assertTrue(display_event_time(known[key]).endswith(" UTC"))
 
     def test_last_visited_utf16_boundary_and_binary_pidl(self):
         executable = 'example.exe\0'.encode('utf-16-le')
