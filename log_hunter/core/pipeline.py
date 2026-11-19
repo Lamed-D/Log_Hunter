@@ -247,7 +247,8 @@ class Pipeline:
                 if sqlite_input:
                     with tempfile.TemporaryDirectory(prefix="log-hunter-history-") as temporary:
                         merged = merge_history(path, temporary)
-                        for event in parser.parse(merged):
+                        parsed = parser.parse(merged, origin=path) if artifact == "history" else parser.parse(merged)
+                        for event in parsed:
                             event.source = str(path)
                             result.events.append(event)
                         for error in parser.errors:

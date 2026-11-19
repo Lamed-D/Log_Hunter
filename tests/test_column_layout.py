@@ -16,9 +16,11 @@ class OrderTests(unittest.TestCase):
                 continue
             keys = [c.key for c in cols]
             # 예약 작업: the registration time is its time column, then the task itself.
-            self.assertEqual(keys[0], "registration_time" if name == "scheduled_tasks" else "timestamp", name)
+            first = {"scheduled_tasks": "registration_time", "web_downloads": "download_start"}.get(name, "timestamp")
+            self.assertEqual(keys[0], first, name)
             second = {"usb_devices": "device_kind_name", "security_detections": "action",
-                      "scheduled_tasks": "task_name"}.get(name, "artifact")
+                      "scheduled_tasks": "task_name", "web_visits": "web_title",
+                      "web_downloads": "download_file"}.get(name, "artifact")
             self.assertEqual(keys[1], second, name)  # one artifact only: what kind of record it is
             self.assertEqual(len(keys), len(set(keys)), name)
             self.assertEqual(columns.set_name(cols), name)
