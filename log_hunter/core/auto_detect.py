@@ -92,6 +92,8 @@ def detect_artifact(path_str):
         return CHROMIUM_DATABASES[name_lower]
     if ext == ".url" and "\\favorites\\" in parts_lower.replace("/", "\\"):
         return "bookmarks"
+    if ext == ".eml":
+        return "email"
     if parent in ("cache", "cache2", "code cache", "gpu cache") or name_lower == "index":
         if _looks_like_cache_dir(path.parent if name_lower == "index" else path):
             return "cache"
