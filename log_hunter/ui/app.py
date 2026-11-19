@@ -802,6 +802,17 @@ def run(live=None):
         if result:
             count_var.set(view_model.count_text(len(matched), len(visible), len(result.events), bool(search_text)))
 
+    def _show_quick_page(path, page):
+        """Fill the table with the first saved records (read-only, no tree yet); replaced by the full view."""
+        events, total = page
+        visible.clear()
+        _apply_columns(table_columns.DEFAULT)
+        tree.delete(*tree.get_children())
+        for i, event in enumerate(events):
+            tree.insert("", "end", iid=f"quick{i}", values=table_columns.row(event, table_state["columns"], {}, None),
+                        tags=(event.artifact,) if event.artifact in ARTIFACT_COLORS else ())
+        status.set(CASE_TEXT["quick_view"].format(shown=len(events), total=total))
+
     def turn_timeline_page(delta):
         timeline_page["page"] += delta
         _populate_tree(keep_page=True)
@@ -1251,6 +1262,12 @@ def run(live=None):
                 messagebox.showerror(CASE_TEXT["relink_button"], str(error))
             else:
                 _finish_relink(*value)
+            return
+        if tag == "case_peek":
+            # The first page straight from the saved database while the whole analysis loads (indexed cases only).
+            if error or value[1] is None or loaded_case.get("path") == value[0] and loaded_case.get("result") is not None:
+                return
+            _show_quick_page(*value)
             return
         if tag == "case_open":
             progress.stop()
@@ -1782,6 +1799,9 @@ def run(live=None):
         status.set(CASE_TEXT["loading"])
         progress.configure(mode="indeterminate")
         progress.start(12)
+        from . import case_view
+        runner.submit("case_peek", lambda: (path, case_view.quick_page(path, view_model.TIMELINE_PAGE_ROWS)))
+
         def load():
             analysis, info = load_case(path)
             view_model.prepare_order(analysis.events)  # the one-time timeline sort, off the window's thread
