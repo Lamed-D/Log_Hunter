@@ -546,6 +546,10 @@ FILE_INVENTORY_TEXT = {
               "encrypted": "암호화 표시", "photos": "사진 메타데이터", "timestamps": "파일 시스템 시각"},
     "basis": {"signature": "파일 시그니처", "extension": "이름의 확장자", "unknown": "알 수 없음"},
 }
+PROGRAM_GROUP_TEXT = {
+    "node": "실행 파일 이름으로 묶기",
+    "item": "{name} · 출처 {sources}종",
+}
 # 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
 WEB_TEXT = {
     "nodes": {"visits": "방문", "downloads": "다운로드", "searches": "검색어", "cookies": "쿠키 (값 제외)",

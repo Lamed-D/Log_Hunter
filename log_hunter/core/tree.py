@@ -5,9 +5,10 @@ from dataclasses import dataclass, field
 from pathlib import PureWindowsPath
 
 from .recent_targets import target_label
+from .correlation import _build_program_groups
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, PROGRAM_GROUP_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -190,6 +191,10 @@ def _data_artifacts(events, summaries=(), errors=()):
                 jump.children = _action_nodes(key, "jumplist", events)
                 files, items = (child.count for child in jump.children)
                 jump.label += " · " + JUMP_LIST_TEXT["counts"].format(files=files, items=items)
+        if key == "run_programs":
+            execution_groups = _execution_groups(key, events, present)
+            if execution_groups.children:
+                category.children.append(execution_groups)
         if "history" in present:  # 방문 / 다운로드: one browser database, two kinds of record
             history = next((c for c in category.children if c.value == ("history",)), category)
             history.children = _action_nodes(key, "history", events)
@@ -207,6 +212,19 @@ def _data_artifacts(events, summaries=(), errors=()):
         root.children.append(TreeNode("art:other", "기타 기록", "artifacts", tuple(others), sum(counts[a] for a in others),
                                       [TreeNode(f"art:other:{a}", artifact_label(a), "artifacts", (a,), counts[a]) for a in others]))
     return root
+
+
+def _execution_groups(category, events, artifacts):
+    records = [event for event in events if event.artifact in artifacts]
+    all_rows = set()
+    children = []
+    for group in sorted(_build_program_groups(records), key=lambda item: item["program"]):
+        rows = frozenset(id(records[i]) for i in group["event_indices"])
+        all_rows.update(rows)
+        label = PROGRAM_GROUP_TEXT["item"].format(name=group["program"], sources=group["artifact_count"])
+        children.append(TreeNode(f"art:{category}:group:{group['program']}", label, "event_set", rows, len(rows)))
+    return TreeNode(f"art:{category}:groups", PROGRAM_GROUP_TEXT["node"], "event_set", frozenset(all_rows),
+                    len(all_rows), children)
 
 
 def _target_groups(category, events):
