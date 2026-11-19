@@ -107,7 +107,7 @@ CATEGORY_COLUMNS = {
 # One record kind selected on its own that has its own column set.
 _ARTIFACT_SETS = {("cookies",): "web_cookies", ("favicons",): "web_icons", ("autofill",): "web_autofill",
                   ("browser_extensions",): "web_extensions", ("browser_profiles",): "web_profiles", ("bookmarks",): "web_bookmarks"}
-WEB_ARTIFACTS = ("history", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks")
+WEB_ARTIFACTS = ("history", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks", "webcache")
 _SET_NAMES = {DEFAULT: "default", **{cols: name for name, cols in CATEGORY_COLUMNS.items()}}
 
 
@@ -147,10 +147,11 @@ def columns_for(node):
         return CATEGORY_COLUMNS["recent_targets"]
     if node is not None and node.kind == "lnk_shortcuts":
         return CATEGORY_COLUMNS["shortcuts"]
-    if node is not None and node.kind == "action_set" and node.value[0] == "history":
+    if node is not None and node.kind == "action_set" and node.value[0] in ("history", "webcache"):
         actions = node.value[1]
         return CATEGORY_COLUMNS["web_downloads" if actions == ("download",) else
-                                "web_searches" if actions == ("web_search",) else "web_visits"]
+                                "web_searches" if actions == ("web_search",) else
+                                "web_cookies" if actions == ("cookie_stored",) else "web_visits"]
     if node is not None and node.kind == "artifacts" and tuple(node.value) in _ARTIFACT_SETS:
         return CATEGORY_COLUMNS[_ARTIFACT_SETS[tuple(node.value)]]
     if node is not None and node.kind == "action_set" and node.value[0] == "jumplist":

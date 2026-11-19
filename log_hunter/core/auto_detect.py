@@ -96,6 +96,8 @@ def detect_artifact(path_str):
         return "bookmarks"
     if ext == ".eml":
         return "email"
+    if name_lower == "webcachev01.dat":
+        return "webcache"
     if _cache_input_directory(path):
         return "cache"
 

@@ -36,6 +36,7 @@ ARTIFACT_LABELS = {
     "browser_profiles": "브라우저 프로필",
     "bookmarks": "즐겨찾기·책갈피",
     "email": "저장된 이메일 (머리글)",
+    "webcache": "IE·레거시 엣지 웹 기록 (WebCache)",
     "cache": "웹 캐시 (임시 파일)",
     "srum": "앱·네트워크 사용량",
     "network": "접속한 네트워크",
@@ -101,6 +102,7 @@ ARTIFACT_DESCRIPTIONS = {
     "browser_extensions": "브라우저 프로필에 설치된 확장 프로그램의 이름·ID·버전·권한·설치 시각 (Preferences)",
     "browser_profiles": "브라우저 프로필 목록과 로그인한 계정 이름, 마지막 사용 시각 (Local State)",
     "bookmarks": "브라우저 책갈피와 즐겨찾기 바로가기(.url)의 주소와 저장 시각 (Bookmarks)",
+    "webcache": "인터넷 익스플로러와 예전 엣지가 쓰는 웹 캐시 데이터베이스의 방문·쿠키·다운로드 (WebCacheV01.dat). 쿠키 값과 캐시된 내용은 읽지 않습니다",
     "email": "사용자 폴더에 저장된 메일 파일의 보낸·받는 주소, 제목, 보낸 시각, 첨부 이름 (.eml). 본문과 첨부 내용은 저장하지 않습니다",
     "cache": "브라우저가 저장해 둔 웹 페이지 조각과 그 주소 (캐시)",
     "lnk": "파일을 열 때 Windows가 만든 바로가기와 대상 파일의 시각 (LNK)",
@@ -226,6 +228,9 @@ TIME_FIELD_LABELS = {
     "bookmark_added": "책갈피 추가",
     "bookmark_file_created": "즐겨찾기 파일 생성 (저장 시각 후보)",
     "email_sent": "메일 머리글의 보낸 시각 (Date)",
+    "webcache_accessed": "웹 캐시 기록의 접근 시각 (방문)",
+    "webcache_last_accessed": "웹 캐시 기록의 마지막 접근 시각",
+    "cookie_last_update": "쿠키 마지막 갱신",
     "creation_time": "생성",
     "deletion_time": "삭제",
     "registration_date": "등록",
@@ -564,7 +569,7 @@ PROGRAM_GROUP_TEXT = {
 }
 # 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
 WEB_TEXT = {
-    "nodes": {"visits": "방문", "downloads": "다운로드", "searches": "검색어", "cookies": "쿠키 (값 제외)",
+    "nodes": {"visits": "방문", "downloads": "다운로드", "searches": "검색어", "summaries": "방문 요약 (주소별 마지막)", "cookies": "쿠키 (값 제외)",
               "icons": "사이트 아이콘", "autofill": "입력 자동 완성 (값 제외)", "extensions": "확장 프로그램",
               "profiles": "브라우저 프로필", "bookmarks": "즐겨찾기·책갈피"},
     "tab": "웹 기록",
