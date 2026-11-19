@@ -802,14 +802,14 @@ def run(live=None):
         if result:
             count_var.set(view_model.count_text(len(matched), len(visible), len(result.events), bool(search_text)))
 
-    db_view = {"path": None, "token": 0}
+    db_view = {"path": None, "token": 0, "page": 0, "sort": "timeline", "total": 0}
 
     def _show_quick_page(path, page):
         """While the whole analysis loads: the tree from the saved aggregates and the first saved records. Node clicks
         are answered by database pages until the full view replaces this."""
         from . import case_view
         events, total, counts = page
-        db_view["path"] = path
+        db_view.update(path=path, page=0, sort="timeline", total=total or 0)
         nav_tree.delete(*nav_tree.get_children())
         nav_nodes.clear()
         nav_state["node"] = None
@@ -825,10 +825,11 @@ def run(live=None):
         if counts.get("partial") or warnings:
             status.set(status.get() + " · " + CASE_TEXT["quick_warnings"].format(count=len(warnings)))
 
-    def _db_refresh():
-        """A node or filter change while only the database view is shown: query one page on its own thread."""
+    def _db_refresh(page=0):
+        """A node, filter, page or sort change while only the database view is shown: query one page on its own thread."""
         from . import case_view
         db_view["token"] += 1
+        db_view["page"] = page
         token, path, node = db_view["token"], db_view["path"], nav_state["node"]
         if case_view.node_filter(node) is False:
             tree.delete(*tree.get_children())
@@ -840,7 +841,8 @@ def run(live=None):
 
         def work():
             try:
-                found = case_view.db_page(path, filters, node, view_model.TIMELINE_PAGE_ROWS)
+                rows = view_model.TIMELINE_PAGE_ROWS
+                found = case_view.db_page(path, filters, node, rows, offset=page * rows, sort=db_view["sort"])
             except Exception as exc:  # shown in the status line; the full load continues
                 found = exc
             mailbox.put(("db_page", (token, node, found)))
@@ -855,20 +857,45 @@ def run(live=None):
             status.set(CASE_TEXT["quick_error"].format(error=found))
             return
         events, total, warnings = found
+        db_view["total"] = total or 0
         visible.clear()
         visible.extend(events)
         _apply_columns(table_columns.columns_for(node))
         _populate_tree()
+        rows = view_model.TIMELINE_PAGE_ROWS
+        page, pages, start, end = view_model.page_bounds(db_view["total"], db_view["page"], rows)
+        timeline_page_var.set(view_model.page_text(page, pages, start, start + len(events), db_view["total"]))
         status.set(CASE_TEXT["quick_page"].format(shown=len(events), total=total or 0)
                    + (" · " + CASE_TEXT["quick_warnings"].format(count=len(warnings)) if warnings else ""))
 
+    def _db_view_active():
+        return result is None and db_view["path"] is not None
+
     def turn_timeline_page(delta):
+        if _db_view_active():  # the database view pages through the saved records, not just the rows in memory
+            pages = max(1, -(-db_view["total"] // view_model.TIMELINE_PAGE_ROWS))
+            target = min(max(0, db_view["page"] + delta), pages - 1)
+            if target != db_view["page"]:
+                _db_refresh(target)
+            return
         timeline_page["page"] += delta
         _populate_tree(keep_page=True)
 
     def sort_column(col):
         """Sort all filtered records (not just the shown page) by the column's shown text."""
         rev = sort_reverse.get(col, False)
+        if _db_view_active():
+            from . import case_view
+            if case_view.db_sort(col, False) is None:
+                status.set(CASE_TEXT["quick_sort_wait"])
+                return
+            sort_reverse[col] = not rev
+            db_view["sort"] = case_view.db_sort(col, rev)
+            _db_refresh()
+            for column, header in zip(table_state["columns"], table_columns.headers(table_state["columns"])):
+                indicator = (" ▲" if not rev else " ▼") if column.key == col else ""
+                tree.heading(column.key, text=header + indicator)
+            return
         sort_reverse[col] = not rev
         visible.sort(key=view_model.sort_key(col, sid_map, nav_state["origins"], result.events if result else ()), reverse=rev)
         _populate_tree()
