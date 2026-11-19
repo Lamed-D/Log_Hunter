@@ -885,6 +885,14 @@ def run(live=None):
     def _db_view_active():
         return db_view["active"]
 
+    def _quick_view_busy():
+        """True (and says why) while a saved case is shown from its database: the records in memory may still be an
+        earlier analysis, so saving or exporting now could mix the two."""
+        if db_view["active"]:
+            messagebox.showinfo(CASE_TEXT["open_title"], CASE_TEXT["quick_save_wait"])
+            return True
+        return False
+
     def turn_timeline_page(delta):
         if _db_view_active():  # the database view pages through the saved records, not just the rows in memory
             if db_view["pending"]:
@@ -921,8 +929,7 @@ def run(live=None):
 
     def save_table_csv():
         # Every filtered (and searched) row in the shown order and columns, not only the current page.
-        if db_view["active"]:
-            messagebox.showinfo(CASE_TEXT["open_title"], CASE_TEXT["quick_save_wait"])
+        if _quick_view_busy():
             return
         shown = _shown_columns()
         rows = [table_columns.row(visible[i], shown, sid_map, nav_state["origins"])
@@ -945,8 +952,7 @@ def run(live=None):
 
     def save_category_csvs():
         """Every record of the analysis, one CSV per category with that category's columns, plus a column guide."""
-        if db_view["active"]:
-            messagebox.showinfo(CASE_TEXT["open_title"], CASE_TEXT["quick_save_wait"])
+        if _quick_view_busy():
             return
         events = result.events if result else []
         if not events:
@@ -1376,8 +1382,16 @@ def run(live=None):
             progress.stop()
             progress.configure(mode="determinate")
             if error:
-                status.set(CASE_TEXT["load_error"].format(error=error))
-                messagebox.showerror(CASE_TEXT["open_title"], CASE_TEXT["load_error"].format(error=error))
+                if db_view["active"]:
+                    db_view.update(path=None, active=False, pending=False)
+                    db_view["token"] += 1
+                    _show_result()  # the earlier analysis again, or an empty view when none was open
+                    if not result:
+                        tree.delete(*tree.get_children())
+                        timeline_page_var.set("")
+                kept = CASE_TEXT["load_error_kept" if result else "load_error_none"]
+                status.set(CASE_TEXT["load_error"].format(error=error) + " · " + kept)
+                messagebox.showerror(CASE_TEXT["open_title"], CASE_TEXT["load_error"].format(error=error) + "\n" + kept)
             else:
                 _show_loaded_case(*value)
             return
@@ -1562,6 +1576,8 @@ def run(live=None):
         prefs.save()
 
     def save_tags():
+        if _quick_view_busy():
+            return
         path = filedialog.asksaveasfilename(title=TAG_MENU["save"], defaultextension=".json",
                                           initialfile="tags.json", filetypes=[(TAG_MENU["file_type"], "*.json")])
         if not path:
@@ -1758,6 +1774,8 @@ def run(live=None):
 
     def save_recycle_original(event):
         """Save the original ($R) of a recycle bin record as a NEW file with a provenance record (image only read)."""
+        if _quick_view_busy():
+            return
         if _case_without_copies():
             messagebox.showwarning(RECYCLE_TEXT["title"], CASE_TEXT["recycle_unavailable"])
             return
@@ -1877,6 +1895,8 @@ def run(live=None):
         runner.submit("analysis_save", job)
 
     def export():
+        if _quick_view_busy():
+            return
         if not result:
             messagebox.showwarning("결과 없음", "분석을 먼저 실행하세요")
             return
@@ -1943,6 +1963,8 @@ def run(live=None):
             messagebox.showwarning(CASE_TEXT["warnings_title"], "\n".join(warnings))
 
     def save_case_dialog():
+        if _quick_view_busy():
+            return
         if not result:
             messagebox.showwarning("결과 없음", "분석을 먼저 실행하세요")
             return
@@ -2091,6 +2113,8 @@ def run(live=None):
         fill()
 
     def export_timeline(fmt):
+        if _quick_view_busy():
+            return
         if not result:
             messagebox.showwarning("결과 없음", "분석을 먼저 실행하세요")
             return
