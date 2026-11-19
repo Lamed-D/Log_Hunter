@@ -353,10 +353,24 @@ class Key:
 
 
 def current_controlset(hive):
-    current = hive.open("Select").value("Current")
-    if not isinstance(current, int) or not 1 <= current <= 999:
-        raise ValueError("활성 ControlSet 미상")
-    return f"ControlSet{current:03d}"
+    """Active ControlSetNNN from Select/Current. If Select is damaged, the only ControlSet present is used;
+    with several the active one is unknown (ValueError, never a guess); with none it is not a SYSTEM hive (KeyError)."""
+    try:
+        current = hive.open("Select").value("Current")
+    except (KeyError, ValueError):
+        current = None
+    if isinstance(current, int) and 1 <= current <= 999:
+        return f"ControlSet{current:03d}"
+    try:
+        sets = [k.name for k in hive.root.subkeys(skip_invalid=True)
+                if k.name[:10].casefold() == "controlset" and k.name[10:].isdigit()]
+    except ValueError:
+        sets = []
+    if len(sets) == 1:
+        return sets[0]
+    if not sets:  # not a SYSTEM hive (callers rely on KeyError for that)
+        raise KeyError("Select")
+    raise ValueError("활성 ControlSet 미상 (Select 키를 읽을 수 없음)")
 
 
 def walk(key, path="", depth=0, seen=None):

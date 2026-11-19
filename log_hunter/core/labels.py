@@ -527,6 +527,7 @@ CSV_TEXT = {
     "bundle_folder": "LogHunter_분류별_CSV_{stamp}",
 }
 # 통계 탭: 이상 탐지는 큰 사례에서 오래 걸려 따로 계산
+DAMAGED_SQLITE = "SQLite 데이터베이스가 손상되었거나 잘려 끝까지 읽지 못했습니다 (그 전까지 읽은 기록은 남김): {error}"
 STATS_TEXT = {"deferred": "통계와 이상 탐지는 이 탭을 열 때 계산합니다 (큰 사례는 몇 초 걸릴 수 있습니다)"}
 # 기록 종류가 아닌 보기 노드를 골랐을 때 표 위에 보이는 설명
 NODE_HINTS = {
