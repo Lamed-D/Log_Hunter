@@ -89,8 +89,17 @@ def _selected_inputs(inputs, changed):
 def _reanalyze_image(result, info, workdir, progress):
     image = result.image
     original = image.get("image_path")
-    if not original or image.get("additional_images") or (image.get("image") or {}).get("snapshot"):
-        raise ValueError("별도 스냅숏이나 여러 이미지를 포함한 분석은 원본별로 다시 분석하세요")
+    if not original or image.get("additional_images"):
+        raise ValueError("여러 이미지를 포함한 분석은 원본별로 다시 분석하세요")
+    snapshot = (image.get("image") or {}).get("snapshot")
+    if snapshot is None and result.settings.get("snapshot_store") is not None:
+        raise ValueError("저장된 스냅숏의 원본 범위를 확인할 수 없습니다")
+    if snapshot is not None:
+        if not isinstance(snapshot, dict):
+            raise ValueError("저장된 스냅숏의 원본 범위를 확인할 수 없습니다")
+        volume, store = snapshot.get("volume_index"), snapshot.get("store_id")
+        if type(volume) is not int or volume < 0 or not isinstance(store, str) or not store:
+            raise ValueError("저장된 스냅숏의 볼륨 또는 스토어를 확인할 수 없습니다")
     derived = {_path_key(row["extracted"]) for row in image.get("files", ()) if row.get("extracted")}
     derived.update(_path_key(path) for path in (image.get("cache_paths") or {}))
     if any(_path_key(row["path"]) not in derived for row in result.inputs):
@@ -108,10 +117,20 @@ def _reanalyze_image(result, info, workdir, progress):
     destination = Path(workdir).resolve()
     if destination.parent in {paths[0].parent, Path(info.path).resolve().parent}:
         raise ValueError("원본 또는 이전 케이스가 있는 폴더와 다른 출력 폴더를 지정하세요")
-    include_mft = result.settings.get("include_mft", any(row["artifact"] == "mft" for row in result.inputs))
-    fresh = Pipeline().analyze_image(paths[0], destination, sid=result.settings.get("sid"),
-                                     environment=result.settings.get("environment"), include_mft=include_mft,
-                                     progress=progress)
+    include_mft = result.settings.get("include_mft", result.settings.get(
+        "with_mft", any(row["artifact"] == "mft" for row in result.inputs)))
+    options = dict(sid=result.settings.get("sid"), environment=result.settings.get("environment"),
+                   include_mft=include_mft, progress=progress)
+    pipeline = Pipeline()
+    if snapshot is not None:
+        fresh = pipeline.analyze_snapshot(paths[0], destination, volume, store, **options)
+        reopened = (fresh.image.get("image") or {}).get("snapshot") or {}
+        identity = snapshot.get("snapshot_id")
+        if (reopened.get("volume_index") != volume or reopened.get("store_id") != store
+                or (identity and reopened.get("snapshot_id") != identity)):
+            raise ValueError("변경된 이미지에서 같은 스냅숏을 다시 열 수 없습니다")
+    else:
+        fresh = pipeline.analyze_image(paths[0], destination, **options)
     if any(_file_state(path) != state for path, state in zip(paths, states)):
         raise ValueError("원본 이미지가 재분석 중 변경됐습니다")
     fresh.tags = result.tags
