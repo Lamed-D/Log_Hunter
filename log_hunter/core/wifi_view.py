@@ -1,5 +1,6 @@
 """Saved Wi-Fi profile columns for the result table, properties and report: what the profile records, not a connection."""
 from .labels import WIFI_TEXT, WLAN_PASSWORD_STATES
+from .timestamp import display_clock
 
 COLUMNS = ("ssid_name", "authentication", "encryption", "automatic_connection", "wifi_password", "password_state",
            "password_source", "networklist")
@@ -19,8 +20,7 @@ def _networklist(details):
     first = candidates[0]
     text = WIFI_TEXT["candidates"].format(count=len(candidates))
     if first.get("date_last_connected_utc"):
-        value = first["date_last_connected_utc"].removesuffix("+00:00").replace("T", " ")
-        text += " · " + WIFI_TEXT["last_connected"].format(time=value, zone=" UTC")
+        text += " · " + WIFI_TEXT["last_connected"].format(time=display_clock(first["date_last_connected_utc"]), zone="")
     elif first.get("date_last_connected_local"):
         text += " · " + WIFI_TEXT["last_connected"].format(time=first["date_last_connected_local"],
                                                             zone=WIFI_TEXT["zone_unknown"])

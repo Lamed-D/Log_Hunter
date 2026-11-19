@@ -25,6 +25,8 @@ class UTCDisplayTests(unittest.TestCase):
         e = event(None, timestamp_raw_local="2024-01-01T09:00:00", timezone_known=False)
         self.assertEqual(event_time_text(e), "2024-01-01 09:00:00 (시간대 미상)")
         self.assertNotIn("UTC", columns.cell("timestamp", e, {}, None))
+        self.assertEqual(event_time_text(event(None, timestamp_raw_local="2024:01:01 09:00:00")),
+                         "2024:01:01 09:00:00 (시간대 미상)")
         self.assertEqual(event_time_text(event(None)), "알 수 없음")
 
     def test_detail_time_columns_use_the_same_format(self):

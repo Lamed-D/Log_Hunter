@@ -205,6 +205,8 @@ TIME_FIELD_LABELS = {
     "os_installation": "레지스트리에 기록된 Windows 설치 시각",
     "network_last_connected": "프로필에 기록된 마지막 네트워크 연결",
     "network_profile_created": "네트워크 프로필 생성",
+    "photo_capture_time": "사진 메타데이터의 원래 촬영 시각",
+    "photo_metadata_time": "사진 메타데이터의 변경 시각",
     "key_lastwrite": "레지스트리 마지막 변경",
     "shell_item_created": "셸 항목에 기록된 생성 시각",
     "shell_item_modified": "셸 항목에 기록된 수정 시각",
