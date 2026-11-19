@@ -21,7 +21,7 @@ def parse_filter_date(text, end=False):
                 value = value + step - timedelta(microseconds=1)
             except OverflowError:
                 value = datetime.max
-        return value.isoformat()
+        return value.replace(tzinfo=timezone.utc).isoformat()
     return text
 
 

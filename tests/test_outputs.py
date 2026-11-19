@@ -1,5 +1,6 @@
 """Saving results: relations without a left/right pair, CSV formula safety, output folder safety."""
 import csv
+import json
 import sqlite3
 from contextlib import closing
 import tempfile
@@ -54,6 +55,38 @@ class SaveResultTests(unittest.TestCase):
                 cells = [cell for row in csv.reader(stream) for cell in row]
             risky = [c for c in cells if c.lstrip()[:1] in ("=", "+", "-", "@") and not c.startswith("'")]
             self.assertEqual(risky, [], path.name)
+
+    def test_timeline_csv_uses_same_common_fields_in_both_exports(self):
+        from log_hunter.core.export import COMMON_FIELDS, export_csv
+        known = _event("shellbag", "folder", timestamp="2024-01-02T03:00:00+09:00",
+                       time_field="key_lastwrite", locator="BagMRU\\0")
+        unknown = _event("shellbag", "other", timestamp=None,
+                         details={"timestamp_raw_local": "2024-01-02T03:00:00"})
+        save_result(_result([known, unknown]), self.root / "out")
+        export_csv([known, unknown], self.root / "gui.csv")
+        common_rows = []
+        for path in (self.root / "out" / "timeline.csv", self.root / "gui.csv"):
+            self.assertTrue(path.read_bytes().startswith(b"\xef\xbb\xbf"))
+            with path.open(encoding="utf-8-sig", newline="") as stream:
+                reader = csv.DictReader(stream)
+                self.assertNotIn("timestamp_local", reader.fieldnames)
+                common_rows.append([{key: row[key] for key in COMMON_FIELDS} for row in reader])
+        self.assertEqual(common_rows[0], common_rows[1])
+        first, second = common_rows[0]
+        self.assertEqual(first["timestamp_utc"], "2024-01-01T18:00:00+00:00")
+        self.assertEqual(first["source_locator"], "BagMRU\\0")
+        self.assertEqual(first["time_basis"], "key_lastwrite")
+        self.assertEqual(second["timestamp_utc"], "")
+        self.assertEqual(second["timestamp_raw_local"], "2024-01-02T03:00:00")
+        self.assertEqual(second["time_basis"], "시간대 미상")
+        json_rows = json.loads((self.root / "out" / "timeline.json").read_text(encoding="utf-8"))
+        self.assertEqual(json_rows[0]["timestamp"], first["timestamp_utc"])
+        self.assertIsNone(json_rows[1]["timestamp_utc"])
+        with closing(sqlite3.connect(self.root / "out" / "case.sqlite")) as db:
+            self.assertEqual(db.execute("SELECT timestamp FROM events ORDER BY id").fetchall(),
+                             [(first["timestamp_utc"],), (None,)])
+        with self.assertRaises(FileExistsError):
+            export_csv([known], self.root / "gui.csv")
 
     def test_outputs_never_replace_existing_files(self):
         from log_hunter.collector.live_collector import register_evidence

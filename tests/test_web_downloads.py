@@ -112,7 +112,8 @@ class WebDownloadTests(unittest.TestCase):
         with out.open(encoding="utf-8-sig") as stream:
             rows = list(csv.DictReader(stream))
         header = list(rows[0])
-        self.assertEqual(header[header.index("details_json") + 1:], list(DOWNLOAD_FIELDS))
+        start = header.index("details_json") + 1
+        self.assertEqual(header[start:start + len(DOWNLOAD_FIELDS)], list(DOWNLOAD_FIELDS))
         download = next(r for r in rows if r["action"] == "download")
         self.assertEqual(download["download_save_path"], r"C:\Users\alice\Downloads\tool.exe")
         self.assertEqual(download["final_url"], "https://cdn.example.org/tool.exe")

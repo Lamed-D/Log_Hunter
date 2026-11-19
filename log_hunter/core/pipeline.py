@@ -12,6 +12,7 @@ from .recent_targets import attach_target_keys
 from .labels import IMAGE_VERIFICATION_LABELS
 from log_hunter.parser.registry import replay_logs, Hive, current_controlset
 from .text import target_acp
+from .timestamp import normalize_event_timestamp
 from .windows_time import local_time_to_utc, read_windows_time_rules
 from log_hunter.parser.userassist import UserAssistParser
 from log_hunter.parser.bam import BAMParser, load_profile_list
@@ -339,7 +340,7 @@ class Pipeline:
                 event.details.update(time_details)
         from .task_merge import merge_tasks
         result.events = merge_tasks(result.events, result.evidence)
-        result.events = timeline(result.events)
+        result.events = timeline(normalize_event_timestamp(event) for event in result.events)
         attach_target_keys(result.events)
         from log_hunter.parser.usb_inventory import usb_device_inventory
         usb_device_inventory(result.events)

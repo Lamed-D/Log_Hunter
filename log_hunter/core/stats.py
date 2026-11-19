@@ -1,14 +1,15 @@
 """Forensic event statistics and anomaly detection."""
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def _parse_ts(ts_str):
     if not ts_str:
         return None
     try:
-        return datetime.fromisoformat(ts_str)
-    except (ValueError, TypeError):
+        parsed = datetime.fromisoformat(ts_str)
+        return parsed.astimezone(timezone.utc) if parsed.utcoffset() is not None else None
+    except (ValueError, TypeError, OverflowError):
         return None
 
 
@@ -126,7 +127,7 @@ def detect_anomalies(events):
             anomalies.append({
                 "type": "off_hours",
                 "description": f"{day} 새벽 시간대(00~05시) 활동 {count}건 감지",
-                "timestamp": day + "T00:00:00",
+                "timestamp": day + "T00:00:00+00:00",
                 "severity": "info" if count < 10 else "warning",
             })
 
