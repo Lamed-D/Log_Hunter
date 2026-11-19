@@ -197,6 +197,7 @@ class Pipeline:
                                        verification_cancel=verification_cancel)
         self.file_times = {**self.file_times, **file_times([extraction])}
         result = self.analyze(extraction.inputs, sid, environment, progress, file_inventory=extraction.file_inventory)
+        result.settings["include_mft"] = bool(include_mft)
         result = apply_image_metadata(result, extraction)
         for error in extraction.verification.get('errors', []):
             result.errors.append(ParserError(str(image_path), 'image',
