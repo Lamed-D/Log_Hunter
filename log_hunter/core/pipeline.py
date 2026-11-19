@@ -8,6 +8,7 @@ from log_hunter.collector.live_collector import sha256, register_evidence
 from log_hunter.core.models import ParserError
 from .correlation import correlate
 from .timeline import timeline
+from .recent_targets import attach_target_keys
 from .labels import IMAGE_VERIFICATION_LABELS
 from log_hunter.parser.registry import replay_logs, Hive, current_controlset
 from .text import target_acp
@@ -121,7 +122,21 @@ def merge_history(source, working_directory):
     return normalized
 
 
+def file_times(extractions):
+    """{extracted copy (resolved, casefold): its MFT times inside the image}, for records that need their own file's times."""
+    times = {}
+    for extraction in extractions or ():
+        for item in getattr(extraction, "files", None) or ():
+            if item.get("extracted"):
+                times[str(Path(item["extracted"]).resolve()).casefold()] = {
+                    k: item.get(k) for k in ("created", "modified", "accessed")}
+    return times
+
+
 class Pipeline:
+    def __init__(self, file_times=None):
+        self.file_times = file_times or {}
+
     def analyze_snapshot(self, image_path, workdir, volume_index, store_id, sid=None, environment=None,
                          progress=None, include_mft=False, extract_progress=None,
                          verification_progress=None, verification_cancel=None):
@@ -130,6 +145,7 @@ class Pipeline:
         extraction = extract_mapped_snapshot(image_path, workdir, volume_index, store_id,
                                              include_mft=include_mft, progress=extract_progress,
                                              verification_progress=verification_progress, verification_cancel=verification_cancel)
+        self.file_times = {**self.file_times, **file_times([extraction])}
         return apply_image_metadata(self.analyze(extraction.inputs, sid, environment, progress), extraction)
 
     def analyze_image(self, image_path, workdir, sid=None, environment=None, progress=None,
@@ -139,6 +155,7 @@ class Pipeline:
         extraction = extract_artifacts(image_path, workdir, include_mft=include_mft, progress=extract_progress,
                                        verify=verify, verification_progress=verification_progress,
                                        verification_cancel=verification_cancel)
+        self.file_times = {**self.file_times, **file_times([extraction])}
         result = self.analyze(extraction.inputs, sid, environment, progress)
         result = apply_image_metadata(result, extraction)
         for error in extraction.verification.get('errors', []):
@@ -213,6 +230,8 @@ class Pipeline:
             if progress:
                 progress(index - 1, len(expanded), str(path))
             parser = PARSERS[artifact](sid=owner, environment=environment)
+            if artifact == "lnk":
+                parser.file_times = self.file_times
             started, before = time.monotonic(), {}
             event_start = len(result.events)
             failed = False
@@ -321,6 +340,7 @@ class Pipeline:
         from .task_merge import merge_tasks
         result.events = merge_tasks(result.events, result.evidence)
         result.events = timeline(result.events)
+        attach_target_keys(result.events)
         from log_hunter.parser.usb_inventory import usb_device_inventory
         usb_device_inventory(result.events)
         from .wlan_profiles import link_wlan_profiles

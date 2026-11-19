@@ -143,6 +143,7 @@ ACTION_LABELS = {
     "network_signature": "네트워크 식별 정보",
     "recent_file_access": "최근 파일 사용",
     "shortcut_target": "바로가기 대상 파일",
+    "shortcut_file": "바로가기 파일 자체",
     "network_usage": "네트워크 사용량",
     "network_connection": "네트워크 연결 시간",
     "app_resource": "앱 사용량",
@@ -155,6 +156,11 @@ TIME_FIELD_LABELS = {
     'lnk_access_time': '바로가기 대상의 접근 시각 (목록 사용 시각 아님)',
     'lnk_write_time': '바로가기 대상의 수정 시각 (목록 사용 시각 아님)',
     'lnk_creation_time': '바로가기 대상의 생성 시각 (목록 사용 시각 아님)',
+    'lnk_target_created': '바로가기 대상의 생성 시각 (대상 파일 기록)',
+    'lnk_target_written': '바로가기 대상의 수정 시각 (대상 파일 기록)',
+    'lnk_target_accessed': '바로가기 대상의 접근 시각 (대상 파일 기록)',
+    'lnk_file_created': '바로가기 파일 생성 (처음 연 시각 후보)',
+    'lnk_file_modified': '바로가기 파일 수정 (마지막 연 시각 후보)',
     "time_created": "이벤트 원본 시각",
     "key_lastwrite": "레지스트리 마지막 변경",
     "shell_item_created": "셸 항목에 기록된 생성 시각",
@@ -412,6 +418,30 @@ COLUMN_LABELS = {
     "download_url": "다운로드 주소", "final_url": "최종 주소", "referrer_url": "참조 페이지", "tab_url": "탭 주소",
     "tab_referrer_url": "탭 참조 주소", "site_url": "사이트 주소", "download_start": "시작 시각", "download_end": "종료 시각",
     "download_size": "크기(바이트)", "download_state": "상태",
+    "source_location": "원본 위치", "target_match": "묶은 근거",
+    "lnk_file_created": "바로가기 생성", "lnk_file_modified": "바로가기 수정", "lnk_target_created": "대상 생성",
+    "lnk_target_written": "대상 수정", "lnk_target_accessed": "대상 접근",
+}
+# 최근 파일·폴더: 같은 대상 묶어 보기(출처별 기록), 바로가기 한 줄 보기, 원본 위치와 시각의 의미
+RECENT_TEXT = {
+    "nodes": {"targets": "같은 대상 묶어 보기", "single": "출처가 하나뿐인 대상", "shortcuts": "바로가기별 (한 줄에 하나)"},
+    "group": "{name} · {kinds}종 출처 {count}건",
+    "match": {"path": "경로 일치", "name": "이름만 일치 (같은 파일 확정 아님)", "name_only": "이름만 기록"},
+    "where": {"mru": "레지스트리 키", "shellbag": "레지스트리 키", "lnk": "이미지 안 바로가기 파일",
+              "jumplist": "점프 목록 파일 안 위치"},
+    "times_tab": "이 기록의 시각과 의미",
+    "time_line": "{label}: {time}",
+    "meaning": {
+        "key_lastwrite": "키 수정 = 이 목록이 마지막으로 바뀐 시각 (목록 맨 앞 항목에만 해당)",
+        "destlist_timestamp": "점프 목록이 기록한 마지막 사용 시각",
+        "lnk_access_time": "점프 목록 안 바로가기에 적힌 대상 파일 접근 시각",
+        "lnk_target_accessed": "바로가기에 적힌 대상 파일 접근 시각 (만들 때 복사된 값)",
+        "lnk_target_written": "바로가기에 적힌 대상 파일 수정 시각 (만들 때 복사된 값)",
+        "lnk_target_created": "바로가기에 적힌 대상 파일 생성 시각 (만들 때 복사된 값)",
+        "lnk_file_created": "바로가기 생성 = 처음 연 시각 후보",
+        "lnk_file_modified": "바로가기 수정 = 마지막 연 시각 후보",
+        None: "시각 없음 (목록 순서만 기록)",
+    },
 }
 # 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
 WEB_TEXT = {

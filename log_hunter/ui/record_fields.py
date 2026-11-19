@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import PureWindowsPath
 
-from log_hunter.core.labels import (DEFENDER_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, WEB_TEXT, action_label,
+from log_hunter.core.labels import (DEFENDER_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, RECENT_TEXT, WEB_TEXT, action_label,
                                     artifact_label, column_label, time_field_label)
 from log_hunter.parser.history import URL_ROLES
 from log_hunter.core.sid_resolver import display_name
@@ -64,6 +64,7 @@ class Context:
     tz: tuple = None
     source_text: str = None  # where the source file really is ("[image] volume path"), not the extracted copy
     origin: object = None  # maps any analyzed file path the same way (paths inside record details)
+    related: list = field(default_factory=list)  # records of the same target from other sources (recent files)
 
 
 @dataclass
@@ -319,7 +320,40 @@ def task_properties(event, ctx):
                     (TASK_TEXT["compare_tab"], compare, False), _raw_tab(event)], None
 
 
-CATEGORY_FIELDS = {"tasks": task_properties, "taskcache": task_properties, "evtx": evtx_properties, "wlan": wifi_properties, "defender": defender_properties, "prefetch": prefetch_properties, "usb": usb_properties, "recyclebin": recycle_properties,
+def _meaning(time_field):
+    return RECENT_TEXT["meaning"].get(time_field) or (time_field_label(time_field) if time_field else RECENT_TEXT["meaning"][None])
+
+
+def recent_properties(event, ctx):
+    """Recent file/folder record: the target, where exactly it was read, what its time means, and (자세히…) every time
+    of the same shortcut plus every record of the same target from the other sources."""
+    from .columns import source_location
+    d = event.details or {}
+    origins = type("O", (), {"text": staticmethod(ctx.origin)})() if ctx.origin else None
+    user = display_name(event.sid, ctx.sid_map)
+    fields = [
+        (L["target"], _text(display_target(event))),
+        (L["artifact"], artifact_label(event.artifact)),
+        (L["action"], action_label(event.action)),
+        (L["timestamp"], format_time(event.timestamp, ctx.tz)),
+        (L["time_field"], _meaning(event.time_field)),
+        (column_label("source_location"), _text(source_location(event, origins))),
+        (column_label("target_match"), RECENT_TEXT["match"].get(d.get("target_match"), UNKNOWN_VALUE)),
+        (L["user"], f"{user} ({event.sid})" if user else _text(event.sid)),
+    ]
+    times = [RECENT_TEXT["time_line"].format(label=_meaning(field), time=format_time(value, ctx.tz))
+             for field, value in sorted((d.get("lnk_times") or {}).items(), key=lambda kv: kv[1])]
+    related = sorted((e for e in ctx.related if e is not event), key=lambda e: (e.timestamp is None, e.timestamp or ""))
+    others = [f"{artifact_label(e.artifact)} · {format_time(e.timestamp, ctx.tz) if e.timestamp else UNKNOWN_VALUE}"
+              f" · {_meaning(e.time_field)} · {source_location(e, origins)}" for e in related]
+    tabs = [(RECENT_TEXT["times_tab"], times or [RECENT_TEXT["time_line"].format(
+        label=_meaning(event.time_field), time=format_time(event.timestamp, ctx.tz))], False),
+        (RECENT_TEXT["nodes"]["targets"], others or [UNKNOWN_VALUE], True), _raw_tab(event)]
+    return fields, tabs, None
+
+
+CATEGORY_FIELDS = {"mru": recent_properties, "lnk": recent_properties, "jumplist": recent_properties,
+                   "shellbag": recent_properties,"tasks": task_properties, "taskcache": task_properties, "evtx": evtx_properties, "wlan": wifi_properties, "defender": defender_properties, "prefetch": prefetch_properties, "usb": usb_properties, "recyclebin": recycle_properties,
                    "history": web_properties}
 
 
