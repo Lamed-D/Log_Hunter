@@ -22,6 +22,10 @@ CHROMIUM_DATABASES = {"cookies": "cookies", "favicons": "favicons", "web data": 
                       "local state": "browser_profiles", "bookmarks": "bookmarks"}
 
 
+# One file, more than one reading: a browser history database is also scanned for deleted addresses.
+EXTRA_KINDS = {"history": ("history", "browser_deleted")}
+
+
 def _sidecar(name):
     return name.lower().endswith((".log1", ".log2", "-wal", "-shm", "-journal"))
 
@@ -346,7 +350,7 @@ def detect_inputs(paths):
                             break
                     if not kinds:
                         artifact = detect_artifact(path)
-                        kinds = (artifact,) if artifact else ()
+                        kinds = EXTRA_KINDS.get(artifact, (artifact,)) if artifact else ()
             except (OSError, ValueError) as exc:
                 reason = f"입력을 읽을 수 없습니다: {exc}"
             for artifact in kinds or (None,):

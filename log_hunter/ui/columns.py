@@ -265,7 +265,7 @@ def cell(key, event, sid_map, origins):
     if key.startswith("lnk_file_") or key.startswith("lnk_target_"):
         return str((details.get("lnk_times") or {}).get(key) or "") if event.artifact == "lnk" else ""
     if key == "deleted_path":
-        return str(details.get("key_path") or details.get("key_name") or details.get("value_name") or "")
+        return str(details.get("key_path") or details.get("key_name") or details.get("value_name") or details.get("url") or "")
     if key == "deleted_confidence":
         return DELETED_CONFIDENCE.get(details.get(key), str(details.get(key) or ""))
     if key in ("email_from", "email_to", "email_cc", "email_attachments"):
