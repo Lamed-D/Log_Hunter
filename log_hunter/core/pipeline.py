@@ -11,6 +11,7 @@ from .timeline import timeline
 from .labels import IMAGE_VERIFICATION_LABELS
 from log_hunter.parser.registry import replay_logs, Hive, current_controlset
 from .text import target_acp
+from .windows_time import local_time_to_utc, read_windows_time_rules
 from log_hunter.parser.userassist import UserAssistParser
 from log_hunter.parser.bam import BAMParser, load_profile_list
 from log_hunter.parser.run import RunParser
@@ -168,6 +169,17 @@ class Pipeline:
                          for a, p, owner in expanded]
         result.settings = {'sid': sid, 'environment': dict(environment or {})}
         environment = dict(environment or {})
+        system_paths = {path for artifact, path, _ in expanded
+                        if artifact in ("bam", "usb", "services", "network")
+                        and path.name.casefold() == "system"}
+        clock = None
+        if len(system_paths) == 1:
+            try:
+                clock = read_windows_time_rules(next(iter(system_paths)))
+            except (OSError, ValueError, KeyError):
+                pass
+        if clock is not None:
+            result.settings["windows_time_zone"] = clock.metadata()
         if target_acp(environment) is None:
             inspected = set()
             for artifact, path, _owner in expanded:
@@ -300,6 +312,11 @@ class Pipeline:
         if not expanded:
             result.summaries.append({"state": "no_input", "events": 0})
         attach_volume_hints(result.events, volume_hints)
+        for event in result.events:
+            local = event.details.get("timestamp_raw_local")
+            if event.timestamp is None and local:
+                event.timestamp, time_details = local_time_to_utc(local, clock)
+                event.details.update(time_details)
         from .task_merge import merge_tasks
         result.events = merge_tasks(result.events, result.evidence)
         result.events = timeline(result.events)

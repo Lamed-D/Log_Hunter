@@ -113,7 +113,10 @@ class DefenderParser(ArtifactParser):
                 if time_match[3]:
                     try: timestamp=datetime.fromisoformat(raw.replace('Z','+00:00')).astimezone(timezone.utc).isoformat()
                     except ValueError: detail['log_time_invalid']=True
-                else: detail['timezone_known']=False
+                else:
+                    detail['timestamp_raw_local'] = raw
+                    detail['timezone_known'] = False
+                    detail['time_basis'] = '시간대 미상'
             match=_DETECTION.match(body)
             if match:
                 action='defender_detection'
@@ -137,7 +140,8 @@ class DefenderParser(ArtifactParser):
             if found>10000:
                 self.error(file,'records','로그 이벤트 개수 상한 초과','warning');break
             yield ForensicEvent(self.artifact,str(file),action,timestamp,
-                'defender_log_record_time' if timestamp else None,path=path,locator=f'line:{number}',
+                'defender_log_record_time' if timestamp or detail.get('timestamp_raw_local') else None,
+                path=path,locator=f'line:{number}',
                 status='partial' if clipped or encoding['decode_error'] or encoding['line_truncated'] or detail.get('log_time_invalid') else 'ok',details=detail)
         if not found: self.error(file,'format','인식 가능한 백신 로그 표식을 찾지 못했습니다','warning')
 
