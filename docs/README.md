@@ -14,6 +14,11 @@
 
 GitHub 템플릿: [`.github/ISSUE_TEMPLATE`](../.github/ISSUE_TEMPLATE), [`.github/pull_request_template.md`](../.github/pull_request_template.md)
 
+## 기능 설명 (사용자용)
+
+- [features/tree-view.md](features/tree-view.md): 트리 보기, 분류와 보기 노드, 파일 탐색, 분석자 태그
+- [features/time-and-csv.md](features/time-and-csv.md): 시각 기준(UTC·시간대 미상), CSV 저장과 열 설명, 큰 분석 열기
+
 ## 요구사항
 
 - [requirements.md](requirements.md): 요구사항 대응표와 미완료 항목
