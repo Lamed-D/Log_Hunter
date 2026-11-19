@@ -18,9 +18,12 @@ def _networklist(details):
         return ""
     first = candidates[0]
     text = WIFI_TEXT["candidates"].format(count=len(candidates))
-    if first.get("date_last_connected_local"):
-        zone = "" if first.get("timezone_known") else WIFI_TEXT["zone_unknown"]
-        text += " · " + WIFI_TEXT["last_connected"].format(time=first["date_last_connected_local"], zone=zone)
+    if first.get("date_last_connected_utc"):
+        value = first["date_last_connected_utc"].removesuffix("+00:00").replace("T", " ")
+        text += " · " + WIFI_TEXT["last_connected"].format(time=value, zone=" UTC")
+    elif first.get("date_last_connected_local"):
+        text += " · " + WIFI_TEXT["last_connected"].format(time=first["date_last_connected_local"],
+                                                            zone=WIFI_TEXT["zone_unknown"])
     if details.get("networklist_link_ambiguous"):
         text += " · " + WIFI_TEXT["ambiguous"]
     return text
