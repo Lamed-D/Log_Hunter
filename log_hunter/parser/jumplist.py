@@ -8,6 +8,8 @@ from log_hunter.core.models import ForensicEvent
 from log_hunter.core.timestamp import filetime
 
 CFBF_MAGIC = b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"
+CUSTOM_FOOTER = b"\xab\xfb\xbf\xba"  # end marker of a custom destinations list
+CUSTOM_EMPTY_MAX = 64  # header + end marker, no room for an entry
 LNK_SIGNATURE = b"\x4C\x00\x00\x00" + LNK_CLSID
 
 KNOWN_APP_IDS = {
@@ -238,8 +240,13 @@ class JumpListParser(ArtifactParser):
             yield from self._parse_by_lnk_scan(jl_file, data, app_id, app_name, "automatic")
             return
 
+        problems = []
+
+        def report(locator, message):
+            problems.append(locator)
+            self.error(jl_file, locator, message, "warning")
         try:
-            streams, destlist_data = _extract_cfbf_streams(data, lambda locator, message: self.error(jl_file, locator, message, "warning"))
+            streams, destlist_data = _extract_cfbf_streams(data, report)
         except (struct.error, ValueError, OverflowError) as exc:
             self.error(jl_file, "cfbf", f"CFBF 구조 파싱 오류: {exc}", "warning")
             yield from self._parse_by_lnk_scan(jl_file, data, app_id, app_name, "automatic")
@@ -312,7 +319,11 @@ class JumpListParser(ArtifactParser):
             )
 
         if not parsed_count and not destlist_entries:
-            self.error(jl_file, "streams", "LNK 스트림/DestList 없음", "warning")
+            if not streams and destlist_data is None and not problems:
+                # A well-formed compound file with no item streams and no DestList: the list is simply empty.
+                self.error(jl_file, "streams", "항목이 없는 목록입니다 (LNK 스트림·DestList 없음)", "info")
+            else:
+                self.error(jl_file, "streams", "LNK 스트림/DestList 없음", "warning")
 
         for eid, entry in destlist_entries.items():
             if eid not in parsed_ids and entry.get("path"):
@@ -372,7 +383,11 @@ class JumpListParser(ArtifactParser):
                                 status='ok' if info.get('target_path') or info.get('relative_path') else 'partial',
                                 details=details)
         if not found and not attempts:
-            self.error(jl_file, 'scan', '사용자 지정 목록에 바로가기 시그니처가 없습니다', 'warning')
+            if len(data) <= CUSTOM_EMPTY_MAX and data.endswith(CUSTOM_FOOTER):
+                # Header and end marker only: a custom list without any entries.
+                self.error(jl_file, 'scan', '항목이 없는 사용자 지정 목록입니다', 'info')
+            else:
+                self.error(jl_file, 'scan', '사용자 지정 목록에 바로가기 시그니처가 없습니다', 'warning')
 
     def _parse_by_lnk_scan(self, jl_file, data, app_id, app_name, jl_type):
         offsets = _find_lnk_offsets(data)
