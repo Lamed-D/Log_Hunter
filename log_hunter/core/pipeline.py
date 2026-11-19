@@ -9,7 +9,7 @@ from log_hunter.core.models import ParserError
 from .correlation import correlate
 from .timeline import timeline
 from .recent_targets import attach_target_keys
-from .labels import IMAGE_VERIFICATION_LABELS
+from .labels import DAMAGED_SQLITE, IMAGE_VERIFICATION_LABELS
 from log_hunter.parser.registry import replay_logs, Hive, current_controlset
 from .text import target_acp
 from .timestamp import normalize_event_timestamp
@@ -366,6 +366,9 @@ class Pipeline:
             except PermissionError:
                 failed = True
                 parser.error(original, "file", PERMISSION_HINT)
+            except sqlite3.DatabaseError as exc:  # truncated or damaged database: records read so far are kept
+                failed = True
+                parser.error(original, "file", DAMAGED_SQLITE.format(error=exc))
             except Exception as exc:
                 failed = True
                 parser.error(original, "file", exc)
