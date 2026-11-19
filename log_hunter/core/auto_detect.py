@@ -94,9 +94,8 @@ def detect_artifact(path_str):
         return "bookmarks"
     if ext == ".eml":
         return "email"
-    if parent in ("cache", "cache2", "code cache", "gpu cache") or name_lower == "index":
-        if _looks_like_cache_dir(path.parent if name_lower == "index" else path):
-            return "cache"
+    if _cache_input_directory(path):
+        return "cache"
 
     if "srudb" in name_lower or (name_lower.endswith(".dat") and "srum" in parts_lower):
         return "srum"
@@ -121,10 +120,26 @@ def detect_artifact(path_str):
 
 def _looks_like_cache_dir(dir_path):
     try:
-        children = {f.name.lower() for f in Path(dir_path).iterdir() if f.is_file()}
+        root = Path(dir_path)
+        children = {f.name.lower() for f in root.iterdir() if f.is_file()}
     except OSError:
         return False
-    return "index" in children and any(n.startswith("data_") for n in children)
+    from log_hunter.parser.cache import SIMPLE_ENTRY
+    return (("index" in children and any(n.startswith("data_") for n in children))
+            or any(SIMPLE_ENTRY.fullmatch(name) for name in children)
+            or (root / "index-dir" / "the-real-index").is_file())
+
+
+def _cache_input_directory(path):
+    from log_hunter.parser.cache import SIMPLE_ENTRY
+    name = path.name.casefold()
+    if path.is_dir():
+        return path if _looks_like_cache_dir(path) else None
+    if name == "the-real-index" and path.parent.name.casefold() == "index-dir":
+        return path.parent.parent if _looks_like_cache_dir(path.parent.parent) else None
+    if name == "index" or name.startswith(("data_", "f_")) or SIMPLE_ENTRY.fullmatch(name):
+        return path.parent if _looks_like_cache_dir(path.parent) else None
+    return None
 
 
 def _looks_like_task_xml(file_path):
@@ -147,6 +162,7 @@ def _looks_like_wlan_xml(file_path):
 
 def detect_artifacts_in_directory(dir_path):
     results = []
+    caches = set()
     dir_path = Path(dir_path)
     if not dir_path.is_dir():
         return results
@@ -156,6 +172,12 @@ def detect_artifacts_in_directory(dir_path):
         if _sidecar(file.name):
             continue
         artifact = detect_artifact(file)
+        if artifact == "cache":
+            folder = _cache_input_directory(file)
+            if folder in caches:
+                continue
+            caches.add(folder)
+            file = folder
         if artifact:
             results.append((artifact, str(file)))
     return results
@@ -253,6 +275,10 @@ def detect_inputs(paths):
         def failure(exc):
             append((None, str(exc.filename or source), None, f"폴더를 읽을 수 없습니다: {exc}"))
         for root, dirs, files in os.walk(source, followlinks=False, onerror=failure):
+            if _looks_like_cache_dir(root):
+                dirs.clear()
+                yield Path(root)
+                continue
             dirs[:] = sorted(d for d in dirs if not Path(root, d).is_symlink())
             for name in sorted(files):
                 yield Path(root, name)
@@ -261,7 +287,9 @@ def detect_inputs(paths):
         source = Path(source)
         files = walk(source) if source.is_dir() else [source]
         for path in files:
-            if path.is_dir():
+            cache_dir = _cache_input_directory(path)
+            if cache_dir:
+                append(("cache", str(cache_dir), None, "캐시 구조"))
                 continue
             identity = str(path.resolve()).casefold()
             if identity in seen:

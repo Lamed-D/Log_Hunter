@@ -83,6 +83,7 @@ def apply_image_metadata(result, extraction):
     """Mark evidence copied out of a disk image with its original location and the image identity."""
     index = extraction.file_index()
     drive = extraction.image.get("drive")
+    cache_folders = {Path(path).resolve(): original for path, original in getattr(extraction, "cache_paths", {}).items()}
     for item in result.evidence:
         origin = index.get(str(Path(item.source).resolve()).casefold())
         if origin is None:
@@ -96,6 +97,18 @@ def apply_image_metadata(result, extraction):
         if origin.get('snapshot'):
             item.metadata['snapshot'] = dict(origin['snapshot'])
     for event in result.events:
+        if event.artifact == "cache" and cache_folders:
+            source = Path(event.source).resolve()
+            origin = index.get(str(source).casefold())
+            if origin:
+                event.details["source_path"] = origin["image_path"]
+            elif event.action == "cache_folder_status":
+                for folder, original in cache_folders.items():
+                    if source.is_relative_to(folder):
+                        relative = source.relative_to(folder)
+                        event.path = "\\".join((original, *relative.parts))
+                        event.details["source_path"] = event.path
+                        break
         if event.artifact != "recyclebin":
             continue
         origin = index.get(str(Path(event.source).resolve()).casefold())

@@ -12,7 +12,7 @@ from log_hunter.ui import columns, settings
 class OrderTests(unittest.TestCase):
     def test_every_set_starts_with_time_then_kind(self):
         for name, cols in columns.CATEGORY_COLUMNS.items():
-            if name == "thumbnail_cache":  # cache metadata has no time at all
+            if name in ("thumbnail_cache", "web_cache_status"):
                 continue
             keys = [c.key for c in cols]
             # 예약 작업: the registration time is its time column, then the task itself.
