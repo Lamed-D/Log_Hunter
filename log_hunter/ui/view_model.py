@@ -25,14 +25,48 @@ class Filters:
     status: str = ALL_LABEL
 
 
+_ORDERED = {"key": None, "source": None, "events": None}
+
+
+def sort_key(column, sid_map, origins, events):
+    """Sort key for a result-table column: the main time column follows the timeline order (UTC, then times without a
+    zone, then none) without formatting every row; other columns sort by their shown text."""
+    if column == "timestamp":
+        rank = {id(e): i for i, e in enumerate(_time_ordered(events))}
+        return lambda event: rank.get(id(event), len(rank))
+    from . import columns
+    return lambda event: columns.cell(column, event, sid_map, origins)
+
+
+def node_hint(node):
+    """Description line for a filter node (not a record category): what the node shows, or nothing."""
+    from log_hunter.core.labels import NODE_HINTS
+    return NODE_HINTS.get(node.kind, "")
+
+
+def _time_ordered(events):
+    """`events` in timeline order, sorted once per result list (a node click must not re-sort every record).
+    The cache follows the list object and its length, so added or replaced results are sorted again."""
+    key = (id(events), len(events))
+    if _ORDERED["key"] != key or _ORDERED["source"] is not events:
+        _ORDERED.update(key=key, source=events, events=timeline(events))
+    return _ORDERED["events"]
+
+
 def filter_events(events, filters, node=None, origins=None, names=None):
     """`filters.sid`: a SID (S-1-...) or part of a shown user name (found in the evidence or a well-known account)."""
     art_filter = None if filters.artifact == ALL_LABEL else artifact_from_label(filters.artifact)
     user = filters.sid.strip()
     by_sid = user if user.upper().startswith("S-1-") else None
-    filtered = timeline(events, artifact=art_filter, sid=by_sid,
-                        start=parse_filter_date(filters.start), end=parse_filter_date(filters.end, end=True),
-                        query=filters.query or None)
+    start, end = parse_filter_date(filters.start), parse_filter_date(filters.end, end=True)
+    ordered = _time_ordered(events)
+    if node is not None:  # the node is the cheapest cut; time order is kept by filtering an ordered list
+        ordered = [e for e in ordered if matches(node, e, origins)]
+        node = None
+    if art_filter or by_sid or start or end or filters.query:
+        filtered = timeline(ordered, artifact=art_filter, sid=by_sid, start=start, end=end, query=filters.query or None)
+    else:
+        filtered = ordered
     if user and not by_sid:
         needle = user.casefold()
         filtered = [e for e in filtered if e.sid and needle in display_name(e.sid, names).casefold()]
@@ -77,7 +111,7 @@ def matches_search(event, text, sid_map):
     return any(text in field.lower() for field in fields)
 
 
-TIMELINE_PAGE_ROWS = 5000  # rows put into the Tk table at once; millions of rows would freeze it
+TIMELINE_PAGE_ROWS = 1000  # rows put into the Tk table at once; drawing more makes every click slow on large cases
 
 
 def page_bounds(count, page, size=TIMELINE_PAGE_ROWS):

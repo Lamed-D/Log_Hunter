@@ -587,6 +587,8 @@ def run(live=None):
             if value.kind == "artifacts":
                 artifact_hint.set(" / ".join(dict.fromkeys(ARTIFACT_DESCRIPTIONS.get(a, artifact_label(a))
                                                          for a in value.value)))
+            else:  # a filter node: a description left over from the previous node would describe other records
+                artifact_hint.set(view_model.node_hint(value))
             refresh()
             fs = value.fs
             if fs and not fs.get("directory"):
@@ -808,7 +810,7 @@ def run(live=None):
         """Sort all filtered records (not just the shown page) by the column's shown text."""
         rev = sort_reverse.get(col, False)
         sort_reverse[col] = not rev
-        visible.sort(key=lambda event: table_columns.cell(col, event, sid_map, nav_state["origins"]), reverse=rev)
+        visible.sort(key=view_model.sort_key(col, sid_map, nav_state["origins"], result.events if result else ()), reverse=rev)
         _populate_tree()
         for column, header in zip(table_state["columns"], table_columns.headers(table_state["columns"])):
             indicator = (" ▲" if not rev else " ▼") if column.key == col else ""
@@ -1779,9 +1781,11 @@ def run(live=None):
         result, sid_map = analysis, dict(getattr(analysis, "sid_names", None) or {})
         book.items.clear()
         book.load_rows(getattr(analysis, "tags", None) or ())
-        _show_result()
+        # The saved image map must be in place before the tree and table are built, or every record would show the
+        # analyst's extracted copy instead of its place inside the image.
         derived = [e.source for e in analysis.evidence if (e.metadata or {}).get("image")]
         loaded_case.update(derived=derived, linked_image=None, origins=case_view.saved_extractions(analysis))
+        _show_result()
         relink_button.configure(state="normal" if case_view.image_sources(info) else "disabled")
         title, line, warnings = case_view.case_status(info, len(analysis.events), derived)
         loaded_case["status"] = line

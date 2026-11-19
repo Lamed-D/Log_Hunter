@@ -42,7 +42,7 @@ CATEGORY_COLUMNS = {
     "file_inventory": (*_HEAD, Column("path", 420), Column("file_size", 110), Column("file_type", 120),
                        Column("file_extension", 110), Column("file_type_basis", 160), Column("action", 160)),
     # 같은 대상 묶어 보기: the records of one target from every source, each with where it was read and what its time means.
-    "recent_targets": (*_HEAD, Column("time_field", 260), Column("document", 360), Column("source_location", 380),
+    "recent_targets": (*_HEAD, Column("time_field", 320), Column("document", 360), Column("source_location", 380),
                        Column("target_match", 190), Column("user", 100), Column("origin", 300)),
     # 바로가기별: one row per shortcut file with all its times side by side.
     "shortcuts": (Column("lnk_file_created", 170), Column("document", 380), Column("lnk_file_modified", 170),
