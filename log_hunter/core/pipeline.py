@@ -29,7 +29,7 @@ from log_hunter.parser.mft import MFTParser
 from log_hunter.parser.shellbag import ShellBagParser
 from log_hunter.parser.srum import SRUMParser
 from log_hunter.parser.lnk import LNKParser
-from log_hunter.parser.jumplist import JumpListParser
+from log_hunter.parser.jumplist import JumpListParser, deleted_jump_list_records
 from log_hunter.parser.network import NetworkProfileParser
 from log_hunter.parser.tasks import TaskSchedulerParser
 from log_hunter.parser.taskcache import TaskCacheParser
@@ -134,7 +134,8 @@ def file_times(extractions):
         for item in getattr(extraction, "files", None) or ():
             if item.get("extracted"):
                 times[str(Path(item["extracted"]).resolve()).casefold()] = {
-                    k: item.get(k) for k in ("created", "modified", "accessed")}
+                    k: item.get(k) for k in ("created", "modified", "mft_modified", "accessed",
+                                           "size", "mft_record", "mft_sequence", "image_path")}
     return times
 
 
@@ -292,6 +293,9 @@ class Pipeline:
                                 error.source = str(path)
                 elif artifact == "bam" and profiles:
                     result.events.extend(parser.parse(path, profiles=profiles))
+                elif artifact == "jumplist":
+                    result.events.extend(parser.parse_with_file_record(
+                        path, self.file_times.get(str(path.resolve()).casefold())))
                 else:
                     result.events.extend(parser.parse(path))
                 if artifact == "userassist":
@@ -336,6 +340,7 @@ class Pipeline:
                                          "warnings": sum(e.severity == "warning" for e in parser.errors)})
         if not expanded:
             result.summaries.append({"state": "no_input", "events": 0})
+        result.events.extend(deleted_jump_list_records(result.events))
         attach_volume_hints(result.events, volume_hints)
         for event in result.events:
             local = event.details.get("timestamp_raw_local")
