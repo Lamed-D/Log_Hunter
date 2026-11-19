@@ -37,17 +37,19 @@ class ImageBrowser:
         self._ntfs = {}
 
     def volume_info(self):
-        return [{**volume.to_dict(), "browsable": volume.filesystem in ("ntfs", "fat")} for volume in self.volumes]
+        return [{**volume.to_dict(), "browsable": volume.filesystem in ("ntfs", "fat", "exfat")} for volume in self.volumes]
 
     def _fat(self, index):
         """The FAT volume at `index`, or None when that volume is not FAT."""
+        from .exfat import ExFATVolume
         from .fat import FATVolume
         with self.lock:
             volume = next((v for v in self.volumes if v.index == index), None)
-            if volume is None or volume.filesystem != "fat":
+            if volume is None or volume.filesystem not in ("fat", "exfat"):
                 return None
             if index not in self._ntfs:
-                self._ntfs[index] = FATVolume(self.image, volume.offset)
+                kind = ExFATVolume if volume.filesystem == "exfat" else FATVolume
+                self._ntfs[index] = kind(self.image, volume.offset)
             return self._ntfs[index]
 
     def _volume(self, index):
@@ -269,7 +271,8 @@ class FATFile:
     def __init__(self, browser, fat, index, parts, entry):
         self.browser, self.index, self.parts, self.entry = browser, index, parts, entry
         with browser.lock:
-            self._read, self.size = fat.reader(entry["first_cluster"], entry["size"], deleted=entry["deleted"])
+            self._read, self.size = fat.reader(entry["first_cluster"], entry["size"], deleted=entry["deleted"],
+                                               contiguous=entry.get("contiguous", False))
         self.mft_record = self.sequence = None
         self.note = ("삭제된 항목입니다. 데이터는 첫 클러스터부터 이어져 있다고 가정했으며 덮어써졌을 수 있습니다"
                      if entry["deleted"] else "")
@@ -293,7 +296,7 @@ class FATFile:
         return {"image": self.browser.path, "volume": self.index, "image_path": "\\" + "\\".join(self.parts),
                 "mft_record": None, "mft_sequence": None, "size": self.size, "in_use": not self.entry["deleted"],
                 "note": self.note, "created": self.entry["created"], "modified": self.entry["modified"],
-                "accessed": self.entry["accessed"], "timezone_known": False}
+                "accessed": self.entry["accessed"], "timezone_known": bool(self.entry.get("times_utc"))}
 
 
 class ImageFile:

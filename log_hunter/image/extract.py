@@ -171,7 +171,7 @@ def extract_artifacts(image_path, output_dir, include_mft=False, progress=None,
             if volume.filesystem == "bitlocker":
                 result.warnings.append(f"볼륨 {volume.index}: BitLocker로 암호화되어 있어 분석할 수 없습니다 (복호화된 이미지 필요)")
                 continue
-            if volume.filesystem == "fat" and MFT_SPEC in specs:
+            if volume.filesystem in ("fat", "exfat") and MFT_SPEC in specs:
                 _inventory_fat(image, volume, result)
                 continue
             if volume.filesystem != "ntfs":
@@ -242,10 +242,11 @@ def _extract_volume(ntfs, volume_index, root, specs, result, progress):
 
 def _inventory_fat(image, volume, result):
     """File inventory of a FAT volume (USB sticks, memory cards); files are listed, not extracted."""
+    from .exfat import ExFATVolume
     from .fat import FATError, FATVolume
     from .inventory import scan_fat_inventory
     try:
-        fat = FATVolume(image, volume.offset)
+        fat = (ExFATVolume if volume.filesystem == "exfat" else FATVolume)(image, volume.offset)
         result.file_inventory.extend(scan_fat_inventory(fat, volume.index, result.image_path))
     except (FATError, OSError, ValueError) as exc:
         result.warnings.append(f"[볼륨 {volume.index}] FAT 파일 목록을 끝까지 읽을 수 없습니다 ({exc})")
