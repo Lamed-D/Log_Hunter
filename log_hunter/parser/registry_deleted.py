@@ -9,13 +9,14 @@ from log_hunter.core.timestamp import filetime
 HBIN = 4096
 MAX_PATH_DEPTH = 64
 MAX_PREVIEW = 256
+MAX_NAME_BYTES = 512
 FILETIME_MIN, FILETIME_MAX = 119600064000000000, 159725520000000000  # 1980-01-01 .. 2107-01-01
 VALUE_TYPES = {0: "REG_NONE", 1: "REG_SZ", 2: "REG_EXPAND_SZ", 3: "REG_BINARY", 4: "REG_DWORD", 5: "REG_DWORD_BIG_ENDIAN",
                6: "REG_LINK", 7: "REG_MULTI_SZ", 8: "REG_RESOURCE_LIST", 11: "REG_QWORD"}
 
 
 def _cells(data):
-    """(relative offset, allocated, payload) for every cell of every hbin; damaged bins end the walk."""
+    """Yield each cell's relative offset, allocation flag, and payload bounds."""
     offset = HBIN
     while offset + 32 <= len(data) and data[offset:offset + 4] == b"hbin":
         size = struct.unpack_from("<I", data, offset + 8)[0]
@@ -27,13 +28,13 @@ def _cells(data):
             span = abs(length)
             if span < 8 or cell + span > offset + size:
                 break
-            yield cell - HBIN, length < 0, data[cell + 4:cell + span]
+            yield cell - HBIN, length < 0, cell + 4, cell + span
             cell += span
         offset += size
 
 
 def _name(raw, length, ascii_flag):
-    if length == 0 or length > 512 or length > len(raw):
+    if length == 0 or length > MAX_NAME_BYTES or length > len(raw):
         return None
     try:
         text = raw[:length].decode("latin1" if ascii_flag else "utf-16-le")
@@ -89,14 +90,14 @@ class RegistryDeletedParser(ArtifactParser):
             data = stream.read()
         if len(data) < HBIN or data[:4] != b"regf":
             raise ValueError("유효한 regf 하이브가 아닙니다")
-        cells = {offset: (allocated, payload) for offset, allocated, payload in _cells(data)}
+        cells = {offset: (allocated, start, end) for offset, allocated, start, end in _cells(data)}
         live_paths = set()
         names = {}
-        for offset, (allocated, payload) in cells.items():
-            if payload[:2] == b"nk":
-                key = parse_nk(payload)
+        for offset, (_, start, end) in cells.items():
+            if data[start:min(end, start + 2)] == b"nk":
+                key = parse_nk(data[start:min(end, start + 76 + MAX_NAME_BYTES)])
                 if key:
-                    names[offset] = (key[0], key[2], allocated)
+                    names[offset] = key
         chains = {}
 
         def chain(offset, depth=0):
@@ -104,7 +105,7 @@ class RegistryDeletedParser(ArtifactParser):
             if offset in chains:
                 return chains[offset]
             chains[offset] = None  # marks the walk in progress: a loop ends here
-            name, parent, _allocated = names[offset]
+            name, _, parent, _ = names[offset]
             above = () if parent == offset or parent not in names or depth > MAX_PATH_DEPTH else chain(parent, depth + 1)
             chains[offset] = (*(above or ()), name)
             return chains[offset]
@@ -115,21 +116,21 @@ class RegistryDeletedParser(ArtifactParser):
             parts = chain(parent)
             return "\\".join(parts[1:]) if parts else None  # drop the hive's root key name
 
-        for offset, (allocated, payload) in cells.items():
-            if allocated and offset in names:
-                name, parent, _ = names[offset]
+        for offset, (name, _, parent, _) in names.items():
+            if cells[offset][0]:
                 base = full_path(parent)
                 live_paths.add(((base + "\\") if base else "") + name)
         source = str(path)
-        for offset, (allocated, payload) in sorted(cells.items()):
+        # The hbin walk inserts cell offsets in ascending order.
+        for offset, (allocated, start, end) in cells.items():
             if allocated:
                 continue
-            key = parse_nk(payload)
+            key = names.get(offset)
             if key:
                 name, lastwrite, parent, complete = key
                 base = full_path(parent)
                 key_path = ((base + "\\") if base else "") + name
-                parent_live = parent in names and names[parent][2]
+                parent_live = parent in names and cells[parent][0]
                 if key_path in live_paths:
                     confidence, reason = "old_copy", "같은 경로의 키가 지금도 있습니다(이전 버전의 남은 칸일 수 있음)"
                 elif parent_live and complete:
@@ -142,14 +143,17 @@ class RegistryDeletedParser(ArtifactParser):
                 yield ForensicEvent(self.artifact, source, "deleted_registry_key", filetime(lastwrite), "key_lastwrite",
                                     self.sid, path=key_path, locator=f"cell:{offset:#x}", status="partial", details=details)
                 continue
-            value = parse_vk(payload)
+            if data[start:min(end, start + 2)] != b"vk":
+                continue
+            value = parse_vk(data[start:min(end, start + 20 + MAX_NAME_BYTES)])
             if value:
                 name, kind, size, where = value
                 raw = b""
                 if isinstance(where, bytes):
                     raw = where
                 elif size and where in cells:
-                    raw = cells[where][1][:min(size, 4096)]
+                    _, data_start, data_end = cells[where]
+                    raw = data[data_start:min(data_end, data_start + min(size, 4096))]
                 details = {"value_name": name, "value_type": VALUE_TYPES.get(kind, str(kind)), "value_size": size,
                            "value_preview": preview(kind, raw) if raw else None, "cell_offset": offset,
                            "deleted_confidence": "partial" if size and not raw else "value_only",
