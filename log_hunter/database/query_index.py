@@ -201,9 +201,9 @@ def build_case_index(db, case_id, state, source_relations=None):
         indexed_count += 1
         db.executemany('INSERT OR IGNORE INTO event_query_tags VALUES(?,?,?,?)',
                        ((case_id, event_id, tag, tag.partition('/')[0]) for tag in tags))
-        if fts:
-            db.execute('INSERT INTO event_search(rowid,query_text,quick_text) VALUES(?,?,?)',
-                       (event_id, values[COLUMNS.index('query_text')], values[COLUMNS.index('quick_text')]))
+    if fts:  # one bulk pass: interleaving search-index writes with the row inserts is several times slower
+        db.execute('INSERT INTO event_search(rowid,query_text,quick_text) '
+                   'SELECT event_id,query_text,quick_text FROM event_query WHERE case_id=? ORDER BY event_id', (case_id,))
     source = iter(source_relations) if isinstance(source_relations, (list, tuple)) else None
     for relation_id, raw_size in db.execute('SELECT id,length(CAST(data AS BLOB)) FROM relations WHERE case_id=? ORDER BY id', (case_id,)):
         try:
