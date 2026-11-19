@@ -141,6 +141,35 @@ class FATVolumeTests(unittest.TestCase):
         self.assertFalse(deleted.details["timezone_known"])
         self.assertTrue(all(e.details.get("filesystem") == "fat16" for e in rows["ntfs_file_inventory"]))
 
+    def test_browser_lists_opens_and_scans_fat(self):
+        from log_hunter.image.browse import ImageBrowser
+        from log_hunter.ui import fs_model
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "usb.dd"
+            image.write_bytes(mbr_disk(self.volume))
+            browser = ImageBrowser(image)
+            try:
+                (info,) = browser.volume_info()
+                self.assertTrue(info["browsable"])
+                rows = {r["name"]: r for r in browser.list_dir(info["index"])}
+                self.assertTrue(rows["DOCS"]["directory"])
+                self.assertFalse(rows["removed.jpg"]["in_use"])  # deleted entries are listed, marked
+                self.assertEqual(rows["Holiday photo.jpg"]["modified"], "2020-12-30T09:30:00")
+                self.assertEqual([r["name"] for r in browser.list_dir(info["index"], ("DOCS",))], ["NOTE.TXT"])
+                note = browser.open_file(info["index"], ("DOCS", "NOTE.TXT"))
+                self.assertEqual(note.read(0, 100), b"plain text")
+                self.assertFalse(note.info()["timezone_known"])
+                gone = browser.open_file(info["index"], ("removed.jpg",))
+                self.assertTrue(gone.read(0, 3).startswith(b"\xff\xd8\xff"))
+                self.assertIn("삭제된 항목", gone.note)
+                self.assertTrue(browser.exists(info["index"], ("Holiday photo.jpg",)))
+                self.assertFalse(browser.exists(info["index"], ("removed.jpg",)))
+                scan = browser.scan_mft(info["index"], fs_model.classify)
+                self.assertEqual(scan["categories"]["deleted"]["count"], 1)
+                self.assertEqual(len(browser.volume_serial(info["index"])), 8)
+            finally:
+                browser.close()
+
     def test_damaged_volumes_end_cleanly(self):
         import random
         from log_hunter.image.inventory import scan_fat_inventory

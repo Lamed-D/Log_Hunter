@@ -37,7 +37,18 @@ class ImageBrowser:
         self._ntfs = {}
 
     def volume_info(self):
-        return [{**volume.to_dict(), "browsable": volume.filesystem == "ntfs"} for volume in self.volumes]
+        return [{**volume.to_dict(), "browsable": volume.filesystem in ("ntfs", "fat")} for volume in self.volumes]
+
+    def _fat(self, index):
+        """The FAT volume at `index`, or None when that volume is not FAT."""
+        from .fat import FATVolume
+        with self.lock:
+            volume = next((v for v in self.volumes if v.index == index), None)
+            if volume is None or volume.filesystem != "fat":
+                return None
+            if index not in self._ntfs:
+                self._ntfs[index] = FATVolume(self.image, volume.offset)
+            return self._ntfs[index]
 
     def _volume(self, index):
         with self.lock:
@@ -59,6 +70,14 @@ class ImageBrowser:
 
     def list_dir(self, index, parts=()):
         """Entries of a folder: [{name, directory, size, record, sequence}], folders first then by name."""
+        fat = self._fat(index)
+        if fat is not None:
+            with self.lock:
+                rows = [{"name": e["name"], "directory": e["directory"], "size": e["size"], "record": None,
+                         "sequence": None, "in_use": not e["deleted"], "created": e["created"],
+                         "modified": e["modified"], "accessed": e["accessed"]}
+                        for e in fat.listdir(tuple(parts))]
+            return sorted(rows, key=lambda r: (not r["directory"], not r["in_use"], r["name"].casefold()))
         with self.lock:
             volume, entry = self._entry(index, tuple(parts))
             if entry is not None and not entry.directory:
@@ -70,12 +89,17 @@ class ImageBrowser:
 
     def volume_serial(self, index):
         """The NTFS volume serial number (16 hex digits), as the boot sector records it."""
+        fat = self._fat(index)
         with self.lock:
-            return self._volume(index).serial
+            return fat.serial if fat is not None else self._volume(index).serial
 
     def exists(self, index, parts):
         """Whether the current file system still has this path (deleted or renamed files do not)."""
+        fat = self._fat(index)
         with self.lock:
+            if fat is not None:
+                entry = fat.lookup(tuple(parts))
+                return entry is not None and not entry["deleted"]
             try:
                 volume, entry = self._entry(index, tuple(parts))
             except NTFSError:
@@ -85,6 +109,8 @@ class ImageBrowser:
     def describe(self, index, rows):
         """Add each row's $STANDARD_INFORMATION times and in-use state. One MFT read per row,
         so call it for the page being shown, not for a whole huge folder."""
+        if self._fat(index) is not None:
+            return [dict(row) for row in rows]  # FAT listings already carry the entry times and state
         with self.lock:
             volume = self._volume(index)
             described = []
@@ -99,6 +125,13 @@ class ImageBrowser:
             return described
 
     def open_file(self, index, parts):
+        fat = self._fat(index)
+        if fat is not None:
+            with self.lock:
+                entry = fat.lookup(tuple(parts))
+                if entry is None or entry["directory"]:
+                    raise NTFSError("파일이 아닙니다")
+                return FATFile(self, fat, index, tuple(parts), entry)
         with self.lock:
             volume, entry = self._entry(index, tuple(parts))
             if entry is None or entry.directory:
@@ -113,7 +146,11 @@ class ImageBrowser:
     def scan_mft(self, index, classify, limit=10000, progress=None, cancelled=None):
         """Walk every MFT record once (deleted ones too) and keep files that `classify(item)` puts
         into categories. Returns {"categories": {key: {"count", "items"}}, "records", "skipped",
-        "cancelled"}. At most `limit` items are kept per category, but every match is counted."""
+        "cancelled"}. At most `limit` items are kept per category, but every match is counted.
+        On a FAT volume the directory tree is walked instead (deleted entries included)."""
+        fat = self._fat(index)
+        if fat is not None:
+            return self._scan_fat(fat, classify, limit, progress, cancelled)
         with self.lock:
             volume = self._volume(index)
             total = self._mft_records(volume)
@@ -144,6 +181,27 @@ class ImageBrowser:
         for bucket in found.values():
             for item in bucket["items"]:
                 item["path"] = _path(item, folders)
+        return {"categories": found, **state}
+
+    def _scan_fat(self, fat, classify, limit, progress, cancelled):
+        found, state = {}, {"records": 0, "skipped": 0, "cancelled": False}
+        with self.lock:
+            entries = list(fat.walk())
+        for count, entry in enumerate(entries, 1):
+            if cancelled and cancelled():
+                state["cancelled"] = True
+                break
+            item = {"record": None, "sequence": None, "name": entry["name"], "path": entry["path"],
+                    "in_use": not entry["deleted"], "directory": entry["directory"], "size": entry["size"],
+                    "created": entry["created"], "modified": entry["modified"], "accessed": entry["accessed"]}
+            state["records"] = count
+            for key in classify(item):
+                bucket = found.setdefault(key, {"count": 0, "items": []})
+                bucket["count"] += 1
+                if len(bucket["items"]) < limit:
+                    bucket["items"].append(item)
+        if progress:
+            progress(state["records"], len(entries))
         return {"categories": found, **state}
 
     @staticmethod
@@ -203,6 +261,39 @@ def _path(item, folders):
         name, current = folders[current]
         parts.append(name)
     return "\\" + "\\".join(reversed(parts))
+
+
+class FATFile:
+    """A file on a FAT volume, with the same reading interface as ImageFile."""
+
+    def __init__(self, browser, fat, index, parts, entry):
+        self.browser, self.index, self.parts, self.entry = browser, index, parts, entry
+        with browser.lock:
+            self._read, self.size = fat.reader(entry["first_cluster"], entry["size"], deleted=entry["deleted"])
+        self.mft_record = self.sequence = None
+        self.note = ("삭제된 항목입니다. 데이터는 첫 클러스터부터 이어져 있다고 가정했으며 덮어써졌을 수 있습니다"
+                     if entry["deleted"] else "")
+        if self.size < entry["size"]:
+            self.note = (self.note + f" 기록된 크기({entry['size']}바이트) 중 {self.size}바이트만 읽을 수 있습니다").strip()
+
+    def read(self, offset, length):
+        if offset < 0 or length < 0:
+            raise ValueError("음수 오프셋/길이")
+        with self.browser.lock:
+            return self._read(offset, max(0, min(length, self.size - offset)))
+
+    def sha256(self):
+        digest = hashlib.sha256()
+        for offset in range(0, self.size, HASH_BLOCK):
+            digest.update(self.read(offset, HASH_BLOCK))
+        return digest.hexdigest()
+
+    def info(self):
+        # FAT times are local wall-clock values without a zone: shown as recorded, never converted.
+        return {"image": self.browser.path, "volume": self.index, "image_path": "\\" + "\\".join(self.parts),
+                "mft_record": None, "mft_sequence": None, "size": self.size, "in_use": not self.entry["deleted"],
+                "note": self.note, "created": self.entry["created"], "modified": self.entry["modified"],
+                "accessed": self.entry["accessed"], "timezone_known": False}
 
 
 class ImageFile:

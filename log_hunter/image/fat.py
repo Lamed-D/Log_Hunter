@@ -105,8 +105,70 @@ class FATVolume:
             return self.image.read(self.offset + self.root_offset, self.root_entries * 32)
         return b"".join(self.image.read(self._cluster_offset(c), self.cluster_size) for c in self.chain(cluster)[:65536])
 
+    @property
+    def serial(self):
+        """Volume serial number from the boot sector (8 hex digits)."""
+        boot = self.image.read(self.offset, 512)
+        at = 67 if self.kind == 32 else 39
+        return f"{struct.unpack_from('<I', boot, at)[0]:08X}"
+
+    def _entries(self, cluster, parts=()):
+        """Entries of one directory (no recursion), deleted ones included."""
+        data = self._directory_bytes(cluster)
+        long_name = []
+        for at in range(0, len(data) - 31, 32):
+            entry = data[at:at + 32]
+            if entry[0] == END:
+                break
+            attr = entry[11]
+            if attr == ATTR_LFN:
+                chars = entry[1:11] + entry[14:26] + entry[28:32]
+                long_name.insert(0, chars.decode("utf-16-le", "replace").split("\x00", 1)[0].replace("￿", ""))
+                continue
+            if attr & ATTR_VOLUME:
+                long_name = []
+                continue
+            deleted = entry[0] == DELETED
+            base, ext = entry[0:8].decode("latin1").rstrip(), entry[8:11].decode("latin1").rstrip()
+            short = ("_" + base[1:] if deleted else base) + ("." + ext if ext else "")
+            name = "".join(long_name) or short
+            long_name = []
+            if name in (".", ".."):
+                continue
+            first = ((struct.unpack_from("<H", entry, 20)[0] << 16) if self.kind == 32 else 0) | struct.unpack_from("<H", entry, 26)[0]
+            ctime_centis, ctime, cdate, adate = entry[13], *struct.unpack_from("<HHH", entry, 14)
+            mtime, mdate = struct.unpack_from("<HH", entry, 22)
+            yield {"path": "\\" + "\\".join((*parts, name)), "name": name, "short_name": short,
+                   "size": struct.unpack_from("<I", entry, 28)[0], "first_cluster": first, "deleted": deleted,
+                   "directory": bool(attr & ATTR_DIRECTORY),
+                   "created": _dos_datetime(cdate, ctime, ctime_centis), "modified": _dos_datetime(mdate, mtime),
+                   "accessed": _dos_datetime(adate)}
+
+    def lookup(self, parts):
+        """The entry at a path (case-insensitive, live entries first), or None; () is the root folder."""
+        cluster, found = self.root_cluster, None
+        for depth, name in enumerate(parts):
+            matches = [e for e in self._entries(cluster, tuple(parts[:depth])) if e["name"].casefold() == name.casefold()
+                       or e["short_name"].casefold() == name.casefold()]
+            found = next((e for e in matches if not e["deleted"]), matches[0] if matches else None)
+            if found is None:
+                return None
+            if depth < len(parts) - 1:
+                if not found["directory"] or found["deleted"]:
+                    return None
+                cluster = found["first_cluster"]
+        return found
+
+    def listdir(self, parts=()):
+        if not parts:
+            return list(self._entries(self.root_cluster))
+        entry = self.lookup(parts)
+        if entry is None or not entry["directory"] or entry["deleted"]:
+            raise FATError("폴더가 아닙니다")
+        return list(self._entries(entry["first_cluster"], tuple(parts)))
+
     def walk(self):
-        """Every file entry: dict(path, name, size, first_cluster, deleted, directory, created, modified, accessed)."""
+        """Every entry of the volume (deleted ones too), depth-first; see _entries for the fields."""
         count = 0
         stack = [((), self.root_cluster, 0)]
         seen = set()
@@ -115,40 +177,10 @@ class FATVolume:
             if cluster in seen or depth > MAX_DEPTH:
                 continue
             seen.add(cluster)
-            data = self._directory_bytes(cluster)
-            long_name = []
-            for at in range(0, len(data) - 31, 32):
-                entry = data[at:at + 32]
-                if entry[0] == END:
-                    break
-                attr = entry[11]
-                if attr == ATTR_LFN:
-                    chars = entry[1:11] + entry[14:26] + entry[28:32]
-                    piece = chars.decode("utf-16-le", "replace").split("\x00", 1)[0].replace("￿", "")
-                    long_name.insert(0, piece)  # long-name pieces come last-first; deleted ones keep their text
-                    continue
-                if attr & ATTR_VOLUME:
-                    long_name = []
-                    continue
-                deleted = entry[0] == DELETED
-                base = entry[0:8].decode("latin1").rstrip()
-                ext = entry[8:11].decode("latin1").rstrip()
-                short = ("_" + base[1:] if deleted else base) + ("." + ext if ext else "")
-                name = "".join(long_name) or short
-                long_name = []
-                if name in (".", ".."):
-                    continue
-                first = (struct.unpack_from("<H", entry, 20)[0] << 16 if self.kind == 32 else 0) | struct.unpack_from("<H", entry, 26)[0]
-                ctime_centis, ctime, cdate, adate = entry[13], *struct.unpack_from("<HHH", entry, 14)
-                mtime, mdate = struct.unpack_from("<HH", entry, 22)
-                item = {"path": "\\" + "\\".join((*parts, name)), "name": name, "short_name": short,
-                        "size": struct.unpack_from("<I", entry, 28)[0], "first_cluster": first, "deleted": deleted,
-                        "directory": bool(attr & ATTR_DIRECTORY),
-                        "created": _dos_datetime(cdate, ctime, ctime_centis), "modified": _dos_datetime(mdate, mtime),
-                        "accessed": _dos_datetime(adate)}
+            for item in self._entries(cluster, parts):
                 count += 1
                 if count > MAX_ENTRIES:
                     raise FATError("디렉터리 항목이 너무 많습니다")
                 yield item
-                if item["directory"] and not deleted and first >= 2:
-                    stack.append(((*parts, name), first, depth + 1))
+                if item["directory"] and not item["deleted"] and item["first_cluster"] >= 2:
+                    stack.append(((*parts, item["name"]), item["first_cluster"], depth + 1))

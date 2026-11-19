@@ -724,7 +724,7 @@ def run(live=None):
                 return fs, (lambda: _browser(fs["image"]).open_file(fs["volume"], row["parts"]))
             return fs, (lambda: _browser(fs["image"]).open_record(fs["volume"], row["record"], row["parts"]))
         fs = node.fs if node is not None else {"image": view["image"], "volume": view["volume"]}
-        if row.get("in_use") is False or node is None:
+        if (row.get("in_use") is False or node is None) and row.get("record") is not None:
             return fs, (lambda: _browser(fs["image"]).open_record(fs["volume"], row["record"], row["parts"]))
         return fs, (lambda: _browser(fs["image"]).open_file(fs["volume"], row["parts"]))
 

@@ -452,7 +452,7 @@ def artifact_from_label(text):
 FILE_INFO_LABELS = {
     "path": "파일 위치", "image": "디스크 이미지", "volume": "볼륨", "image_path": "이미지 안 경로",
     "mft_record": "MFT 번호", "mft_sequence": "MFT 순번", "in_use": "상태", "size": "크기",
-    "created": "생성 (UTC)", "modified": "수정 (UTC)", "accessed": "접근 (UTC)", "mft_modified": "MFT 변경 (UTC)",
+    "created": "생성", "modified": "수정", "accessed": "접근", "mft_modified": "MFT 변경", "timezone_known": "시간대",
     "sha256": "SHA-256", "note": "참고", "extracted_copy": "분석에 쓴 추출 사본", "extracted_sha256": "추출 사본 SHA-256", "drive": "드라이브",
 }
 
@@ -780,8 +780,8 @@ FILE_VIEW_LABELS = {
     "size_50_200": "50MB ~ 200MB", "size_200_1g": "200MB ~ 1GB", "size_1g": "1GB 이상",
 }
 FILE_TABLE_LABELS = {
-    "name": "이름", "kind": "종류", "size": "크기", "modified": "수정 (UTC)", "created": "생성 (UTC)",
-    "accessed": "접근 (UTC)", "mft_modified": "MFT 변경 (UTC)", "state": "상태", "records": "기록 수", "path": "이미지 안 경로",
+    "name": "이름", "kind": "종류", "size": "크기", "modified": "수정", "created": "생성",
+    "accessed": "접근", "mft_modified": "MFT 변경", "state": "상태", "records": "기록 수", "path": "이미지 안 경로",
 }
 
 
