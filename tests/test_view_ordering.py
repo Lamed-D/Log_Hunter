@@ -34,6 +34,22 @@ class OrderingTests(unittest.TestCase):
         other = list(reversed(self.events))
         self.assertEqual(filter_events(other, Filters()), timeline(other))
 
+    def test_prepared_order_is_reused(self):
+        from unittest import mock
+        view_model.prepare_order(self.events)
+        with mock.patch.object(view_model, "timeline", side_effect=AssertionError("sorted again")):
+            self.assertEqual(filter_events(self.events, Filters()), timeline(self.events))
+
+    def test_tag_tree_does_not_hash_records_when_nothing_is_tagged(self):
+        from unittest import mock
+        from log_hunter.core import tags
+        with mock.patch.object(tags, "event_key", side_effect=AssertionError("hashed")):
+            root = tags.tag_tree(tags.TagBook(), self.events)
+        self.assertEqual([c.kind for c in root.children], ["group"])
+        book = tags.TagBook()
+        book.toggle(tags.event_key(self.events[0]), "event", tags.event_ref(self.events[0]), "red")
+        self.assertEqual(tags.tag_tree(book, self.events).children[0].count, 1)
+
     def test_time_sort_uses_timeline_rank(self):
         rows = list(reversed(self.events))
         rows.sort(key=view_model.sort_key("timestamp", {}, None, self.events))

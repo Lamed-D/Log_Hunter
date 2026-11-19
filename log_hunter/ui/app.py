@@ -17,7 +17,7 @@ from log_hunter.image import (extract_artifacts, is_admin, is_live_path, live_de
 from . import charts, content, detail, fs_model, nav, nav_tools, view_model
 from .file_list import FileListView
 from . import relation_view, recycle_view
-from log_hunter.core.labels import CASE_TEXT, CSV_TEXT, FILTER_TEXT, NAV_TEXT, RECYCLE_TEXT, SID_TEXT
+from log_hunter.core.labels import CASE_TEXT, CSV_TEXT, FILTER_TEXT, NAV_TEXT, RECYCLE_TEXT, SID_TEXT, STATS_TEXT
 from . import record_fields
 from .properties import PropertiesDialog
 from .folder_nav import FolderHistory, crumbs, folder_key, parent_key
@@ -904,7 +904,20 @@ def run(live=None):
             ev_tree.insert("", "end", values=row)
         verification_var.set("\n".join(view_model.verification_lines((result.image or {}).get("verification"))))
 
+    stats_state = {"shown": None}
+
     def _populate_stats():
+        """The statistics tab reads every record (charts, anomaly detection: seconds on large cases), so it is built
+        only when the tab is open; otherwise it is marked and built when the tab is selected."""
+        if tabs.select() != str(stat_frame):
+            stats_state["shown"] = None
+            stat_canvas.delete("all")
+            stat_text.delete("1.0", "end")
+            stat_text.insert("end", STATS_TEXT["deferred"])
+            return
+        if stats_state["shown"] is result and result is not None:
+            return
+        stats_state["shown"] = result
         stat_canvas.delete("all")
         stat_text.delete("1.0", "end")
         if not result:
@@ -923,6 +936,8 @@ def run(live=None):
                     stat_text.insert("end", f"  {sev_icon} [{anomaly_label(a['type'])}] {a['description']}\n")
         except Exception:
             pass
+
+    tabs.bind("<<NotebookTabChanged>>", lambda _e: _populate_stats() if tabs.select() == str(stat_frame) else None, add="+")
 
     def _add_input(art, path, owner=None, reason=""):
         inputs.append((art, path, owner))
@@ -1104,6 +1119,7 @@ def run(live=None):
                     from log_hunter.database.case_db import merge_results
                     analysis = merge_results(base, analysis)
                     mapping = {**(getattr(base, "sid_names", None) or {}), **mapping}
+                view_model.prepare_order(analysis.events)  # timeline sort on this worker, not the window
                 mailbox.put(("result", (generation, analysis, mapping)))
             except Superseded:
                 return  # a newer run took over; its result is the one shown
@@ -1135,6 +1151,7 @@ def run(live=None):
                 kind, value = mailbox.get_nowait()
                 if kind == "job":
                     on_job(*value)
+
                 elif kind == "verify_progress":
                     done, total = value
                     status.set(f"이미지 저장 해시 검증 중... {done * 100 // max(total, 1)}% ({done:,} / {total:,}바이트)")
@@ -1765,7 +1782,11 @@ def run(live=None):
         status.set(CASE_TEXT["loading"])
         progress.configure(mode="indeterminate")
         progress.start(12)
-        runner.submit("case_open", lambda: (path, *load_case(path)))
+        def load():
+            analysis, info = load_case(path)
+            view_model.prepare_order(analysis.events)  # the one-time timeline sort, off the window's thread
+            return path, analysis, info
+        runner.submit("case_open", load)
         return True
 
     def _show_loaded_case(path, analysis, info):

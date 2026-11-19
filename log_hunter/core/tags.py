@@ -268,7 +268,9 @@ class TagBook:
 
 def tag_tree(book, events):
     """The "분석자 태그" tree root: colour > subcategory (records as event sets), notes, and the tagged image files."""
-    keys = {id(event): event_key(event) for event in events}
+    # Hashing every record is the slow part on large cases: skip it when no record carries a tag or note.
+    tagged = bool(book.keys_with())
+    keys = {id(event): event_key(event) for event in events} if tagged else {}
     root = TreeNode("tags", "분석자 태그", "group")
 
     def node(tag):

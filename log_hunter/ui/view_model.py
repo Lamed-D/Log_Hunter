@@ -44,6 +44,11 @@ def node_hint(node):
     return NODE_HINTS.get(node.kind, "")
 
 
+def prepare_order(events):
+    """Sort `events` into timeline order ahead of time (call on a worker thread right after loading)."""
+    _time_ordered(events)
+
+
 def _time_ordered(events):
     """`events` in timeline order, sorted once per result list (a node click must not re-sort every record).
     The cache follows the list object and its length, so added or replaced results are sorted again."""
