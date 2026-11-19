@@ -1,8 +1,19 @@
 """Timeline export to CSV, JSON, JSON Lines, and Bodyfile formats."""
 import csv
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+
+from .labels import artifact_label
+from .sid_resolver import display_name
+from .timestamp import event_time_fields
+
+CSV_ENCODING = "utf-8-sig"
+COMMON_FIELDS = (
+    "artifact", "artifact_label", "action", "timestamp_utc", "time_meaning", "time_basis",
+    "timestamp_raw_local", "user", "sid", "target",
+    "target_key", "source_path", "source_locator", "status", "details_json",
+)
 
 DEFAULT_FIELDS = (
     "timestamp", "artifact", "source", "action", "sid",
@@ -25,34 +36,65 @@ def csv_safe(value):
     return value
 
 
-def _event_to_row(event, fields):
+def csv_source_paths(evidence):
+    return {item.source: item.metadata["image_path"] for item in evidence
+            if item.metadata.get("image_path")}
+
+
+def check_timeline_destination(output_path, evidence, image=None):
+    folder = Path(output_path).resolve().parent
+    paths = [item.source for item in evidence]
+    for manifest in [image or {}, *((image or {}).get("additional_images") or [])]:
+        paths.extend((manifest.get("image") or {}).get("segments") or [manifest.get("image_path")])
+    if any(Path(path).resolve().parent == folder for path in paths
+           if path and not str(path).startswith(("\\\\.\\", "\\\\?\\"))):
+        raise ValueError("원본 증거와 같은 폴더에는 저장할 수 없습니다. 다른 폴더를 고르세요.")
+
+
+def _event_to_row(event, fields, sid_names, source_paths):
     d = event.to_dict()
-    row = {f: d.get(f) or "" for f in fields}
-    details = d.get("details") or {}
-    row["details_json"] = json.dumps(details, ensure_ascii=False)
+    details = event.details
+    d.update(event_time_fields(event))
+    d.update(timestamp=d["timestamp_utc"],
+             artifact_label=artifact_label(event.artifact),
+             user=display_name(event.sid, sid_names),
+             target=event.path or event.process or event.url,
+             target_key=details.get("target_key"),
+             source_path=details.get("source_path") or (source_paths or {}).get(event.source) or event.source,
+             source_locator=details.get("source_locator") or event.locator)
+    d["details_json"] = d["details"] = json.dumps(details, ensure_ascii=False)
     for key in DOWNLOAD_FIELDS:
-        value = details.get(key) if event.action == "download" or key == "referrer_url" else None
-        row[key] = "" if value is None else str(value)
-    return {key: csv_safe(value) for key, value in row.items()}
+        if event.action == "download" or key == "referrer_url":
+            d[key] = details.get(key)
+    return {field: csv_safe(d.get(field) or "") for field in fields}
 
 
-def export_csv(events, output_path, fields=None):
-    fields = list(fields or DEFAULT_FIELDS)
-    output_path = Path(output_path)
-    headers = fields + ["details_json", *DOWNLOAD_FIELDS]
+def export_csv(events, output_path, fields=None, *, sid_names=None, source_paths=None, report=False):
+    legacy = list(fields or DEFAULT_FIELDS)
+    if not report:
+        legacy.append("details_json")
+        legacy.extend(DOWNLOAD_FIELDS)
+    headers = list(dict.fromkeys([*legacy, *COMMON_FIELDS, *DOWNLOAD_FIELDS]))
     count = 0
-    with output_path.open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=headers)
+    with Path(output_path).open("x", newline="", encoding=CSV_ENCODING) as stream:
+        writer = csv.DictWriter(stream, fieldnames=headers)
         writer.writeheader()
         for event in events:
-            writer.writerow(_event_to_row(event, fields))
+            writer.writerow(_event_to_row(event, headers, sid_names, source_paths))
             count += 1
     return count
 
 
+def event_json_row(event):
+    row = event.to_dict()
+    row.update(event_time_fields(event))
+    row["timestamp"] = row["timestamp_utc"]
+    return row
+
+
 def _serialize_event(event):
-    d = event.to_dict()
-    return {k: v for k, v in d.items() if v is not None and v != {}}
+    return {k: v for k, v in event_json_row(event).items()
+            if (v is not None and v != {}) or k == "timestamp_utc"}
 
 
 def export_json(events, output_path, indent=2):
@@ -85,8 +127,8 @@ def _ts_to_unix(ts_str):
         return None
     try:
         dt = datetime.fromisoformat(ts_str)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+        if dt.utcoffset() is None:
+            return None
         return int(dt.timestamp())
     except (ValueError, TypeError, OSError):
         return None
@@ -114,6 +156,8 @@ def export_bodyfile(events, output_path):
     count = 0
     with output_path.open("w", encoding="utf-8") as f:
         for event in events:
+            if event.details.get("timezone_known") is False:
+                continue
             unix_ts = _ts_to_unix(event.timestamp)
             if unix_ts is None:
                 continue

@@ -12,6 +12,8 @@ from pathlib import Path
 from .case_db import save_case, _hash, _counts, _readonly
 from log_hunter.core.report import export_reports
 from log_hunter.core.export import export_json, export_bodyfile
+from log_hunter.core.tags import event_key
+from log_hunter.core.timestamp import normalize_event_timestamp
 
 OUTPUT_FILES = ('case.sqlite', 'case.sqlite.integrity.json', 'report.json', 'timeline.csv',
                 'report.html', 'image_manifest.json', 'timeline.json', 'timeline.bodyfile')
@@ -88,16 +90,24 @@ def save_analysis(folder, result, *, name=None, tags=None, sid_names=None, input
             return len(original_events)
 
         def __getitem__(self, key):
-            return original_events[key]
+            if isinstance(key, slice):
+                return [normalize_event_timestamp(event) for event in original_events[key]]
+            return normalize_event_timestamp(original_events[key])
 
         def __iter__(self):
             for index, event in enumerate(original_events):
                 if index % 256 == 0 and cancel and cancel():
                     raise SaveCancelled()
-                yield event
+                yield normalize_event_timestamp(event)
 
     result = copy.copy(result)
     result.events = CheckedEvents()
+    if tags:
+        replacements = {}
+        for event, normalized in zip(original_events, result.events):
+            if event is not normalized:
+                replacements[event_key(event)] = event_key(normalized)
+        tags = [{**row, "key": replacements.get(row["key"], row["key"])} for row in tags]
     temporary = None
     published = []
     created = not folder.exists()

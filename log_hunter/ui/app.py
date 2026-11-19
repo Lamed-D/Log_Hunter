@@ -1908,14 +1908,17 @@ def run(live=None):
         if not events:
             messagebox.showwarning("내보낼 기록 없음", "현재 필터에 맞는 기록이 없습니다. 필터를 바꾼 뒤 다시 내보내세요")
             return
-        from log_hunter.core.export import export_csv, export_json, export_jsonl, export_bodyfile
+        from log_hunter.core.export import (check_timeline_destination, csv_source_paths, export_csv,
+                                            export_json, export_jsonl, export_bodyfile)
         ext = {"csv": ".csv", "json": ".json", "jsonl": ".jsonl", "bodyfile": ".bodyfile"}.get(fmt, ".csv")
         path = filedialog.asksaveasfilename(defaultextension=ext, filetypes=[(f"{fmt.upper()} files", f"*{ext}")])
         if not path:
             return
         try:
+            check_timeline_destination(path, result.evidence, result.image)
             if fmt == "csv":
-                count = export_csv(events, path)
+                count = export_csv(events, path, sid_names=sid_map,
+                                   source_paths=csv_source_paths(result.evidence))
             elif fmt == "json":
                 count = export_json(events, path)
             elif fmt == "bodyfile":
