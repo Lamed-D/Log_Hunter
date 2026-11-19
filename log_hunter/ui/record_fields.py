@@ -2,14 +2,13 @@
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import PureWindowsPath
 
 from log_hunter.core.labels import (DEFENDER_TEXT, JUMP_LIST_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, RECENT_TEXT, WEB_TEXT, action_label,
                                     artifact_label, column_label, time_field_label)
 from log_hunter.parser.history import URL_ROLES
 from log_hunter.core.sid_resolver import display_name
-from log_hunter.core.timestamp import event_time_fields
+from log_hunter.core.timestamp import display_clock, display_event_time
 from .view_model import display_target
 
 PREFETCH_RUN_LIMIT = 8
@@ -19,25 +18,12 @@ _VOLUME_GUID = re.compile(r"^\\VOLUME\{[0-9A-F]+-([0-9A-F]{8})\}$", re.IGNORECAS
 def format_time(value):
     """'2026-10-30 17:42:15 UTC', 24-hour clock, always UTC (no local conversion). A time recorded without an offset
     is shown as recorded with '(시간대 미상)' and never treated as UTC; nothing at all is '알 수 없음'."""
-    if not value:
-        return UNKNOWN_VALUE
-    try:
-        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError:
-        return str(value)
-    if moment.tzinfo is None:
-        return f"{moment:%Y-%m-%d %H:%M:%S} (시간대 미상)"
-    return f"{moment.astimezone(timezone.utc):%Y-%m-%d %H:%M:%S} UTC"
+    return display_clock(value) or UNKNOWN_VALUE
 
 
 def event_time_text(event):
     """An event's time as shown everywhere on screen: its UTC value, or the original local value marked 시간대 미상."""
-    fields = event_time_fields(event)
-    if fields["timestamp_utc"]:
-        return format_time(fields["timestamp_utc"])
-    if fields["timestamp_raw_local"]:
-        return format_time(str(fields["timestamp_raw_local"]))
-    return UNKNOWN_VALUE
+    return display_event_time(event) or UNKNOWN_VALUE
 
 
 def size_text(value):

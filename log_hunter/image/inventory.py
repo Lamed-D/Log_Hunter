@@ -25,7 +25,7 @@ SIGNATURES = (
     (b"\x7fELF", "elf", (".elf", ".so", ".out")),
     (b"Rar!\x1a\x07", "rar", (".rar",)),
 )
-FILE_SUFFIXES = frozenset(ext for _, _, suffixes in SIGNATURES for ext in suffixes)
+FILE_SUFFIXES = frozenset(ext for _, _, suffixes in SIGNATURES for ext in suffixes) | {".bmp", ".dib"}
 TEXT_SUFFIXES = frozenset((".txt", ".log", ".csv", ".ini", ".json", ".xml", ".html", ".htm"))
 PE_SUFFIXES = (".exe", ".dll", ".sys", ".scr", ".ocx", ".cpl", ".drv", ".mui", ".efi")
 UNKNOWN_SUFFIXES = frozenset(("", ".bin", ".dat", ".tmp", ".cache", ".bak", ".old"))
@@ -37,6 +37,10 @@ def _signature(prefix):
     for marker, kind, suffixes in SIGNATURES:
         if prefix.startswith(marker):
             return kind, suffixes
+    if len(prefix) >= 26 and prefix.startswith(b"BM"):
+        size, reserved, pixels, dib = struct.unpack_from("<4I", prefix, 2)
+        if not reserved and dib in (12, 40, 52, 56, 64, 108, 124) and 14 + dib <= pixels <= size:
+            return "bmp", (".bmp", ".dib")
     if len(prefix) >= 64 and prefix.startswith(b"MZ"):
         offset, = struct.unpack_from("<I", prefix, 60)
         if prefix[offset:offset + 4] == b"PE\0\0":
@@ -154,8 +158,8 @@ def scan_file_inventory(volume, volume_index, source):
                    "in_use": item["in_use"],
                    "file_times": {key: item.get(key) for key in ("created", "modified", "mft_modified", "accessed")}}
         label = "ntfs_file_inventory" if item["in_use"] else "deleted_file_candidate"
-        def event(action, **extra):
-            return ForensicEvent("mft", source, action, path=path or item["name"], locator=locator,
+        def event(action, timestamp=None, time_field=None, **extra):
+            return ForensicEvent("mft", source, action, timestamp, time_field, path=path or item["name"], locator=locator,
                                  status="ok" if action in ("ntfs_file_inventory", "photo_metadata") else "partial",
                                  details={**details, **extra})
         if not item["in_use"]:
@@ -187,8 +191,13 @@ def scan_file_inventory(volume, volume_index, source):
             if kind in ("jpeg", "tiff"):
                 metadata = _photo_metadata(read(0, min(file_size, 512 * 1024)), kind)
                 if metadata:
-                    raw = metadata.get("date_time_original_raw") or metadata.get("date_time_raw")
-                    yield event("photo_metadata", **metadata, timestamp_raw_local=raw,
-                                time_basis="시간대 미상" if raw else None)
+                    original = bool(metadata.get("date_time_original_raw"))
+                    clock = "date_time_original" if original else "date_time"
+                    raw = metadata.get(clock + "_raw")
+                    stamp = metadata.get(clock + "_utc")
+                    field = "photo_capture_time" if original else "photo_metadata_time"
+                    yield event("photo_metadata", stamp, field if raw else None, **metadata,
+                                timestamp_raw_local=raw,
+                                time_basis="사진에 기록된 UTC 오프셋" if stamp else "시간대 미상" if raw else None)
         except (OSError, *READ_ERRORS):
             continue

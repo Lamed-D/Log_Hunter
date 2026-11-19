@@ -2,6 +2,7 @@
 import struct
 import time
 import zlib
+from datetime import datetime, timezone
 from .text import decode_text
 
 PNG = b'\x89PNG\r\n\x1a\n'
@@ -152,6 +153,12 @@ def _bitmap(data, deadline, icon=False):
     return {'kind':'image','format':format,'extensions':('.'+format,),'metadata':meta,'image_bytes':_png(out_w,out_h,output)}
 
 
+EXIF_TEXT_TAGS = {
+    0x010f: "camera_make", 0x0110: "camera_model", 0x0132: "date_time_raw",
+    0x9003: "date_time_original_raw", 0x9010: "offset_time_raw", 0x9011: "offset_time_original_raw",
+}
+
+
 def _exif(data):
     if len(data)<8 or data[:2] not in (b'II',b'MM'): return {}
     endian='<' if data[:2]==b'II' else '>'
@@ -167,16 +174,27 @@ def _exif(data):
             pos=offset+2+index*12;tag,kind,size=struct.unpack_from(endian+'HHI',data,pos)
             if tag==0x8769 and kind==4 and size==1:
                 pending.append(struct.unpack_from(endian+'I',data,pos+8)[0])
-            elif tag in (0x010f,0x0110,0x0132,0x9003) and kind==2 and 0<size<=256:
+            elif tag in EXIF_TEXT_TAGS and kind==2 and 0<size<=256:
                 start=pos+8 if size<=4 else struct.unpack_from(endian+'I',data,pos+8)[0]
                 if start+size<=len(data):
-                    key={0x010f:'camera_make',0x0110:'camera_model',0x0132:'date_time_raw',0x9003:'date_time_original_raw'}[tag]
+                    key=EXIF_TEXT_TAGS[tag]
                     decoded=decode_text(data[start:start+size].rstrip(b'\0'))
                     result[key]=decoded.pop('text')
                     if decoded['inferred'] or decoded['decode_error']:
                         result.setdefault('text_decoding',[]).append({'field':key,**decoded})
-    if 'date_time_raw' in result or 'date_time_original_raw' in result:
-        result['timezone_known']=False
+    for clock, offset in (("date_time", "offset_time"), ("date_time_original", "offset_time_original")):
+        raw = result.get(clock + "_raw")
+        offset = result.get(offset + "_raw")
+        if raw and offset:
+            try:
+                moment = datetime.strptime(raw + offset, "%Y:%m:%d %H:%M:%S%z")
+                result[clock + "_utc"] = moment.astimezone(timezone.utc).isoformat()
+            except (ValueError, OverflowError):
+                pass
+    if "date_time_original_raw" in result:
+        result["timezone_known"] = "date_time_original_utc" in result
+    elif "date_time_raw" in result:
+        result["timezone_known"] = "date_time_utc" in result
     return result
 
 

@@ -55,13 +55,26 @@ def event_time_fields(event):
     }
 
 
+def display_clock(value, *, raw_local=False):
+    if not value:
+        return ""
+    text = str(value)
+    try:
+        moment = datetime.fromisoformat(text)
+        if moment.utcoffset() is not None and not raw_local:
+            return f"{moment.astimezone(UTC):%Y-%m-%d %H:%M:%S} UTC"
+        text = f"{moment:%Y-%m-%d %H:%M:%S}"
+        raw_local = True
+    except (ValueError, OverflowError):
+        pass
+    return f"{text} (시간대 미상)" if raw_local else text
+
+
 def display_event_time(event):
     time = event_time_fields(event)
     if time["timestamp_utc"]:
-        return time["timestamp_utc"].removesuffix("+00:00").replace("T", " ") + " UTC"
-    if time["timestamp_raw_local"]:
-        return f'{time["timestamp_raw_local"]} (시간대 미상)'
-    return ""
+        return display_clock(time["timestamp_utc"])
+    return display_clock(time["timestamp_raw_local"], raw_local=True)
 
 
 def normalize_event_timestamp(event):
