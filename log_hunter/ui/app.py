@@ -17,7 +17,7 @@ from log_hunter.image import (extract_artifacts, is_admin, is_live_path, live_de
 from . import charts, content, detail, fs_model, nav, nav_tools, view_model
 from .file_list import FileListView
 from . import relation_view, recycle_view
-from log_hunter.core.labels import CASE_TEXT, FILTER_TEXT, NAV_TEXT, RECYCLE_TEXT, SID_TEXT
+from log_hunter.core.labels import CASE_TEXT, CSV_TEXT, FILTER_TEXT, NAV_TEXT, RECYCLE_TEXT, SID_TEXT
 from . import record_fields
 from .properties import PropertiesDialog
 from .folder_nav import FolderHistory, crumbs, folder_key, parent_key
@@ -226,6 +226,7 @@ def run(live=None):
     ttk.Entry(search_bar_frame, textvariable=global_search_var, width=30).pack(side="left", padx=(3, 5))
     ttk.Button(search_bar_frame, text="초기화", command=lambda: global_search_var.set("")).pack(side="left")
     ttk.Button(search_bar_frame, text="표를 CSV로 저장", command=lambda: save_table_csv()).pack(side="right")
+    ttk.Button(search_bar_frame, text=CSV_TEXT["bundle_button"], command=lambda: save_category_csvs()).pack(side="right", padx=(0, 4))
     recycle_button = ttk.Button(search_bar_frame, text=RECYCLE_TEXT["save"], state="disabled",
                                 command=lambda: save_recycle_original(_selected_event()))
     recycle_button.pack(side="right", padx=4)
@@ -821,13 +822,43 @@ def run(live=None):
         if not rows:
             messagebox.showwarning("저장할 기록 없음", "표에 보이는 기록이 없습니다. 필터를 바꾼 뒤 다시 저장하세요")
             return
-        path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")])
+        path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")], confirmoverwrite=False)
         if path:
+            from log_hunter.core.export import check_timeline_destination, csv_source_paths
             try:
-                count = table_columns.save_csv(path, shown, rows)
+                check_timeline_destination(path, result.evidence if result else (), result.image if result else None)
+                count = table_columns.save_csv(path, shown, rows, [visible[i] for i in timeline_page["matched"]], sid_map,
+                                               csv_source_paths(result.evidence) if result else None)
                 messagebox.showinfo("저장 완료", f"필터에 맞는 {count:,}개 행(모든 페이지)을 {path}에 저장했습니다")
-            except OSError as exc:
+            except FileExistsError:
+                messagebox.showerror("저장 오류", CSV_TEXT["exists"])
+            except (OSError, ValueError) as exc:
                 messagebox.showerror("저장 오류", str(exc))
+
+    def save_category_csvs():
+        """Every record of the analysis, one CSV per category with that category's columns, plus a column guide."""
+        events = result.events if result else []
+        if not events:
+            messagebox.showwarning("저장할 기록 없음", "분석한 기록이 없습니다")
+            return
+        parent = filedialog.askdirectory(title=CSV_TEXT["bundle_pick"])
+        if not parent:
+            return
+        from datetime import datetime, timezone
+        from pathlib import Path as _Path
+        from log_hunter.core.export import check_timeline_destination, csv_source_paths
+        folder = _Path(parent) / CSV_TEXT["bundle_folder"].format(stamp=datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S"))
+        try:
+            check_timeline_destination(folder / "x.csv", result.evidence, result.image)
+            check_timeline_destination(_Path(parent) / "x.csv", result.evidence, result.image)
+            written = table_columns.save_category_csvs(folder, events, sid_map, nav_state.get("origins"),
+                                                       csv_source_paths(result.evidence))
+            messagebox.showinfo("저장 완료", CSV_TEXT["bundle_done"].format(files=len(written), rows=sum(written.values()),
+                                                                          folder=folder))
+        except FileExistsError:
+            messagebox.showerror("저장 오류", CSV_TEXT["exists"])
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("저장 오류", str(exc))
 
     def refresh(*_args):
         tree.delete(*tree.get_children())

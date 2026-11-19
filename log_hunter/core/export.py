@@ -69,6 +69,13 @@ def _event_to_row(event, fields, sid_names, source_paths):
     return {field: csv_safe(d.get(field) or "") for field in fields}
 
 
+def common_row(event, sid_names=None, source_paths=None):
+    """The shared columns (COMMON_FIELDS, then the download columns) of one record, formula-safe: the screen CSVs
+    append exactly these so a row there and in the timeline CSV carry the same values."""
+    fields = list(dict.fromkeys([*COMMON_FIELDS, *DOWNLOAD_FIELDS]))
+    return _event_to_row(event, fields, sid_names, source_paths)
+
+
 def export_csv(events, output_path, fields=None, *, sid_names=None, source_paths=None, report=False):
     legacy = list(fields or DEFAULT_FIELDS)
     if not report:

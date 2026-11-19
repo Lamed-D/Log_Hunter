@@ -467,6 +467,25 @@ COLUMN_LABELS = {
     "jump_list_item_count": "내부 항목 수", "jump_list_file_state": "파일 해석 상태",
     "web_cache_status": "캐시 분석 상태", "web_cache_count": "읽은 항목 수", "web_cache_reason": "상태의 이유",
 }
+# 화면·분류별 CSV 뒤쪽 공통 열(타임라인 CSV와 같은 이름·값)의 뜻 — 열 설명 파일에 씀
+COMMON_FIELD_DESCRIPTIONS = {
+    "artifact": "기록 종류 (내부 키)", "artifact_label": "기록 종류 (쉬운 이름)", "action": "무슨 일 (내부 키)",
+    "timestamp_utc": "시각 (UTC, ISO 8601). 시간대를 모르는 값은 비움", "time_meaning": "시각의 의미",
+    "time_basis": "시각의 근거 (예: 키 수정, 로컬 기록 → UTC 환산, 시간대 미상)",
+    "timestamp_raw_local": "시간대를 몰라 UTC로 바꾸지 않은 원래 시각", "user": "사용자 이름", "sid": "사용자 SID",
+    "target": "대상 (파일·프로그램·주소)", "target_key": "같은 대상 묶음 키", "source_path": "이미지 안 원본 위치",
+    "source_locator": "원본 안 위치 (키 경로·내부 위치·오프셋)", "status": "상태 (내부 키)",
+    "details_json": "세부 정보 원문 (JSON)", "download_save_path": "다운로드 저장 경로",
+    "download_url": "다운로드 주소 (처음 요청)", "final_url": "최종 주소 (파일을 내려 준 곳)",
+    "referrer_url": "참조 페이지", "tab_url": "탭 주소", "tab_referrer_url": "탭 참조 주소", "site_url": "사이트 주소",
+    "download_state": "다운로드 상태 (내부 키)",
+}
+CSV_TEXT = {
+    "bundle_button": "분류별 CSV 저장", "bundle_pick": "분류별 CSV를 만들 폴더 (안에 새 폴더를 만듭니다)",
+    "bundle_done": "분류 {files}개 파일, 기록 {rows:,}건과 열 설명 파일을 {folder}에 저장했습니다",
+    "exists": "같은 이름의 파일이나 폴더가 이미 있습니다. 덮어쓰지 않으니 다른 이름이나 폴더를 고르세요",
+    "bundle_folder": "LogHunter_분류별_CSV_{stamp}",
+}
 # 날짜 필터: 입력한 날짜는 UTC 기준으로 해석 (화면의 모든 시각도 UTC)
 FILTER_TEXT = {"start": "시작 (UTC):", "end": "종료 (UTC):"}
 # 최근 파일·폴더: 같은 대상 묶어 보기(출처별 기록), 바로가기 한 줄 보기, 원본 위치와 시각의 의미
