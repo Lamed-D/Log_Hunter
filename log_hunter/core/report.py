@@ -150,12 +150,12 @@ def _write_html_report(path, payload, evidence, events, errors, relations, summa
     wifi_panel = _wifi_panel(wifi) + "\n  " if wifi else ''
     tasks = [e for e in events if e.artifact in TASK_ARTIFACTS]  # own tab only when there are scheduled tasks
     usb = [e for e in events if e.artifact == "usb"]  # own tab only when there are USB records
-    origins = {str(e.source): evidence_origin(e) for e in evidence} if tasks or usb or any(e.artifact in ("history", "cookies", "favicons", "autofill") for e in events) else {}  # image volume paths, not the extracted copies
+    origins = {str(e.source): evidence_origin(e) for e in evidence} if tasks or usb or any(e.artifact in ("history", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks") for e in events) else {}  # image volume paths, not the extracted copies
     tasks_tab = f'<div class="tab" data-panel="tasks">{html.escape(TASK_TEXT["report_tab"])}</div>\n    ' if tasks else ''
     tasks_panel = _tasks_panel(tasks, lambda path: origins.get(str(path), str(path))) + "\n  " if tasks else ''
     usb_tab = f'<div class="tab" data-panel="usb">{html.escape(USB_REPORT_TEXT["tab"])}</div>\n    ' if usb else ''
     usb_panel = _usb_panel(usb, lambda path: origins.get(str(path), str(path))) + "\n  " if usb else ''
-    web = [e for e in events if e.artifact in ("history", "cookies", "favicons", "autofill")]  # own tab only when there are browser records
+    web = [e for e in events if e.artifact in ("history", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks")]  # own tab only when there are browser records
     web_tab = f'<div class="tab" data-panel="web">{html.escape(WEB_TEXT["tab"])}</div>\n    ' if web else ''
     web_panel = _web_panel(web, lambda path: origins.get(str(path), str(path))) + "\n  " if web else ''
     page = f'''<!doctype html>
@@ -672,7 +672,10 @@ def _web_panel(events, origin=None):
                                       ("searches", ("web_search",), "web_searches"),
                                       ("cookies", ("cookie_stored",), "web_cookies"),
                                       ("icons", ("site_icon",), "web_icons"),
-                                      ("autofill", ("form_entry",), "web_autofill")):
+                                      ("autofill", ("form_entry",), "web_autofill"),
+                                      ("extensions", ("extension_installed",), "web_extensions"),
+                                      ("profiles", ("browser_profile",), "web_profiles"),
+                                      ("bookmarks", ("bookmark_saved",), "web_bookmarks")):
         rows = sorted((e for e in events if e.action in actions), key=lambda e: e.timestamp or "~")
         if not rows and name not in ("visits", "downloads"):
             continue

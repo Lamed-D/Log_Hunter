@@ -20,7 +20,7 @@ ARTIFACT_CATEGORIES = [
     ("recycle_bin", "휴지통", ("recyclebin",)),
     ("shell_bags", "열어본 폴더", ("shellbag",)),
     ("usb_devices", "USB·외부 장치 연결", ("usb",)),
-    ("web_history", "웹 기록", ("history", "cache", "cookies", "favicons", "autofill")),
+    ("web_history", "웹 기록", ("history", "cache", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks")),
     ("autostart", "자동 실행 항목", ("run", "startup", "services", "tasks", "taskcache")),
     ("commands", "입력한 명령어", ("psreadline",)),
     ("network", "네트워크·Wi-Fi", ("network", "wlan")),

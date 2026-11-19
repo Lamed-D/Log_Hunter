@@ -45,7 +45,12 @@ ARTIFACT_SPECS = [
     *[(f"Users/*/AppData/Local/{browser}/User Data/*/{name}", (artifact,), SQLITE_SIDECARS)
       for browser in ("Google/Chrome", "Microsoft/Edge")
       for name, artifact in (("Network/Cookies", "cookies"), ("Cookies", "cookies"), ("Favicons", "favicons"),
-                             ("Web Data", "autofill"))],
+                             ("Web Data", "autofill"), ("Preferences", "browser_extensions"),
+                             ("Secure Preferences", "browser_extensions"), ("Bookmarks", "bookmarks"))],
+    *[(f"Users/*/AppData/Local/{browser}/User Data/Local State", ("browser_profiles",), ())
+      for browser in ("Google/Chrome", "Microsoft/Edge")],
+    ("Users/*/Favorites/*.url", ("bookmarks",), ()),
+    ("Users/*/Favorites/*/*.url", ("bookmarks",), ()),
 ]
 MFT_SPEC = ("$MFT", ("mft",), ())
 _UNSAFE = re.compile(r'[<>:"|?*/\\\x00-\x1f]')

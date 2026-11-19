@@ -15,7 +15,9 @@ HIVE_ARTIFACTS = {
 
 
 # Chromium profile databases besides History (file name -> artifact), inside a browser's 'User Data' folder.
-CHROMIUM_DATABASES = {"cookies": "cookies", "favicons": "favicons", "web data": "autofill"}
+CHROMIUM_DATABASES = {"cookies": "cookies", "favicons": "favicons", "web data": "autofill",
+                      "preferences": "browser_extensions", "secure preferences": "browser_extensions",
+                      "local state": "browser_profiles", "bookmarks": "bookmarks"}
 
 
 def _sidecar(name):
@@ -88,6 +90,8 @@ def detect_artifact(path_str):
                                                or "chromium" in parts_lower or "brave" in parts_lower)
     if chromium and name_lower in CHROMIUM_DATABASES:
         return CHROMIUM_DATABASES[name_lower]
+    if ext == ".url" and "\\favorites\\" in parts_lower.replace("/", "\\"):
+        return "bookmarks"
     if parent in ("cache", "cache2", "code cache", "gpu cache") or name_lower == "index":
         if _looks_like_cache_dir(path.parent if name_lower == "index" else path):
             return "cache"
