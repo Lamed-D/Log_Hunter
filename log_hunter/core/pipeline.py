@@ -61,6 +61,18 @@ PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "
 INVENTORY_HIVES = ("windows_installed", "windows_os", "windows_accounts")
 # Browser SQLite databases: read through a recovered working copy (journal/WAL merged), never in place.
 BROWSER_SQLITE = ("history", "cookies", "favicons", "autofill")
+REGISTRY_HIVES = ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag",
+                  "network", "services", "rdp", "taskcache", *INVENTORY_HIVES)
+
+
+def input_sidecars(artifact, path):
+    if artifact in (*BROWSER_SQLITE, "srum"):
+        suffixes = ("-wal", "-shm", "-journal")
+    elif artifact in REGISTRY_HIVES:
+        suffixes = (".LOG1", ".LOG2")
+    else:
+        suffixes = ()
+    return [Path(str(path) + suffix) for suffix in suffixes]
 
 
 @dataclass
@@ -198,7 +210,7 @@ class Pipeline:
                                              '이미지 무결성 검증: ' + IMAGE_VERIFICATION_LABELS[extraction.verification['status']], 'info'))
         return result
 
-    def analyze(self, inputs, sid=None, environment=None, progress=None, *, file_inventory=()):
+    def analyze(self, inputs, sid=None, environment=None, progress=None, *, file_inventory=(), context_inputs=None):
         # Inputs are (artifact, path) or (artifact, path, owner_sid); the per-input SID wins over `sid`.
         expanded = []
         for artifact, path, *rest in inputs:
@@ -214,7 +226,8 @@ class Pipeline:
                          for a, p, owner in expanded]
         result.settings = {'sid': sid, 'environment': dict(environment or {})}
         environment = dict(environment or {})
-        clocks = read_evidence_clocks({path for _, path, _ in expanded})
+        context = expanded if context_inputs is None else [(a, Path(p), s) for a, p, s in context_inputs]
+        clocks = read_evidence_clocks({path for _, path, _ in context})
         known_clocks = {str(path): clock.metadata() for path, (_, clock) in clocks.items() if clock is not None}
         if len(clocks) == 1 and known_clocks:
             result.settings["windows_time_zone"] = next(iter(known_clocks.values()))
@@ -222,7 +235,7 @@ class Pipeline:
             result.settings["windows_time_zones"] = known_clocks
         if target_acp(environment) is None:
             inspected = set()
-            for artifact, path, _owner in expanded:
+            for artifact, path, _owner in context:
                 if artifact not in ('bam', 'usb', 'services') or path in inspected:
                     continue
                 inspected.add(path)
@@ -237,7 +250,7 @@ class Pipeline:
                 except Exception:
                     continue
         profiles = {}
-        for art, p, _owner in expanded:
+        for art, p, _owner in context:
             if art in ("network", "amcache", "bam") or str(p).lower().endswith("software"):
                 try:
                     profiles = load_profile_list(p)
@@ -262,10 +275,7 @@ class Pipeline:
             recovery_dir = None
             try:
                 sources = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
-                if artifact in (*BROWSER_SQLITE, "srum"):
-                    sources += [Path(str(path) + suffix) for suffix in ("-wal", "-shm", "-journal") if Path(str(path) + suffix).exists()]
-                if artifact in ("bam", "run", "userassist", "usb", "mru", "amcache", "shellbag", "network", "services", "rdp", "taskcache", *INVENTORY_HIVES):
-                    sources += [Path(str(path) + suffix) for suffix in (".LOG1", ".LOG2") if Path(str(path) + suffix).exists()]
+                sources += [sidecar for sidecar in input_sidecars(artifact, path) if sidecar.exists()]
                 for source in sources:
                     before[source] = sha256(source)
                     key = str(Path(source).resolve()).casefold()

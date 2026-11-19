@@ -47,8 +47,22 @@ def main(argv=None):
     regenerate.add_argument('--from', dest='case_db', required=True)
     regenerate.add_argument('--output', required=True)
     regenerate.add_argument('--verify', action='store_true')
+    refresh = sub.add_parser('reanalyze', help='저장한 개별 파일 분석에서 변경된 입력을 다시 분석')
+    refresh.add_argument('case_db')
+    refresh.add_argument('--output', required=True)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    if args.command == 'reanalyze':
+        from .database.incremental import reanalyze_case
+        try:
+            result, counts, sources = reanalyze_case(args.case_db)
+            save_analysis(args.output, result, sources=sources)
+        except SaveError as exc:
+            parser.exit(2, str(exc) + '\n')
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps({**counts, 'events': len(result.events), 'errors': len(result.errors)}, ensure_ascii=False))
+        return 1 if result.errors else 0
     if args.command in ('open', 'report'):
         try:
             result, info = load_case(args.case_db, verify=args.verify)
