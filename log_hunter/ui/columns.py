@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from log_hunter.core.export import csv_safe
 from log_hunter.core import thumbcache_view, wifi_view
 from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, DEFENDER_TEXT, USB_BASIS_LABELS, USB_CONFIDENCE_LABELS, USB_DEVICE_KINDS, USB_GROUP_AUXILIARY, USB_GROUP_BASIS_LABELS, USB_GROUP_NOT_CONFIRMED,
-                                    USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, action_label,
+                                    USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, WEB_TEXT, action_label,
                                     artifact_label, column_label, status_label, time_field_label)
 from log_hunter.core.tree import category_of
 from . import task_view
@@ -37,6 +37,13 @@ CATEGORY_COLUMNS = {
                     Column("install_class", 110), Column("serial", 220), Column("composite", 170),
                     Column("kind_basis", 300), *_TAIL_NO_USER),
     "web_history": (*_HEAD, Column("url", 460), *_TAIL),
+    "web_visits": (Column("timestamp", 170), Column("web_title", 260), Column("url", 420), Column("referrer_url", 300),
+                   Column("browser", 120), Column("user", 100), Column("time_field", 110), Column("origin", 340)),
+    # One row per download; every URL keeps its role so the page that linked is not read as the file source.
+    "web_downloads": (Column("download_start", 170), Column("download_file", 200), Column("download_save_path", 340),
+                      Column("download_url", 320), Column("final_url", 320), Column("referrer_url", 280),
+                      Column("download_end", 170), Column("download_size", 110), Column("download_state", 80),
+                      Column("browser", 120), Column("user", 100), Column("origin", 340)),
     # A detection or reference is what the log says; execution and removal are never confirmed by it.
     "security_detections": (Column("timestamp", 170), Column("action", 190), Column("threat_name", 220),
                             Column("threat_target", 360), Column("defender_result", 260), Column("unconfirmed", 300),
@@ -93,6 +100,8 @@ def columns_for(node):
         return CATEGORY_COLUMNS["scheduled_tasks"]
     if node is not None and node.kind in ("device_kind", "usb_device", "usb_hidden"):
         return CATEGORY_COLUMNS["usb_devices"]
+    if node is not None and node.kind == "action_set" and node.value[0] == "history":
+        return CATEGORY_COLUMNS["web_downloads" if node.value[1] == ("download",) else "web_visits"]
     if node is None or node.kind != "artifacts":
         return DEFAULT
     categories = {category_of(a) for a in node.value}
@@ -160,8 +169,32 @@ def cell(key, event, sid_map, origins):
         return thumbcache_view.cell(key, event)
     if key == "network":
         return details.get("profile_name") or details.get("ssid_name") or target
+    if key in _WEB_CELLS:
+        return _WEB_CELLS[key](event, details) if event.artifact == "history" else ""
     value = details.get(key)
     return "" if value is None else str(value)
+
+
+def _download_only(key):
+    return lambda event, d: str(d.get(key) or "") if event.action == "download" else ""
+
+
+def _download_state(event, d):
+    state = d.get("download_state") if event.action == "download" else None
+    return WEB_TEXT["states"].get(state, str(state)) if state else ""
+
+
+_WEB_CELLS = {
+    "web_title": lambda event, d: str(d.get("title") or ""),
+    "browser": lambda event, d: str(d.get("browser") or ""),
+    "referrer_url": lambda event, d: str(d.get("referrer_url") or ""),
+    "download_file": lambda event, d: (str(d.get("download_save_path") or event.path or "").replace("/", "\\").rsplit("\\", 1)[-1]
+                                       if event.action == "download" else ""),
+    "download_state": _download_state,
+    **{key: _download_only(key) for key in ("download_save_path", "download_url", "final_url", "tab_url",
+                                            "tab_referrer_url", "site_url", "download_start", "download_end",
+                                            "download_size")},
+}
 
 
 def defender_cell(key, event):

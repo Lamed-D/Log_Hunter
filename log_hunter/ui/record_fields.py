@@ -5,8 +5,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import PureWindowsPath
 
-from log_hunter.core.labels import (DEFENDER_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, action_label, artifact_label,
-                                    time_field_label)
+from log_hunter.core.labels import (DEFENDER_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, WEB_TEXT, action_label,
+                                    artifact_label, column_label, time_field_label)
+from log_hunter.parser.history import URL_ROLES
 from log_hunter.core.sid_resolver import display_name
 from .view_model import display_target
 
@@ -196,13 +197,41 @@ def recycle_properties(event, ctx):
 
 def web_properties(event, ctx):
     d = event.details or {}
+    where = (L["browser"], _text(" · ".join(str(x) for x in (d.get("browser"), d.get("profile")) if x) or None))
+    if event.action == "download":
+        return _download_properties(event, ctx, d, where)
     fields = [
         (L["title"], _text(d.get("title"))),
         (L["url"], _text(event.url or d.get("url"))),
+        (WEB_TEXT["roles"]["referrer_url"], _text(d.get("referrer_url"))),
         (L["visited_at"], format_time(event.timestamp, ctx.tz)),
         (L["visit_count"], _text(d.get("visit_count"))),
+        where,
+        (L["source"], _text(ctx.source_text or event.source)),
     ]
     return fields, [_raw_tab(event)], None
+
+
+def _download_properties(event, ctx, d, where):
+    """A download: where the file was saved, and each URL in its own role (requested, final, referring page, tab)."""
+    save = d.get("download_save_path") or event.path
+    state = d.get("download_state")
+    fields = [
+        (L["download_file"], _text(PureWindowsPath(str(save)).name if save else None)),
+        (column_label("download_save_path"), _text(save)),
+        *[(WEB_TEXT["roles"][role], _text(d.get(role))) for role in ("download_url", "final_url", "referrer_url")],
+        (L["download_start"], format_time(d.get("download_start") or event.timestamp, ctx.tz)),
+        (L["download_end"], format_time(d.get("download_end"), ctx.tz)),
+        (L["download_size"], size_text(d.get("download_size"))),
+        (L["download_state"], WEB_TEXT["states"].get(state, _text(state)) if state else UNKNOWN_VALUE),
+        where,
+        (L["source"], _text(ctx.source_text or event.source)),
+    ]
+    roles = [f"{WEB_TEXT['roles'][role]}: {d[role]}" for role in URL_ROLES if d.get(role)]
+    chain = [f"{i}. {url}" for i, url in enumerate(d.get("url_chain") or (), 1)]
+    tabs = [(L["url_roles"], roles or [UNKNOWN_VALUE], True), (L["url_chain"], chain or [UNKNOWN_VALUE], True),
+            _raw_tab(event)]
+    return fields, tabs, None
 
 
 def defender_properties(event, ctx):

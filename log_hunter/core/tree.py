@@ -6,7 +6,7 @@ from pathlib import PureWindowsPath
 
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, DETAIL_LABELS, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, DETAIL_LABELS, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -19,7 +19,7 @@ ARTIFACT_CATEGORIES = [
     ("recycle_bin", "휴지통", ("recyclebin",)),
     ("shell_bags", "열어본 폴더", ("shellbag",)),
     ("usb_devices", "USB·외부 장치 연결", ("usb",)),
-    ("web_history", "웹 방문 기록", ("history", "cache")),
+    ("web_history", "웹 기록", ("history", "cache")),
     ("autostart", "자동 실행 항목", ("run", "startup", "services", "tasks", "taskcache")),
     ("commands", "입력한 명령어", ("psreadline",)),
     ("network", "네트워크·Wi-Fi", ("network", "wlan")),
@@ -175,6 +175,9 @@ def _data_artifacts(events, summaries=(), errors=()):
             if flagged:
                 tasks.children = [*tasks.children, TreeNode(f"art:{key}:tasks:signals", TASK_TEXT["signal_node"],
                                                             "task_signals", task_group, flagged)]
+        if "history" in present:  # 방문 / 다운로드: one browser database, two kinds of record
+            history = next((c for c in category.children if c.value == ("history",)), category)
+            history.children = _action_nodes(key, "history", events)
         if "usb" in present:  # 장치 종류별: a filter by the engine's recorded-identifier classification
             usb = next((c for c in category.children if c.value == ("usb",)), category)
             usb.children = _device_kind_nodes(key, events)
@@ -184,6 +187,16 @@ def _data_artifacts(events, summaries=(), errors=()):
         root.children.append(TreeNode("art:other", "기타 기록", "artifacts", tuple(others), sum(counts[a] for a in others),
                                       [TreeNode(f"art:other:{a}", artifact_label(a), "artifacts", (a,), counts[a]) for a in others]))
     return root
+
+
+# Sub-nodes that split one artifact by what its records are: (node name, actions).
+ACTION_NODES = {"history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)))}
+
+
+def _action_nodes(category, artifact, events):
+    counts = Counter(e.action for e in events if e.artifact == artifact)
+    return [TreeNode(f"art:{category}:{artifact}:{name}", WEB_TEXT["nodes"][name], "action_set", (artifact, actions),
+                     sum(counts[a] for a in actions)) for name, actions in ACTION_NODES[artifact]]
 
 
 def usb_hidden(details):
@@ -295,6 +308,9 @@ def matches(node, event, origins):
                 and not usb_hidden(details))
     if node.kind == "task_signals":
         return event.artifact in TASK_ARTIFACTS and _task_flagged(event)
+    if node.kind == "action_set":
+        artifact, actions = node.value
+        return event.artifact == artifact and event.action in actions
     if node.kind == "usb_device":  # one physical device candidate: its interfaces, HID children and property times
         return event.artifact == "usb" and (event.details or {}).get("physical_device_id") == node.value
     if node.kind == "usb_hidden":

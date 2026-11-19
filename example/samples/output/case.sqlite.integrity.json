@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "sha256": "5dcf1e9cf7cb55dc5753113b85f7dd17663047aa1953f7298d5682497fc1cfd6",
+  "sha256": "2544df6d7b911b7df2f30464be49d1f6a1111d261e04c62bb5115713d0cdd378",
   "table_counts": {
     "case_query_meta": 1,
     "case_state": 1,

@@ -10,6 +10,10 @@ DEFAULT_FIELDS = (
 )
 
 
+# Added after details_json so older readers that use column positions keep working. Download-only columns stay
+# empty on other rows; referrer_url is also the referring page of a visit.
+DOWNLOAD_FIELDS = ("download_save_path", "download_url", "final_url", "referrer_url", "tab_url", "tab_referrer_url",
+                   "site_url", "download_state")
 FORMULA_PREFIXES = ("=", "+", "-", "@")
 
 
@@ -24,14 +28,18 @@ def csv_safe(value):
 def _event_to_row(event, fields):
     d = event.to_dict()
     row = {f: d.get(f) or "" for f in fields}
-    row["details_json"] = json.dumps(d.get("details") or {}, ensure_ascii=False)
+    details = d.get("details") or {}
+    row["details_json"] = json.dumps(details, ensure_ascii=False)
+    for key in DOWNLOAD_FIELDS:
+        value = details.get(key) if event.action == "download" or key == "referrer_url" else None
+        row[key] = "" if value is None else str(value)
     return {key: csv_safe(value) for key, value in row.items()}
 
 
 def export_csv(events, output_path, fields=None):
     fields = list(fields or DEFAULT_FIELDS)
     output_path = Path(output_path)
-    headers = fields + ["details_json"]
+    headers = fields + ["details_json", *DOWNLOAD_FIELDS]
     count = 0
     with output_path.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=headers)

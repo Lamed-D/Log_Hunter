@@ -25,7 +25,7 @@ ARTIFACT_LABELS = {
     "recyclebin": "휴지통 (삭제한 파일)",
     "mft": "파일 생성·수정 기록",
     "usb": "USB 장치 연결 기록",
-    "history": "웹 방문 기록",
+    "history": "웹 방문·다운로드",
     "cache": "웹 캐시 (임시 파일)",
     "srum": "앱·네트워크 사용량",
     "network": "접속한 네트워크",
@@ -405,6 +405,21 @@ COLUMN_LABELS = {
     "usb_class": "USB 인터페이스 클래스", "install_class": "설치 클래스", "composite": "복합 장치",
     "kind_basis": "종류 판정 근거",
     "physical_group": "물리 장치 묶음", "unknown_reason": "알 수 없는 이유",
+    "web_title": "제목", "browser": "브라우저", "download_file": "파일 이름", "download_save_path": "저장 경로",
+    "download_url": "다운로드 주소", "final_url": "최종 주소", "referrer_url": "참조 페이지", "tab_url": "탭 주소",
+    "tab_referrer_url": "탭 참조 주소", "site_url": "사이트 주소", "download_start": "시작 시각", "download_end": "종료 시각",
+    "download_size": "크기(바이트)", "download_state": "상태",
+}
+# 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
+WEB_TEXT = {
+    "nodes": {"visits": "방문", "downloads": "다운로드"},
+    "tab": "웹 기록",
+    "note": ("브라우저 기록의 방문과 다운로드를 나눠 보입니다. 다운로드의 '최종 주소'가 파일을 내려 준 곳이고, "
+             "참조 페이지·탭 주소는 다운로드를 시작한 화면입니다. 주소는 글자로만 보이며 연결하지 않습니다. 시각은 UTC입니다."),
+    "roles": {"download_url": "다운로드 주소 (처음 요청)", "final_url": "최종 주소 (파일을 내려 준 곳)",
+              "referrer_url": "참조 페이지", "tab_url": "탭 주소 (다운로드를 시작한 페이지)",
+              "tab_referrer_url": "탭 참조 주소", "site_url": "사이트 주소"},
+    "states": {"in_progress": "받는 중", "complete": "완료", "cancelled": "취소", "interrupted": "중단", "unknown": "알 수 없음"},
 }
 # 파일 미리 보기 흔적(thumbcache) 열의 값: 형식은 앞부분 시그니처로만 알아본 것, 저장 체크섬은 다시 계산하지 않음
 THUMBCACHE_VALUE_LABELS = {
@@ -457,6 +472,10 @@ PROPERTY_LABELS = {
     "original_path": "원래 경로", "deleted_at": "삭제 시각", "pair_file": "짝 파일 여부", "pair_where": "짝 파일 위치",
     "pair_yes": "있음", "pair_no": "없음 (내용 파일이 없거나 덮어써짐)",
     "title": "제목", "url": "주소", "visited_at": "방문 시각", "visit_count": "방문 횟수",
+    "browser": "브라우저", "profile": "브라우저 프로필", "url_roles": "주소 역할",
+    "download_file": "파일 이름", "download_start": "시작 시각", "download_end": "종료 시각", "download_size": "크기",
+    "download_received": "받은 크기", "download_state": "상태", "download_mime": "파일 형식(MIME)",
+    "url_chain": "주소 이동 순서 (요청 → 최종)",
 }
 
 # File list folder moves (buttons above the file list).
