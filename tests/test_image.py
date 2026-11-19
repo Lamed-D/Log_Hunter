@@ -357,7 +357,7 @@ def windows_volume():
     system = os.urandom(3 * CLUSTER) + b"SYSTEM-TAIL"
     builder.add_file(config, "SYSTEM", system, mode="attribute_list")
     builder.add_file(config, "SYSTEM.LOG1", b"LOG1" * 100, mode="resident")
-    builder.add_file(config, "SAM", b"not extracted", mode="resident")
+    builder.add_file(config, "SAM", b"synthetic account hive placeholder", mode="resident")
     builder.add_file(config, "SOFTWARE", os.urandom(16 * CLUSTER))
     prefetch = builder.makedirs("Windows/Prefetch", large={"Prefetch"})
     for index in range(40):
@@ -444,13 +444,14 @@ class ImageTests(unittest.TestCase):
         paths = {f["image_path"]: f for f in extraction.files}
         self.assertIn("\\Windows\\System32\\config\\SYSTEM", paths)
         self.assertIn("\\Windows\\System32\\config\\SYSTEM.LOG1", paths)
-        self.assertNotIn("\\Windows\\System32\\config\\SAM", paths)
+        self.assertEqual(paths["\\Windows\\System32\\config\\SAM"]["artifacts"], ["windows_accounts"])
         self.assertNotIn("\\Windows\\Prefetch\\Layout.ini", paths)
         system = Path(paths["\\Windows\\System32\\config\\SYSTEM"]["extracted"])
         self.assertEqual(system.read_bytes(), self.system)
         self.assertTrue(Path(str(system) + ".LOG1").exists())
         artifacts = sorted({a for a, _p, _s in extraction.inputs})
-        self.assertEqual(artifacts, ["bam", "network", "prefetch", "psreadline", "recyclebin", "run", "services", "taskcache", "usb"])
+        self.assertEqual(artifacts, ["bam", "network", "prefetch", "psreadline", "recyclebin", "run", "services",
+                                     "taskcache", "usb", "windows_accounts", "windows_installed", "windows_os"])
         recycle = next(i for i in extraction.inputs if i[0] == "recyclebin")
         self.assertEqual(recycle[2], "S-1-5-21-1-2-3-1001")
         manifest = json.loads((self.root / "extracted" / "image_manifest.json").read_text(encoding="utf-8"))

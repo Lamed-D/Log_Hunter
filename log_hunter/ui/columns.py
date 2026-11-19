@@ -29,6 +29,10 @@ _TAIL_NO_USER = tuple(c for c in _TAIL if c.key != "user")
 CATEGORY_COLUMNS = {
     "run_programs": (*_HEAD, Column("program", 380), *_TAIL),
     "installed_programs": (*_HEAD, Column("program", 380), Column("publisher", 170), Column("version", 100), *_TAIL),
+    "windows_system": (*_HEAD, Column("product_name", 220), Column("build_number", 110),
+                       Column("computer_name", 200), Column("time_zone_name", 200), *_TAIL),
+    "windows_accounts": (*_HEAD, Column("account_name", 180), Column("account_rid", 110),
+                         Column("profile_path", 320), Column("sid", 180), *_TAIL),
     "recent_documents": (*_HEAD, Column("document", 420), *_TAIL),
     "jump_list_files": (*_HEAD, Column("path", 420), Column("jump_list_item_count", 100),
                         Column("jump_list_file_state", 160), *_TAIL),
@@ -208,6 +212,14 @@ def cell(key, event, sid_map, origins):
         return origins.text(event.source) if origins else str(event.source or "")
     if key == "description":
         return ARTIFACT_DESCRIPTIONS.get(event.artifact, artifact_label(event.artifact))
+    if key == "program" and event.artifact == "windows_installed":
+        return target or details.get("registration_id") or ""
+    if key in ("product_name", "build_number", "computer_name", "time_zone_name", "account_name",
+               "account_rid", "profile_path", "publisher", "version"):
+        value = details.get(key)
+        if key == "build_number" and value is None:
+            value = details.get("build")
+        return str(value) if value is not None else ""
     if key in ("path", "program", "document", "folder", "entry", "target"):
         return target
     if key == "original_path":
