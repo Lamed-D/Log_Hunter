@@ -51,6 +51,10 @@ def dynamic_info(data):
     return result
 
 
+# Action type markers in a registration's Actions value: Exec, ComHandler, SendEmail, ShowMessage.
+ACTION_MARKERS = (0x6666, 0x7777, 0x8888, 0x9999)
+
+
 def actions_info(data):
     result = {"raw": blob_info(data), "actions": [], "parse_state": "unsupported"}
     if not isinstance(data, bytes) or len(data) < 2 or len(data) > 4 * 1024 * 1024:
@@ -85,6 +89,10 @@ def actions_info(data):
             if kind == 0x6666:
                 action = {"type": "Exec", "id": action_id, "command": text(),
                           "arguments": text(), "working_directory": text()}
+                # Newer registrations follow an Exec action with a 2-byte field (window flag); it is not the next
+                # action's marker. Keep it raw rather than reading it as an action type.
+                if pos + 2 <= len(data) and struct.unpack_from("<H", data, pos)[0] not in ACTION_MARKERS:
+                    action["flags"] = struct.unpack("<H", take(2))[0]
             elif kind == 0x7777:
                 action = {"type": "ComHandler", "id": action_id,
                           "class_id": "{" + str(uuid.UUID(bytes_le=take(16))) + "}",
