@@ -270,7 +270,7 @@ class Pipeline:
             if progress:
                 progress(index - 1, len(expanded), str(path))
             parser = PARSERS[artifact](sid=owner, environment=environment)
-            if artifact in ("lnk", "bookmarks"):
+            if artifact in ("lnk", "bookmarks", "startup"):
                 parser.file_times = self.file_times
             started, before = time.monotonic(), {}
             event_start = len(result.events)

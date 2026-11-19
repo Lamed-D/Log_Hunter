@@ -42,6 +42,7 @@ def _check_suspicious(file_path, ext):
 
 class StartupParser(ArtifactParser):
     artifact = "startup"
+    file_times = None  # image MFT times of extracted files (set by image analysis)
 
     def parse(self, path):
         source = Path(path)
@@ -70,6 +71,13 @@ class StartupParser(ArtifactParser):
                 "is_lnk": ext == ".lnk",
                 "input_file_mtime": mtime.isoformat(),
             }
+            # Times of the file inside the image (MFT), when the input was copied out of one; the copy's own mtime
+            # above is only the analysed file's time and is never used as the record time.
+            own = (self.file_times or {}).get(str(file.resolve()).casefold()) or {}
+            if own.get("created"):
+                details["file_created"] = own["created"]
+            if own.get("modified"):
+                details["file_modified"] = own["modified"]
 
             if ext == ".lnk":
                 try:
@@ -94,7 +102,7 @@ class StartupParser(ArtifactParser):
 
             yield ForensicEvent(
                 self.artifact, str(file), action,
-                None, None,
+                own.get("created"), "startup_file_created" if own.get("created") else None,
                 sid=self.sid,
                 path=str(file),
                 locator=str(file),
