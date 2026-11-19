@@ -1,7 +1,7 @@
 """Operation-count regressions for repeated entity persistence."""
 import json
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from log_hunter.core.models import ForensicEvent
@@ -83,7 +83,7 @@ class EntityPersistenceTests(unittest.TestCase):
         self.assertEqual(parse.call_count, 1)
 
     def test_overlapping_burst_windows_merge_but_separate_runs_remain(self):
-        origin = datetime(2024, 1, 1, 12)
+        origin = datetime(2024, 1, 1, 12, tzinfo=timezone.utc)
         def event(seconds):
             return ForensicEvent('synthetic', 'generated', 'event',
                                  (origin + timedelta(seconds=seconds)).isoformat())

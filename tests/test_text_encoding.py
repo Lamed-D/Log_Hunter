@@ -123,14 +123,15 @@ class EncodingMatrixTests(unittest.TestCase):
     def test_export_and_extraction_keep_unicode(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            for name in NAMES:
+            for index, name in enumerate(NAMES):
                 self.assertEqual(_safe(name),name)
                 events=[ForensicEvent('mft','generated','file_created','2024-01-01T00:00:00+00:00',
                                       'created',path='C:\\Evidence\\'+name)]
-                export_csv(events,root/'a.csv');export_json(events,root/'a.json')
+                csv_path = root / f'{index}.csv'
+                export_csv(events,csv_path);export_json(events,root/'a.json')
                 export_jsonl(events,root/'a.jsonl');export_bodyfile(events,root/'a.body')
-                self.assertTrue((root/'a.csv').read_bytes().startswith(b'\xef\xbb\xbf'))
-                row=next(csv.DictReader(io.StringIO((root/'a.csv').read_text(encoding='utf-8-sig'))))
+                self.assertTrue(csv_path.read_bytes().startswith(b'\xef\xbb\xbf'))
+                row=next(csv.DictReader(io.StringIO(csv_path.read_text(encoding='utf-8-sig'))))
                 self.assertEqual(row['path'],events[0].path)
                 self.assertEqual(json.loads((root/'a.json').read_text(encoding='utf-8'))[0]['path'],events[0].path)
                 self.assertIn(name,(root/'a.jsonl').read_text(encoding='utf-8'))

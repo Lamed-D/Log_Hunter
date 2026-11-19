@@ -20,7 +20,9 @@
       "activity_class": "user_activity",
       "risk_score": 0,
       "session_id": 0
-    }
+    },
+    "timestamp_utc": "2026-03-14T09:58:00+00:00",
+    "time_meaning": "방문"
   },
   {
     "artifact": "history",
@@ -64,7 +66,9 @@
       "activity_class": "user_activity",
       "risk_score": 0,
       "session_id": 0
-    }
+    },
+    "timestamp_utc": "2026-03-14T09:59:00+00:00",
+    "time_meaning": "다운로드 시작"
   },
   {
     "artifact": "prefetch",
@@ -91,7 +95,9 @@
       "activity_class": "execution",
       "risk_score": 0,
       "session_id": 2
-    }
+    },
+    "timestamp_utc": "2026-03-14T10:00:00+00:00",
+    "time_meaning": "마지막 실행"
   },
   {
     "artifact": "prefetch",
@@ -118,7 +124,9 @@
       "activity_class": "execution",
       "risk_score": 0,
       "session_id": 2
-    }
+    },
+    "timestamp_utc": "2026-03-14T10:01:00+00:00",
+    "time_meaning": "마지막 실행"
   },
   {
     "artifact": "userassist",
@@ -143,7 +151,9 @@
       "activity_class": "user_activity",
       "risk_score": 0,
       "session_id": 0
-    }
+    },
+    "timestamp_utc": "2026-03-14T10:01:00+00:00",
+    "time_meaning": "마지막 실행"
   },
   {
     "artifact": "defender",
@@ -174,7 +184,9 @@
       "activity_class": "security",
       "risk_score": 0,
       "session_id": 2
-    }
+    },
+    "timestamp_utc": "2026-03-14T10:02:00+00:00",
+    "time_meaning": "백신 로그 기록 시각"
   },
   {
     "artifact": "run",
@@ -204,7 +216,10 @@
       "activity_class": "system_config",
       "risk_score": 0,
       "session_id": 0
-    }
+    },
+    "timestamp_utc": "2026-03-14T10:02:00+00:00",
+    "time_meaning": "레지스트리 마지막 변경",
+    "time_basis": "key_lastwrite"
   },
   {
     "artifact": "psreadline",
@@ -224,7 +239,8 @@
       "activity_class": "execution",
       "risk_score": 0,
       "session_id": 1
-    }
+    },
+    "timestamp_utc": null
   },
   {
     "artifact": "psreadline",
@@ -244,7 +260,8 @@
       "activity_class": "execution",
       "risk_score": 30,
       "session_id": 1
-    }
+    },
+    "timestamp_utc": null
   },
   {
     "artifact": "psreadline",
@@ -264,7 +281,8 @@
       "activity_class": "execution",
       "risk_score": 0,
       "session_id": 1
-    }
+    },
+    "timestamp_utc": null
   },
   {
     "artifact": "psreadline",
@@ -284,7 +302,8 @@
       "activity_class": "execution",
       "risk_score": 0,
       "session_id": 1
-    }
+    },
+    "timestamp_utc": null
   },
   {
     "artifact": "psreadline",
@@ -304,7 +323,8 @@
       "activity_class": "execution",
       "risk_score": 0,
       "session_id": 1
-    }
+    },
+    "timestamp_utc": null
   },
   {
     "artifact": "thumbcache",
@@ -336,6 +356,7 @@
       "activity_class": "other",
       "risk_score": 0,
       "session_id": 1
-    }
+    },
+    "timestamp_utc": null
   }
 ]

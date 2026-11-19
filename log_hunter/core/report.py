@@ -1,4 +1,3 @@
-import csv
 import html
 import json
 from dataclasses import asdict
@@ -6,7 +5,7 @@ from pathlib import Path
 from .correlation import summarize_correlations
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .export import csv_safe
+from .export import csv_source_paths, event_json_row, export_csv
 from . import thumbcache_view, wifi_view
 from .process_tree import build_process_tree, format_process_tree, detect_suspicious_trees
 from .stats import compute_stats, detect_anomalies
@@ -30,7 +29,7 @@ class _EventRows(list):
         return len(self.events)
 
     def __iter__(self):
-        return (event.to_dict() for event in self.events)
+        return (event_json_row(event) for event in self.events)
 
 
 def _payload_json(payload, events):
@@ -60,14 +59,8 @@ def export_reports(output, evidence, events, errors, relations, summaries, tags=
         for chunk in _payload_json(payload, events):
             stream.write(chunk)
     fields = ["artifact", "source", "locator", "timestamp", "time_field", "sid", "path", "process", "url", "action", "status", "details"]
-    with (output / "timeline.csv").open("w", newline="", encoding="utf-8-sig") as stream:
-        writer = csv.DictWriter(stream, fields)
-        writer.writeheader()
-        for event in events:
-            row = event.to_dict()
-            row["details"] = json.dumps(row["details"], ensure_ascii=False)
-            row = {k: csv_safe(v) for k, v in row.items()}
-            writer.writerow(row)
+    export_csv(events, output / "timeline.csv", fields, sid_names=sid_names,
+               source_paths=csv_source_paths(evidence), report=True)
     _write_html_report(output / "report.html", payload, evidence, events, errors, relations, summaries, correlation_summary,
                        tags, (image or {}).get("verification"), sid_names)
 

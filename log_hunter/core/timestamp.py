@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from .labels import time_field_label
@@ -61,3 +62,15 @@ def display_event_time(event):
     if time["timestamp_raw_local"]:
         return f'{time["timestamp_raw_local"]} (시간대 미상)'
     return ""
+
+
+def normalize_event_timestamp(event):
+    """Normalize a copy when a parser or an older case supplies a different clock format."""
+    if not event.timestamp or event.timestamp.endswith("+00:00") and event.details.get("timezone_known") is not False:
+        return event
+    fields = event_time_fields(event)
+    details = event.details
+    if fields["timestamp_raw_local"] and not fields["timestamp_utc"]:
+        details = {**details, "timestamp_raw_local": fields["timestamp_raw_local"],
+                   "timezone_known": False, "time_basis": fields["time_basis"]}
+    return replace(event, timestamp=fields["timestamp_utc"], details=details)

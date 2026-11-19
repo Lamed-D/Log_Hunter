@@ -1103,12 +1103,12 @@ class TestBodyfileExport(unittest.TestCase):
         from log_hunter.core.export import export_bodyfile
         events = [
             ForensicEvent("prefetch", "test.pf", "executed",
-                          timestamp="2024-06-15T14:30:00",
+                          timestamp="2024-06-15T14:30:00+00:00",
                           time_field="modified",
                           path="C:\\Windows\\notepad.exe",
                           sid="S-1-5-21-123"),
             ForensicEvent("mft", "$MFT", "created",
-                          timestamp="2024-06-15T10:00:00",
+                          timestamp="2024-06-15T10:00:00+00:00",
                           time_field="created",
                           path="C:\\Users\\testuser\\doc.txt"),
             ForensicEvent("evtx", "Security.evtx", "logon",

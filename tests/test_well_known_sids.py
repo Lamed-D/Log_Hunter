@@ -80,7 +80,8 @@ class WellKnownSidTest(unittest.TestCase):
         self.assertIn("<th>사용자</th>", page)
         self.assertEqual([e["sid"] for e in data["events"]][:1], ["S-1-5-18"])
         self.assertNotIn("시스템 (SYSTEM)", json.dumps(data, ensure_ascii=False))
-        self.assertNotIn("SYSTEM", csv_text)
+        self.assertIn("S-1-5-18", csv_text)
+        self.assertIn("시스템 (SYSTEM)", csv_text)
 
 
 if __name__ == "__main__":
