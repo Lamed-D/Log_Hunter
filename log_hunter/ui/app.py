@@ -783,7 +783,8 @@ def run(live=None):
     def _populate_tree(*_args, keep_page=False):
         """Fill one page of the table; `visible` (all filtered records) never goes into Tk at once."""
         tree.delete(*tree.get_children())
-        search_text = global_search_var.get().strip().lower()
+        # In the database view the quick search is part of the database query (page and count agree), not re-applied.
+        search_text = "" if db_view["active"] else global_search_var.get().strip().lower()
         matched = [i for i, event in enumerate(visible) if view_model.matches_search(event, search_text, sid_map)]
         timeline_page["matched"] = matched
         page, pages, start, end = view_model.page_bounds(len(matched), timeline_page["page"] if keep_page else 0)
@@ -799,17 +800,22 @@ def run(live=None):
                 row_tags += (f"tag_{color}",)
             tree.insert("", "end", iid=str(i), values=values, tags=row_tags)
         timeline_page_var.set(view_model.page_text(page, pages, start, end, len(matched)))
-        if result:
+        if result and not db_view["active"]:
             count_var.set(view_model.count_text(len(matched), len(visible), len(result.events), bool(search_text)))
 
-    db_view = {"path": None, "token": 0, "page": 0, "sort": "timeline", "total": 0}
+    # "active": a saved case is shown from its database while it loads; an earlier case's `result` may still be in
+    # memory, so this flag (not `result is None`) decides which path pages, sorts and searches use.
+    # "pending": a page request is on its way; paging waits for its total.
+    db_view = {"path": None, "token": 0, "page": 0, "sort": "timeline", "total": 0, "active": False, "pending": False}
 
     def _show_quick_page(path, page):
         """While the whole analysis loads: the tree from the saved aggregates and the first saved records. Node clicks
         are answered by database pages until the full view replaces this."""
         from . import case_view
         events, total, counts = page
-        db_view.update(path=path, page=0, sort="timeline", total=total or 0)
+        db_view.update(path=path, page=0, sort="timeline", total=total or 0, active=True, pending=False)
+        db_view["token"] += 1  # answers to requests for an earlier case are ignored
+        sort_reverse.clear()
         nav_tree.delete(*nav_tree.get_children())
         nav_nodes.clear()
         nav_state["node"] = None
@@ -824,25 +830,32 @@ def run(live=None):
         warnings = counts.get("warnings") or []
         if counts.get("partial") or warnings:
             status.set(status.get() + " · " + CASE_TEXT["quick_warnings"].format(count=len(warnings)))
+        if global_search_var.get().strip():
+            _db_refresh()  # the first page above was read without the search text still in the box
 
     def _db_refresh(page=0):
         """A node, filter, page or sort change while only the database view is shown: query one page on its own thread."""
         from . import case_view
         db_view["token"] += 1
         db_view["page"] = page
-        token, path, node = db_view["token"], db_view["path"], nav_state["node"]
+        # Everything the worker uses is captured here, with the token that identifies this request.
+        token, path, node, sort = db_view["token"], db_view["path"], nav_state["node"], db_view["sort"]
         if case_view.node_filter(node) is False:
+            db_view["pending"] = False
             tree.delete(*tree.get_children())
+            timeline_page_var.set("")
             status.set(CASE_TEXT["quick_wait"])
             return
         filters = {"artifact": filter_artifact.get(), "start": start_date.get(), "end": end_date.get(),
-                   "sid": sid_var.get(), "query": query.get(), "status": status_filter.get()}
+                   "sid": sid_var.get(), "query": query.get(), "status": status_filter.get(),
+                   "search": global_search_var.get().strip()}
+        db_view["pending"] = True
         status.set(CASE_TEXT["quick_loading"])
 
         def work():
             try:
                 rows = view_model.TIMELINE_PAGE_ROWS
-                found = case_view.db_page(path, filters, node, rows, offset=page * rows, sort=db_view["sort"])
+                found = case_view.db_page(path, filters, node, rows, offset=page * rows, sort=sort)
             except Exception as exc:  # shown in the status line; the full load continues
                 found = exc
             mailbox.put(("db_page", (token, node, found)))
@@ -851,8 +864,9 @@ def run(live=None):
         thread.start()
 
     def _show_db_page(token, node, found):
-        if token != db_view["token"] or result is not None or db_view["path"] is None:
-            return  # a newer click, or the full view already took over
+        if token != db_view["token"] or not db_view["active"]:
+            return  # a newer click or case, or the full view already took over
+        db_view["pending"] = False
         if isinstance(found, Exception):
             status.set(CASE_TEXT["quick_error"].format(error=found))
             return
@@ -869,10 +883,12 @@ def run(live=None):
                    + (" · " + CASE_TEXT["quick_warnings"].format(count=len(warnings)) if warnings else ""))
 
     def _db_view_active():
-        return result is None and db_view["path"] is not None
+        return db_view["active"]
 
     def turn_timeline_page(delta):
         if _db_view_active():  # the database view pages through the saved records, not just the rows in memory
+            if db_view["pending"]:
+                return  # the total for the new node, filter or sort is not known yet
             pages = max(1, -(-db_view["total"] // view_model.TIMELINE_PAGE_ROWS))
             target = min(max(0, db_view["page"] + delta), pages - 1)
             if target != db_view["page"]:
@@ -905,6 +921,9 @@ def run(live=None):
 
     def save_table_csv():
         # Every filtered (and searched) row in the shown order and columns, not only the current page.
+        if db_view["active"]:
+            messagebox.showinfo(CASE_TEXT["open_title"], CASE_TEXT["quick_save_wait"])
+            return
         shown = _shown_columns()
         rows = [table_columns.row(visible[i], shown, sid_map, nav_state["origins"])
                 for i in timeline_page["matched"]]
@@ -926,6 +945,9 @@ def run(live=None):
 
     def save_category_csvs():
         """Every record of the analysis, one CSV per category with that category's columns, plus a column guide."""
+        if db_view["active"]:
+            messagebox.showinfo(CASE_TEXT["open_title"], CASE_TEXT["quick_save_wait"])
+            return
         events = result.events if result else []
         if not events:
             messagebox.showwarning("저장할 기록 없음", "분석한 기록이 없습니다")
@@ -952,9 +974,10 @@ def run(live=None):
     def refresh(*_args):
         tree.delete(*tree.get_children())
         visible.clear()
+        if db_view["active"]:
+            _db_refresh()
+            return
         if not result:
-            if db_view["path"]:
-                _db_refresh()
             return
         filters = Filters(filter_artifact.get(), start_date.get(), end_date.get(), sid_var.get(), query.get(),
                           status_filter.get())
@@ -1891,7 +1914,8 @@ def run(live=None):
 
     def _show_loaded_case(path, analysis, info):
         nonlocal result, sid_map
-        db_view["path"] = None
+        db_view.update(path=None, active=False, pending=False)
+        db_view["token"] += 1
         from . import case_view
         inputs.clear()
         listing.delete(0, "end")
@@ -2109,7 +2133,7 @@ def run(live=None):
     tree.bind("<ButtonPress-1>", on_heading_press, add="+")
     tree.bind("<ButtonRelease-1>", on_heading_release, add="+")
     files.menu.configure(postcommand=fill_file_menu)
-    global_search_var.trace_add("write", _populate_tree)
+    global_search_var.trace_add("write", lambda *_a: _db_refresh() if db_view["active"] else _populate_tree())
 
     # Left tree tools: back/forward over selected nodes (by key, so they survive rebuilds), find by name,
     # the selected path and a right-click menu. Folders of an image not read yet are not searched or read.
