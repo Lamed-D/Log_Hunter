@@ -11,6 +11,28 @@ from log_hunter.core.models import ForensicEvent
 MAX_EML = 64 * 1024 * 1024
 
 
+MAX_PHOTOS = 50
+MAX_ATTACHMENT = 32 * 1024 * 1024
+
+
+def _attachment_photo(part, name):
+    """Photo metadata (camera, recorded times) of an image attachment, decoded in memory only; None if none."""
+    from log_hunter.image.inventory import _photo_metadata, _signature
+    try:
+        data = part.get_payload(decode=True)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(data, bytes) or not data or len(data) > MAX_ATTACHMENT:
+        return None
+    kind, _expected = _signature(data[:4096])
+    if kind not in ("jpeg", "tiff"):
+        return None
+    metadata = _photo_metadata(data[:512 * 1024], kind)
+    if not metadata:
+        return None
+    return {"attachment": str(name or "")[:260] or None, "file_type": kind, **metadata}
+
+
 def _addresses(message, *headers):
     values = []
     for header in headers:
@@ -46,11 +68,15 @@ class EmailParser(ArtifactParser):
         if not (message.get("From") or message.get("To") or message.get("Subject") or message.get("Date")):
             raise ValueError("메일 머리글(From/To/Subject/Date)이 없습니다")
         sent, raw_date, basis = _date(message, "Date")
-        attachments = []
+        attachments, photos = [], []
         for part in message.walk():
             name = part.get_filename()
             if name:
                 attachments.append(str(name)[:260])
+            if (name or part.get_content_maintype() == "image") and len(photos) < MAX_PHOTOS:
+                photo = _attachment_photo(part, name)
+                if photo:
+                    photos.append(photo)
         sender = _addresses(message, "From")
         recipients = _addresses(message, "To", "Cc", "Bcc")
         details = {
@@ -59,6 +85,7 @@ class EmailParser(ArtifactParser):
             "email_date_raw": raw_date, "email_date_basis": basis,
             "email_message_id": str(message.get("Message-ID") or "") or None,
             "email_attachments": attachments[:200], "email_has_attachment": bool(attachments),
+            "email_attachment_photos": photos,
             "email_accounts": sorted(set(sender + recipients)),
             "body_stored": False,
         }

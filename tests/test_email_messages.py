@@ -69,6 +69,25 @@ class EmailTests(unittest.TestCase):
         self.assertIn("Wed, 30 Dec 2020 09:00:00 -0000", event.details["email_date_raw"])
         self.assertEqual(event.status, "partial")
 
+    def test_image_attachment_photo_metadata(self):
+        import base64
+        import struct
+        camera = b"II*\0" + struct.pack("<IHHHI", 8, 1, 0x0110, 2, 4) + b"ABC\0" + bytes(4)
+        jpeg = b"\xff\xd8\xff\xe1" + struct.pack(">H", 8 + len(camera)) + b"Exif\0\0" + camera + b"\xff\xd9"
+        attachment = base64.b64encode(jpeg).decode()
+        mail = MESSAGE.replace("--b--", f"""--b
+Content-Type: image/jpeg
+Content-Disposition: attachment; filename="photo.jpg"
+Content-Transfer-Encoding: base64
+
+{attachment}
+--b--""")
+        self.path.write_bytes(mail.replace("\n", "\r\n").encode("utf-8"))
+        (event,) = Pipeline().analyze([("email", self.path)]).events
+        (photo,) = event.details["email_attachment_photos"]
+        self.assertEqual((photo["attachment"], photo["camera_model"]), ("photo.jpg", "ABC"))
+        self.assertNotIn(attachment, json.dumps(event.to_dict(), ensure_ascii=False))  # the image itself is not kept
+
     def test_not_a_mail_file(self):
         self.path.write_bytes(b"\x00\x01binary")
         result = Pipeline().analyze([("email", self.path)])

@@ -808,6 +808,7 @@ DETAIL_LABELS = {
     "com_handler_uuid": "COM 처리기 UUID", "com_handler_dll": "등록된 COM DLL",
     "run_user": "XML 실행 사용자", "launch_catalogs": "등록된 실행 조건 목록",
     'log_line': '로그 원문', 'line_number': '줄 번호', 'log_marker': '인식한 문구',
+    'email_attachment_photos': '첨부 사진 정보 (카메라·기록 시각, 첨부 내용은 저장 안 함)',
     'input_file_mtime': '분석한 사본 파일의 수정 시각 (원본의 시각 아님)', 'file_created': '이미지 안 파일 생성 시각', 'file_modified': '이미지 안 파일 수정 시각',
     'log_time_raw': '원문 기록 시각', 'log_time_invalid': '잘못된 기록 시각',
     'history_file_guid': '보호 기록 식별자', 'history_format': '보호 기록 형식',
