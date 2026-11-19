@@ -4,8 +4,9 @@ Parses BagMRU tree structure to recover folder access history including
 deleted folders, network shares, and removable media paths.
 """
 import struct
+from datetime import datetime
 from .base import ArtifactParser
-from .registry import Hive, walk
+from .registry import Hive
 from log_hunter.core.models import ForensicEvent
 from log_hunter.core.timestamp import filetime
 from log_hunter.core.text import decode_ansi, target_acp
@@ -18,6 +19,18 @@ SHELLBAG_ROOTS = [
     r"Local Settings\Software\Microsoft\Windows\Shell\Bags",
     r"Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU",
 ]
+
+
+def _fat_wall_time(data, offset):
+    raw = data[offset:offset + 4]
+    date, time = struct.unpack("<HH", raw)
+    try:
+        stamp = datetime(1980 + (date >> 9), (date >> 5) & 15, date & 31,
+                         time >> 11, (time >> 5) & 63, (time & 31) * 2)
+    except ValueError:
+        return None
+    return {"timestamp_raw_local": stamp.isoformat(), "fat_time_hex": raw.hex(),
+            "shell_item_time_offset": offset, "timezone_known": False}
 
 
 def _extract_shell_item_name(data, codepage=None):
@@ -44,6 +57,8 @@ def _extract_shell_item_name(data, codepage=None):
     if item_type in (0x31, 0x32, 0x35, 0xB1):
         details["type_name"] = "file_entry"
         if len(data) > 14:
+            times = {"shell_item_modified": _fat_wall_time(data, 8)}
+            details["shell_item_times"] = times
             name_start = 14
             try:
                 if item_type & 4:
@@ -68,6 +83,8 @@ def _extract_shell_item_name(data, codepage=None):
                 pass
             ext_offset = _find_extension_block(data, size)
             if ext_offset and ext_offset + 12 < size:
+                times["shell_item_created"] = _fat_wall_time(data, ext_offset + 8)
+                times["shell_item_accessed"] = _fat_wall_time(data, ext_offset + 12)
                 try:
                     relative_name = struct.unpack_from('<H', data, ext_offset + 16)[0]
                     block_size, version = struct.unpack_from('<HH', data, ext_offset)
@@ -197,6 +214,9 @@ class ShellBagParser(ArtifactParser):
                     order = parse_mru_list_ex(value["raw"])
                 except (KeyError, ValueError) as exc:
                     self.error(path, locator, exc, "warning")
+        ranks = {}
+        for rank, index in enumerate(order):
+            ranks.setdefault(index, rank)
         for value in values:
             if value.get("error") or value["type"] != 3:
                 continue
@@ -204,28 +224,43 @@ class ShellBagParser(ArtifactParser):
             if name == "MRUListEx" or name == "NodeSlot" or name == "NodeSlots":
                 continue
             try:
-                int(name)
+                index = int(name)
             except ValueError:
                 continue
             raw = value["raw"]
             item_name, item_details = _extract_shell_item_name(raw, target_acp(self.environment))
             current_path = path_parts + ([item_name] if item_name else [f"[{name}]"])
             full_path = "\\".join(current_path)
+            value_loc = locator + "\\" + name
+            rank = ranks.get(index)
+            item_times = item_details.pop("shell_item_times", {})
+            key_stamp = filetime(key.lastwrite)
+            details = {
+                **item_details,
+                "registry_key": locator,
+                "value_index": name,
+                "mru_rank": rank,
+                "registry_key_lastwrite": key_stamp,
+                "raw_hex": raw[:64].hex() + ("..." if len(raw) > 64 else ""),
+                "full_path_confirmed": item_name is not None and (full_path.startswith('\\\\') or len(full_path)>2 and full_path[1:3]==':\\'),
+                "deleted_folder_evidence": None,
+            }
             yield ForensicEvent(
                 self.artifact, str(path), "folder_access",
-                filetime(key.lastwrite) if order and int(name) == order[0] else None,
-                "key_lastwrite" if order and int(name) == order[0] else None,
-                self.sid, path=full_path, locator=locator + "\\" + name,
-                details={
-                    **item_details,
-                    "registry_key": locator,
-                    "value_index": name,
-                    "raw_hex": raw[:64].hex() + ("..." if len(raw) > 64 else ""),
-                    "full_path_confirmed": item_name is not None and (full_path.startswith('\\\\') or len(full_path)>2 and full_path[1:3]==':\\'),
-                    "deleted_folder_evidence": None,
-                }
+                key_stamp if rank == 0 else None,
+                "key_lastwrite" if rank == 0 else None,
+                self.sid, path=full_path, locator=value_loc,
+                details={**details, "time_basis": "key_lastwrite" if rank == 0 else "unknown"}
             )
-            child_locator = locator + "\\" + name
+            for field, item_time in item_times.items():
+                if item_time:
+                    yield ForensicEvent(
+                        self.artifact, str(path), "folder_access", time_field=field,
+                        sid=self.sid, path=full_path, locator=value_loc,
+                        details={**details, **item_time, "time_basis": "시간대 미상",
+                                 "time_source": "shell_item_fat"}
+                    )
+            child_locator = value_loc
             try:
                 child = hive.open(child_locator)
                 yield from self._walk_bagmru(hive, child, child_locator, path, current_path, seen, depth + 1)

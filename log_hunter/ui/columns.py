@@ -10,6 +10,7 @@ from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, DEFENDER_TEXT, USB_BA
 from log_hunter.core.tree import category_of
 from . import task_view
 from log_hunter.core.sid_resolver import display_name
+from log_hunter.core.timestamp import display_event_time
 
 
 @dataclass(frozen=True)
@@ -140,6 +141,8 @@ def cell(key, event, sid_map, origins):
     if key == "artifact":
         return artifact_label(event.artifact)
     if key == "timestamp":
+        if event.artifact == "shellbag":
+            return display_event_time(event) or "알 수 없음"
         return event.timestamp or "알 수 없음"
     if key == "time_field":
         return time_field_label(event.time_field) if event.time_field else ""
