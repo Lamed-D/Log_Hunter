@@ -13,7 +13,7 @@ from .stats import compute_stats, detect_anomalies
 from .labels import (image_verification_lines, ACTION_LABELS, ANOMALY_LABELS, ARTIFACT_DESCRIPTIONS, ARTIFACT_LABELS,
                      BASIS_LABELS, CONFIDENCE_LABELS, RELATION_LABELS, STATUS_LABELS, TIME_FIELD_LABELS, anomaly_label,
                      artifact_label, column_label, evidence_origin, method_label, status_label, tag_label, WIFI_TEXT, TASK_TEXT,
-                     USB_DEVICE_KINDS, USB_REPORT_TEXT, time_field_label)
+                     USB_DEVICE_KINDS, USB_REPORT_TEXT, WEB_TEXT, time_field_label)
 from .tree import usb_hidden
 
 
@@ -157,11 +157,14 @@ def _write_html_report(path, payload, evidence, events, errors, relations, summa
     wifi_panel = _wifi_panel(wifi) + "\n  " if wifi else ''
     tasks = [e for e in events if e.artifact in TASK_ARTIFACTS]  # own tab only when there are scheduled tasks
     usb = [e for e in events if e.artifact == "usb"]  # own tab only when there are USB records
-    origins = {str(e.source): evidence_origin(e) for e in evidence} if tasks or usb else {}  # image volume paths, not the extracted copies
+    origins = {str(e.source): evidence_origin(e) for e in evidence} if tasks or usb or any(e.artifact == "history" for e in events) else {}  # image volume paths, not the extracted copies
     tasks_tab = f'<div class="tab" data-panel="tasks">{html.escape(TASK_TEXT["report_tab"])}</div>\n    ' if tasks else ''
     tasks_panel = _tasks_panel(tasks, lambda path: origins.get(str(path), str(path))) + "\n  " if tasks else ''
     usb_tab = f'<div class="tab" data-panel="usb">{html.escape(USB_REPORT_TEXT["tab"])}</div>\n    ' if usb else ''
     usb_panel = _usb_panel(usb, lambda path: origins.get(str(path), str(path))) + "\n  " if usb else ''
+    web = [e for e in events if e.artifact == "history"]  # own tab only when there are browser records
+    web_tab = f'<div class="tab" data-panel="web">{html.escape(WEB_TEXT["tab"])}</div>\n    ' if web else ''
+    web_panel = _web_panel(web, lambda path: origins.get(str(path), str(path))) + "\n  " if web else ''
     page = f'''<!doctype html>
 <html lang="ko">
 <head>
@@ -252,7 +255,7 @@ footer {{ text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75r
     <div class="tab" data-panel="errors">오류/경고</div>
     <div class="tab" data-panel="stats">통계/이상탐지</div>
     <div class="tab" data-panel="proctree">프로세스 트리</div>
-    {usb_tab}{thumbs_tab}{wifi_tab}{tasks_tab}{tags_tab}<div class="tab" data-panel="raw">원시 JSON</div>
+    {usb_tab}{web_tab}{thumbs_tab}{wifi_tab}{tasks_tab}{tags_tab}<div class="tab" data-panel="raw">원시 JSON</div>
   </div>
 
   <div class="panel active" id="timeline">
@@ -327,7 +330,7 @@ footer {{ text-align: center; padding: 20px; color: var(--fg2); font-size: 0.75r
     </div>
   </div>
 
-  {usb_panel}{thumbs_panel}{wifi_panel}{tasks_panel}{tags_panel}<div class="panel" id="raw">
+  {usb_panel}{web_panel}{thumbs_panel}{wifi_panel}{tasks_panel}{tags_panel}<div class="panel" id="raw">
     <pre style="font-family:var(--mono);font-size:0.75rem;color:var(--fg2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:80vh;overflow-y:auto">{html.escape(_payload_preview(payload, events))}</pre>
   </div>
 </div>
@@ -664,6 +667,28 @@ def _usb_panel(events, origin=None):
     return ('<div class="panel" id="usb"><div style="color:var(--fg2);padding:8px 0">' + html.escape(summary)
             + "<br>" + html.escape(USB_REPORT_TEXT["note"] + more) + '</div><div class="table-scroll"><table><thead><tr>'
             + head + "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div></div>")
+
+
+def _web_panel(events, origin=None):
+    """웹 기록 tab: visits and downloads in separate tables with the result table's columns (escaped, no links)."""
+    from log_hunter.ui.columns import CATEGORY_COLUMNS, cell
+    origins = _Origins(origin or str)
+    parts = []
+    for name, actions, column_set in (("visits", ("url_visit", "url_summary"), "web_visits"),
+                                      ("downloads", ("download",), "web_downloads")):
+        rows = sorted((e for e in events if e.action in actions), key=lambda e: e.timestamp or "~")
+        keys = [c.key for c in CATEGORY_COLUMNS[column_set]]
+        shown = rows[:THUMBCACHE_REPORT_LIMIT]
+        body = "".join("<tr>" + "".join(f"<td>{html.escape(cell(key, e, {}, origins))}</td>" for key in keys) + "</tr>"
+                       for e in shown)
+        more = (" " + USB_REPORT_TEXT["limit"].format(limit=THUMBCACHE_REPORT_LIMIT, total=len(rows))
+                if len(rows) > len(shown) else "")
+        head = "".join(f"<th>{html.escape(column_label(key))}</th>" for key in keys)
+        parts.append(f"<h3>{html.escape(WEB_TEXT['nodes'][name])} ({len(rows):,})</h3>"
+                     + (f'<div style="color:var(--fg2)">{html.escape(more)}</div>' if more else "")
+                     + f'<div class="table-scroll"><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>')
+    return ('<div class="panel" id="web"><div style="color:var(--fg2);padding:8px 0">' + html.escape(WEB_TEXT["note"])
+            + "</div>" + "".join(parts) + "</div>")
 
 
 def _now():
