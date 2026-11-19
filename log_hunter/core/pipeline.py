@@ -43,6 +43,7 @@ from log_hunter.parser.thumbcache import ThumbcacheParser
 from log_hunter.parser.defender import DefenderParser
 from log_hunter.parser.chromium_extra import AutofillParser, CookiesParser, FaviconsParser
 from log_hunter.parser.chromium_prefs import BookmarksParser, BrowserExtensionsParser, BrowserProfilesParser
+from log_hunter.parser.email_message import EmailParser
 
 PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "mru": MRUParser,
            "usb": USBParser, "amcache": AmcacheParser, "psreadline": PSReadLineParser, "history": HistoryParser,
@@ -54,7 +55,7 @@ PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "
            "defender": DefenderParser,
            "cookies": CookiesParser, "favicons": FaviconsParser, "autofill": AutofillParser,
            "browser_extensions": BrowserExtensionsParser, "browser_profiles": BrowserProfilesParser,
-           "bookmarks": BookmarksParser}
+           "bookmarks": BookmarksParser, "email": EmailParser}
 # Browser SQLite databases: read through a recovered working copy (journal/WAL merged), never in place.
 BROWSER_SQLITE = ("history", "cookies", "favicons", "autofill")
 

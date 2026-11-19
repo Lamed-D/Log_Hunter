@@ -66,6 +66,9 @@ CATEGORY_COLUMNS = {
                      Column("account_name", 220), Column("browser", 120), Column("user", 100), Column("origin", 300)),
     "web_bookmarks": (Column("timestamp", 170), Column("bookmark_title", 240), Column("url", 380), Column("bookmark_folder", 200),
                       Column("browser", 120), Column("user", 100), Column("time_field", 160), Column("origin", 300)),
+    # Saved mail: header facts only; the body and attachment contents are not kept.
+    "email": (Column("timestamp", 170), Column("email_subject", 280), Column("email_from", 220), Column("email_to", 260),
+              Column("email_attachments", 220), Column("user", 100), Column("time_field", 160), Column("origin", 300)),
     # One row per download; every URL keeps its role so the page that linked is not read as the file source.
     "web_downloads": (Column("download_start", 170), Column("download_file", 200), Column("download_save_path", 340),
                       Column("download_url", 320), Column("final_url", 320), Column("referrer_url", 280),
@@ -223,6 +226,8 @@ def cell(key, event, sid_map, origins):
         return RECENT_TEXT["match"].get(details.get("target_match"), "")
     if key.startswith("lnk_file_") or key.startswith("lnk_target_"):
         return str((details.get("lnk_times") or {}).get(key) or "") if event.artifact == "lnk" else ""
+    if key in ("email_from", "email_to", "email_cc", "email_attachments"):
+        return ", ".join(str(v) for v in details.get(key) or ())
     if key in _WEB_CELLS:
         return _WEB_CELLS[key](event, details) if event.artifact in WEB_ARTIFACTS else ""
     value = details.get(key)

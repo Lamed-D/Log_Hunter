@@ -50,6 +50,9 @@ ARTIFACT_SPECS = [
     *[(f"Users/*/AppData/Local/{browser}/User Data/Local State", ("browser_profiles",), ())
       for browser in ("Google/Chrome", "Microsoft/Edge")],
     ("Users/*/Favorites/*.url", ("bookmarks",), ()),
+    # Saved mail messages in the usual user folders (headers only are read).
+    *[(f"Users/*/{folder}/{depth}*.eml", ("email",), ())
+      for folder in ("Desktop", "Documents", "Downloads") for depth in ("", "*/")],
     ("Users/*/Favorites/*/*.url", ("bookmarks",), ()),
 ]
 MFT_SPEC = ("$MFT", ("mft",), ())
