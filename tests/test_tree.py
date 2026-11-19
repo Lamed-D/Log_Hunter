@@ -27,6 +27,20 @@ def find(roots, key):
 
 
 class TreeModelTests(unittest.TestCase):
+    def test_program_groups_keep_different_execution_sources_visible(self):
+        bam = event("bam", "synthetic-system", path=r"C:\Evidence\example.exe")
+        prefetch = event("prefetch", "synthetic-prefetch", process="EXAMPLE.EXE")
+        install = event("windows_installed", "synthetic-software", process="EXAMPLE.EXE")
+        other = event("userassist", "synthetic-user", path=r"C:\Evidence\different.exe")
+        roots = build_tree([bam, prefetch, install, other])
+        group = find(roots, "art:run_programs:group:example.exe")
+        self.assertIsNotNone(group)
+        self.assertEqual(group.count, 2)
+        self.assertTrue(matches(group, bam, None))
+        self.assertTrue(matches(group, prefetch, None))
+        self.assertFalse(matches(group, install, None))
+        self.assertFalse(matches(group, other, None))
+
     def setUp(self):
         self.events = [
             event("bam", r"C:\Evidence\SYSTEM", "S-1-5-21-1-1001", path=r"\Windows\explorer.exe"),
@@ -153,7 +167,7 @@ class TreeFromImageTests(unittest.TestCase):
             roots = build_tree(result.events, result.relations, result.errors, {}, origins,
                                [e.source for e in result.evidence])
             config = find(roots, "src:" + "\\".join(("case.E01", "볼륨 0", "Windows", "System32", "config")))
-            self.assertEqual(sorted(c.label for c in config.children), ["SOFTWARE", "SYSTEM", "SYSTEM.LOG1"])
+            self.assertEqual(sorted(c.label for c in config.children), ["SAM", "SOFTWARE", "SYSTEM", "SYSTEM.LOG1"])
             prefetch = find(roots, "src:" + "\\".join(("case.E01", "볼륨 0", "Windows", "Prefetch")))
             self.assertEqual(len(prefetch.children), 40)  # files with no parsed records still appear
             self.assertEqual(prefetch.count, sum(e.artifact == "prefetch" for e in result.events))

@@ -5,16 +5,19 @@ from dataclasses import dataclass, field
 from pathlib import PureWindowsPath
 
 from .recent_targets import target_label
+from .correlation import _build_program_groups
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, JUMP_LIST_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, PROGRAM_GROUP_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
 ARTIFACT_CATEGORIES = [
     ('security_detections', '백신 파일 기록', ('defender',)),
     ("run_programs", "실행한 프로그램", ("prefetch", "bam", "userassist")),
-    ("installed_programs", "설치된 프로그램", ("amcache",)),
+    ("installed_programs", "설치된 프로그램", ("amcache", "windows_installed")),
+    ("windows_system", "Windows 설치 정보", ("windows_os",)),
+    ("windows_accounts", "Windows 계정과 프로필", ("windows_accounts",)),
     ("recent_documents", "최근 문서", ("mru", "lnk", "jumplist")),
     ('thumbnail_cache', '파일 미리 보기 흔적', ('thumbcache',)),
     ("recycle_bin", "휴지통", ("recyclebin",)),
@@ -188,12 +191,18 @@ def _data_artifacts(events, summaries=(), errors=()):
                 jump.children = _action_nodes(key, "jumplist", events)
                 files, items = (child.count for child in jump.children)
                 jump.label += " · " + JUMP_LIST_TEXT["counts"].format(files=files, items=items)
+        if key == "run_programs":
+            execution_groups = _execution_groups(key, events, present)
+            if execution_groups.children:
+                category.children.append(execution_groups)
         if "history" in present:  # 방문 / 다운로드: one browser database, two kinds of record
             history = next((c for c in category.children if c.value == ("history",)), category)
             history.children = _action_nodes(key, "history", events)
         if "cache" in present:
             cache = next((c for c in category.children if c.value == ("cache",)), category)
             cache.children = _action_nodes(key, "cache", events)
+        if "mft" in present:
+            category.children = _action_nodes(key, "mft", events)
         if "usb" in present:  # 장치 종류별: a filter by the engine's recorded-identifier classification
             usb = next((c for c in category.children if c.value == ("usb",)), category)
             usb.children = _device_kind_nodes(key, events)
@@ -203,6 +212,19 @@ def _data_artifacts(events, summaries=(), errors=()):
         root.children.append(TreeNode("art:other", "기타 기록", "artifacts", tuple(others), sum(counts[a] for a in others),
                                       [TreeNode(f"art:other:{a}", artifact_label(a), "artifacts", (a,), counts[a]) for a in others]))
     return root
+
+
+def _execution_groups(category, events, artifacts):
+    records = [event for event in events if event.artifact in artifacts]
+    all_rows = set()
+    children = []
+    for group in sorted(_build_program_groups(records), key=lambda item: item["program"]):
+        rows = frozenset(id(records[i]) for i in group["event_indices"])
+        all_rows.update(rows)
+        label = PROGRAM_GROUP_TEXT["item"].format(name=group["program"], sources=group["artifact_count"])
+        children.append(TreeNode(f"art:{category}:group:{group['program']}", label, "event_set", rows, len(rows)))
+    return TreeNode(f"art:{category}:groups", PROGRAM_GROUP_TEXT["node"], "event_set", frozenset(all_rows),
+                    len(all_rows), children)
 
 
 def _target_groups(category, events):
@@ -231,12 +253,16 @@ ACTION_NODES = {
     "history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)), ("searches", ("web_search",))),
     "jumplist": (("files", ("jump_list_file",)), ("items", ("recent_file_access",))),
     "cache": (("entries", ("cache_entry", "cache_url_candidate")), ("status", ("cache_folder_status",))),
+    "mft": (("inventory", ("ntfs_file_inventory", "deleted_file_candidate")), ("deleted", ("deleted_file_candidate",)),
+            ("mismatch", ("extension_mismatch",)), ("encrypted", ("encrypted_file",)),
+            ("photos", ("photo_metadata",)), ("timestamps", ("file_metadata",))),
 }
 
 
 def _action_nodes(category, artifact, events):
     counts = Counter(e.action for e in events if e.artifact == artifact)
-    labels = {"jumplist": JUMP_LIST_TEXT, "cache": CACHE_TEXT, "history": WEB_TEXT}[artifact]["nodes"]
+    labels = {"jumplist": JUMP_LIST_TEXT, "cache": CACHE_TEXT, "history": WEB_TEXT,
+              "mft": FILE_INVENTORY_TEXT}[artifact]["nodes"]
     return [TreeNode(f"art:{category}:{artifact}:{name}", labels[name], "action_set", (artifact, actions),
                      sum(counts[a] for a in actions)) for name, actions in ACTION_NODES[artifact]]
 

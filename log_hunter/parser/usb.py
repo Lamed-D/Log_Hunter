@@ -7,6 +7,8 @@ from log_hunter.core.timestamp import filetime
 from .usb_devices import classify_device
 from log_hunter.core.labels import USB_DEVICE_KINDS, USB_UNKNOWN_REASON_LABELS
 
+DEVICE_PROPERTY_FILETIME = 0xFFFF0010
+
 
 def _match_mounted_device(mounted_values, device_name, serial):
     matches = []
@@ -186,17 +188,20 @@ class USBParser(ArtifactParser):
                             continue
                         for subpath, leaf in walk(key):
                             for value in leaf.values():
-                                if value.get('error') or value['type'] != 3 or len(value['raw']) != 8:
-                                    self.error(path, prop, '장치 속성 FILETIME 크기 또는 형식 손상', 'warning')
+                                property_locator = prop + "\\" + key.name + subpath
+                                raw = value.get("raw", b"")
+                                value_type = value.get("type")
+                                if value.get("error") or value_type not in (3, DEVICE_PROPERTY_FILETIME) or len(raw) != 8:
+                                    self.error(path, property_locator, "장치 속성 FILETIME 크기 또는 형식 손상", "warning")
                                     continue
-                                if value["type"] == 3 and len(value["raw"]) == 8:
-                                    timestamp = filetime(struct.unpack("<Q", value["raw"])[0])
-                                    if timestamp is None:
-                                        self.error(path, prop, '유효하지 않은 장치 속성 FILETIME', 'warning')
-                                        continue
-                                    yield ForensicEvent(self.artifact, str(path), labels[key.name], timestamp,
-                                                        labels[key.name], locator=prop + "\\" + key.name + subpath,
-                                                        details={**identity, "raw": value["raw"].hex()})
+                                timestamp = filetime(struct.unpack("<Q", raw)[0])
+                                if timestamp is None:
+                                    self.error(path, property_locator, "유효하지 않은 장치 속성 FILETIME", "warning")
+                                    continue
+                                yield ForensicEvent(self.artifact, str(path), labels[key.name], timestamp,
+                                                    labels[key.name], locator=property_locator,
+                                                    details={**identity, "raw": raw.hex(), "registry_value_type": value_type,
+                                                             "time_basis": "device_property_filetime"})
 
     def _bluetooth_peers(self, hive, control, path):
         """Read recorded Bluetooth peers; key/seen/connected times keep their own meanings."""

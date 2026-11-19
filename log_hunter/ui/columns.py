@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from log_hunter.core.export import CSV_ENCODING, COMMON_FIELDS, DOWNLOAD_FIELDS, common_row, csv_safe
 from log_hunter.core import thumbcache_view, wifi_view
-from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, CACHE_TEXT, DEFENDER_TEXT, JUMP_LIST_TEXT, USB_BASIS_LABELS, USB_CONFIDENCE_LABELS, USB_DEVICE_KINDS, USB_GROUP_AUXILIARY, USB_GROUP_BASIS_LABELS, USB_GROUP_NOT_CONFIRMED,
+from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, CACHE_TEXT, DEFENDER_TEXT, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, USB_BASIS_LABELS, USB_CONFIDENCE_LABELS, USB_DEVICE_KINDS, USB_GROUP_AUXILIARY, USB_GROUP_BASIS_LABELS, USB_GROUP_NOT_CONFIRMED,
                                     USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, WEB_TEXT, RECENT_TEXT, action_label,
                                     artifact_label, column_label, status_label, time_field_label)
 from log_hunter.core.tree import category_of
@@ -29,12 +29,18 @@ _TAIL_NO_USER = tuple(c for c in _TAIL if c.key != "user")
 CATEGORY_COLUMNS = {
     "run_programs": (*_HEAD, Column("program", 380), *_TAIL),
     "installed_programs": (*_HEAD, Column("program", 380), Column("publisher", 170), Column("version", 100), *_TAIL),
+    "windows_system": (*_HEAD, Column("product_name", 220), Column("build_number", 110),
+                       Column("computer_name", 200), Column("time_zone_name", 200), *_TAIL),
+    "windows_accounts": (*_HEAD, Column("account_name", 180), Column("account_rid", 110),
+                         Column("profile_path", 320), Column("sid", 180), *_TAIL),
     "recent_documents": (*_HEAD, Column("document", 420), *_TAIL),
     "jump_list_files": (*_HEAD, Column("path", 420), Column("jump_list_item_count", 100),
                         Column("jump_list_file_state", 160), *_TAIL),
     "web_cache_entries": (*_HEAD, Column("url", 420), Column("source_location", 400), Column("status", 90)),
     "web_cache_status": (Column("path", 420), Column("web_cache_status", 130),
                          Column("web_cache_count", 100), Column("web_cache_reason", 400)),
+    "file_inventory": (*_HEAD, Column("path", 420), Column("file_size", 110), Column("file_type", 120),
+                       Column("file_extension", 110), Column("file_type_basis", 160), Column("action", 160)),
     # 같은 대상 묶어 보기: the records of one target from every source, each with where it was read and what its time means.
     "recent_targets": (*_HEAD, Column("time_field", 320), Column("document", 360), Column("source_location", 380),
                        Column("target_match", 190), Column("user", 100), Column("origin", 300)),
@@ -151,6 +157,8 @@ def columns_for(node):
         return CATEGORY_COLUMNS["jump_list_files" if node.value[1] == ("jump_list_file",) else "recent_documents"]
     if node is not None and node.kind == "action_set" and node.value[0] == "cache":
         return CATEGORY_COLUMNS["web_cache_status" if node.value[1] == ("cache_folder_status",) else "web_cache_entries"]
+    if node is not None and node.kind == "action_set" and node.value[0] == "mft" and node.value[1] != ("file_metadata",):
+        return CATEGORY_COLUMNS["file_inventory"]
     if node is None or node.kind != "artifacts":
         return DEFAULT
     categories = {category_of(a) for a in node.value}
@@ -204,10 +212,22 @@ def cell(key, event, sid_map, origins):
         return str(count) if count is not None else ""
     if key == "web_cache_reason":
         return details.get("cache_reason") or ""
+    if key == "file_type_basis":
+        return FILE_INVENTORY_TEXT["basis"].get(details.get(key), "")
+    if key in ("file_type", "file_extension"):
+        return details.get(key) or ""
     if key == "origin":
         return origins.text(event.source) if origins else str(event.source or "")
     if key == "description":
         return ARTIFACT_DESCRIPTIONS.get(event.artifact, artifact_label(event.artifact))
+    if key == "program" and event.artifact == "windows_installed":
+        return target or details.get("registration_id") or ""
+    if key in ("product_name", "build_number", "computer_name", "time_zone_name", "account_name",
+               "account_rid", "profile_path", "publisher", "version"):
+        value = details.get(key)
+        if key == "build_number" and value is None:
+            value = details.get("build")
+        return str(value) if value is not None else ""
     if key in ("path", "program", "document", "folder", "entry", "target"):
         return target
     if key == "original_path":

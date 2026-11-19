@@ -3,6 +3,7 @@
 ARTIFACT_COLORS = {
     'defender': '#c0392b',
     'thumbcache': '#8d6e63',
+    "windows_installed": "#32705b", "windows_os": "#4d6d93", "windows_accounts": "#665d8e",
     'rdp': '#546e7a',
     "evtx": "#e74c3c", "prefetch": "#3498db", "mft": "#2ecc71", "services": "#9b59b6",
     "startup": "#b8860b",

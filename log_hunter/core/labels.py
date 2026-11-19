@@ -11,6 +11,9 @@ ARTIFACT_LABELS = {
     "bam": "최근 실행한 프로그램",
     "userassist": "사용자가 직접 실행한 프로그램",
     "amcache": "설치·실행된 프로그램 목록",
+    "windows_installed": "설치 프로그램 등록",
+    "windows_os": "Windows 설치 정보",
+    "windows_accounts": "Windows 계정과 프로필",
     "run": "자동 실행 프로그램",
     "startup": "시작프로그램 폴더",
     "services": "백그라운드 서비스",
@@ -79,6 +82,9 @@ ARTIFACT_DESCRIPTIONS = {
     "bam": "백그라운드 활동 관리자가 기록한 사용자별 마지막 실행 시각 (BAM)",
     "userassist": "시작 메뉴·탐색기에서 실행한 프로그램과 실행 횟수 (UserAssist)",
     "amcache": "설치되었거나 실행된 프로그램의 경로와 해시 (Amcache)",
+    "windows_installed": "설치 프로그램을 제거할 때 쓰는 레지스트리 등록 정보",
+    "windows_os": "Windows 버전, 설치 시각, 컴퓨터 이름과 시간대",
+    "windows_accounts": "로컬 계정 이름과 Windows 사용자 프로필 등록 정보",
     "run": "로그인할 때 자동으로 실행되도록 등록된 프로그램 (Run/RunOnce)",
     "evtx": "로그인, 프로그램 실행, 서비스 설치 등 시스템 이벤트 (EVTX)",
     "mru": "열기/저장 창과 최근 문서 목록 (MRU)",
@@ -160,11 +166,21 @@ ACTION_LABELS = {
     "cache_entry": "웹 캐시 항목",
     "cache_url_candidate": "웹 캐시 주소",
     "cache_folder_status": "캐시 폴더 분석 상태",
+    "deleted_file_candidate": "삭제 파일 후보",
+    "ntfs_file_inventory": "파일 목록 항목",
+    "extension_mismatch": "파일 확장자와 내용 형식 불일치",
+    "encrypted_file": "파일에 암호화 표시 있음",
+    "photo_metadata": "사진에 기록된 메타데이터",
     "ese_string_candidate": "사용량 기록 문자열",
     "folder_access": "폴더 열기",
     "network_interface": "네트워크 어댑터",
     "network_signature": "네트워크 식별 정보",
     "recent_file_access": "최근 파일 사용",
+    "installed_registration": "설치 프로그램 등록",
+    "windows_system_info": "Windows 설치 정보",
+    "windows_system_settings": "컴퓨터 이름과 시간대 설정",
+    "local_account_name": "로컬 계정 이름 등록",
+    "account_profile": "계정 프로필 등록",
     "jump_list_file": "점프 목록 파일",
     "shortcut_target": "바로가기 대상 파일",
     "shortcut_file": "바로가기 파일 자체",
@@ -186,6 +202,7 @@ TIME_FIELD_LABELS = {
     'lnk_file_created': '바로가기 파일 생성 (처음 연 시각 후보)',
     'lnk_file_modified': '바로가기 파일 수정 (마지막 연 시각 후보)',
     "time_created": "이벤트 원본 시각",
+    "os_installation": "레지스트리에 기록된 Windows 설치 시각",
     "key_lastwrite": "레지스트리 마지막 변경",
     "shell_item_created": "셸 항목에 기록된 생성 시각",
     "shell_item_modified": "셸 항목에 기록된 수정 시각",
@@ -466,6 +483,10 @@ COLUMN_LABELS = {
     "lnk_target_written": "대상 수정", "lnk_target_accessed": "대상 접근",
     "jump_list_item_count": "내부 항목 수", "jump_list_file_state": "파일 해석 상태",
     "web_cache_status": "캐시 분석 상태", "web_cache_count": "읽은 항목 수", "web_cache_reason": "상태의 이유",
+    "product_name": "제품 이름", "build_number": "빌드 번호", "computer_name": "컴퓨터 이름",
+    "time_zone_name": "기록된 Windows 시간대", "account_name": "등록된 계정 이름",
+    "account_rid": "로컬 계정 번호", "profile_path": "프로필 폴더",
+    "file_type": "파일 형식", "file_extension": "파일 확장자", "file_type_basis": "형식 확인 근거",
 }
 # 화면·분류별 CSV 뒤쪽 공통 열(타임라인 CSV와 같은 이름·값)의 뜻 — 열 설명 파일에 씀
 COMMON_FIELD_DESCRIPTIONS = {
@@ -527,6 +548,15 @@ JUMP_LIST_TEXT = {
 CACHE_TEXT = {
     "nodes": {"entries": "캐시 항목", "status": "폴더 분석 상태"},
     "states": {"parsed": "처리함", "partial": "일부 처리", "unsupported": "형식 미지원", "no_files": "항목 파일 없음"},
+}
+FILE_INVENTORY_TEXT = {
+    "nodes": {"inventory": "파일 목록", "deleted": "삭제 파일 후보", "mismatch": "확장자 불일치",
+              "encrypted": "암호화 표시", "photos": "사진 메타데이터", "timestamps": "파일 시스템 시각"},
+    "basis": {"signature": "파일 시그니처", "extension": "이름의 확장자", "unknown": "알 수 없음"},
+}
+PROGRAM_GROUP_TEXT = {
+    "node": "실행 파일 이름으로 묶기",
+    "item": "{name} · 출처 {sources}종",
 }
 # 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
 WEB_TEXT = {

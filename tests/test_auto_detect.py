@@ -58,7 +58,9 @@ class AutoDetectTests(unittest.TestCase):
 
     def test_multimapping_and_usrclass(self):
         expected = {"NTUSER.DAT": {"userassist", "mru", "run", "shellbag", "rdp"},
-                    "SYSTEM": {"bam", "usb", "services"}, "SOFTWARE": {"network", "run", "usb", "taskcache"},
+                    "SYSTEM": {"bam", "usb", "services", "windows_os"},
+                    "SOFTWARE": {"network", "run", "usb", "taskcache", "windows_installed", "windows_os", "windows_accounts"},
+                    "SAM": {"windows_accounts"},
                     "UsrClass.dat": {"shellbag"}}
         for name, kinds in expected.items():
             with self.subTest(name=name):
