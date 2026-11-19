@@ -42,6 +42,7 @@ from log_hunter.parser.rdp import RDPParser
 from log_hunter.parser.thumbcache import ThumbcacheParser
 from log_hunter.parser.defender import DefenderParser
 from log_hunter.parser.chromium_extra import AutofillParser, CookiesParser, FaviconsParser
+from log_hunter.parser.chromium_prefs import BookmarksParser, BrowserExtensionsParser, BrowserProfilesParser
 
 PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "mru": MRUParser,
            "usb": USBParser, "amcache": AmcacheParser, "psreadline": PSReadLineParser, "history": HistoryParser,
@@ -51,7 +52,9 @@ PARSERS = {"userassist": UserAssistParser, "bam": BAMParser, "run": RunParser, "
            "wlan": WLANParser, "startup": StartupParser, "services": ServicesParser,
            "rdp": RDPParser, "thumbcache": ThumbcacheParser,
            "defender": DefenderParser,
-           "cookies": CookiesParser, "favicons": FaviconsParser, "autofill": AutofillParser}
+           "cookies": CookiesParser, "favicons": FaviconsParser, "autofill": AutofillParser,
+           "browser_extensions": BrowserExtensionsParser, "browser_profiles": BrowserProfilesParser,
+           "bookmarks": BookmarksParser}
 # Browser SQLite databases: read through a recovered working copy (journal/WAL merged), never in place.
 BROWSER_SQLITE = ("history", "cookies", "favicons", "autofill")
 
@@ -235,7 +238,7 @@ class Pipeline:
             if progress:
                 progress(index - 1, len(expanded), str(path))
             parser = PARSERS[artifact](sid=owner, environment=environment)
-            if artifact == "lnk":
+            if artifact in ("lnk", "bookmarks"):
                 parser.file_times = self.file_times
             started, before = time.monotonic(), {}
             event_start = len(result.events)

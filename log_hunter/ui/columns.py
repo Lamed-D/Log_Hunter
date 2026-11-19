@@ -57,6 +57,13 @@ CATEGORY_COLUMNS = {
                   Column("user", 100), Column("origin", 300)),
     "web_autofill": (Column("timestamp", 170), Column("field_name", 220), Column("use_count", 90), Column("first_used", 170),
                      Column("browser", 120), Column("user", 100), Column("time_field", 160), Column("origin", 300)),
+    "web_extensions": (Column("timestamp", 170), Column("extension_name", 240), Column("extension_id", 260),
+                       Column("extension_version", 90), Column("extension_enabled", 60), Column("extension_permissions", 320),
+                       Column("browser", 120), Column("user", 100), Column("origin", 300)),
+    "web_profiles": (Column("timestamp", 170), Column("profile_folder", 120), Column("profile_name", 160),
+                     Column("account_name", 220), Column("browser", 120), Column("user", 100), Column("origin", 300)),
+    "web_bookmarks": (Column("timestamp", 170), Column("bookmark_title", 240), Column("url", 380), Column("bookmark_folder", 200),
+                      Column("browser", 120), Column("user", 100), Column("time_field", 160), Column("origin", 300)),
     # One row per download; every URL keeps its role so the page that linked is not read as the file source.
     "web_downloads": (Column("download_start", 170), Column("download_file", 200), Column("download_save_path", 340),
                       Column("download_url", 320), Column("final_url", 320), Column("referrer_url", 280),
@@ -84,8 +91,9 @@ CATEGORY_COLUMNS = {
                         Column("origin", 340), Column("description", 320), Column("status", 80)),
 }
 # One record kind selected on its own that has its own column set.
-_ARTIFACT_SETS = {("cookies",): "web_cookies", ("favicons",): "web_icons", ("autofill",): "web_autofill"}
-WEB_ARTIFACTS = ("history", "cookies", "favicons", "autofill")
+_ARTIFACT_SETS = {("cookies",): "web_cookies", ("favicons",): "web_icons", ("autofill",): "web_autofill",
+                  ("browser_extensions",): "web_extensions", ("browser_profiles",): "web_profiles", ("bookmarks",): "web_bookmarks"}
+WEB_ARTIFACTS = ("history", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks")
 _SET_NAMES = {DEFAULT: "default", **{cols: name for name, cols in CATEGORY_COLUMNS.items()}}
 
 
@@ -243,6 +251,8 @@ _WEB_CELLS = {
     "download_file": lambda event, d: (str(d.get("download_save_path") or event.path or "").replace("/", "\\").rsplit("\\", 1)[-1]
                                        if event.action == "download" else ""),
     "download_state": _download_state,
+    "extension_permissions": lambda event, d: ", ".join(str(p) for p in d.get("extension_permissions") or ()),
+    "extension_enabled": lambda event, d: "" if d.get("extension_enabled") is None else ("예" if d["extension_enabled"] else "아니요"),
     **{key: _download_only(key) for key in ("download_save_path", "download_url", "final_url", "tab_url",
                                             "tab_referrer_url", "site_url", "download_start", "download_end",
                                             "download_size")},
