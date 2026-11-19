@@ -215,35 +215,71 @@ def scan_file_inventory(volume, volume_index, source):
             prefix = read(0, min(file_size, 4096)) if read else b""
         except (OSError, *READ_ERRORS):
             read, file_size, state, prefix = None, 0, "unreadable", b""
-        kind, expected = _signature(prefix)
-        details.update(stream_state=state, file_type=kind or suffix.lstrip(".") or None,
-                       file_type_basis="signature" if kind else "extension" if suffix else "unknown")
-        yield event(label)
-        if kind and suffix not in UNKNOWN_SUFFIXES and suffix not in expected and (
-                suffix in FILE_SUFFIXES or suffix in TEXT_SUFFIXES or suffix in PE_SUFFIXES):
-            yield event("extension_mismatch", expected_extensions=expected, signature_offset=0)
-        if state == "efs":
-            yield event("encrypted_file", encryption_basis="ntfs_efs_stream_flag")
-        if not read:
+        yield from content_events(event, label, read, file_size, prefix, suffix, state, details)
+
+
+def scan_fat_inventory(fat, volume_index, source):
+    """The same inventory for a FAT volume: files, deleted entries (recovery candidates), type, mismatch, encryption,
+    photo metadata. FAT dates are local wall-clock values: kept raw under file_times, never as UTC record times."""
+    for item in fat.walk():
+        if item["directory"]:
             continue
+        path = item["path"]
+        locator = f"volume:{volume_index}:fat_entry:{path}"
+        suffix = PureWindowsPath(item["name"]).suffix.casefold()
+        details = {"source_path": path, "source_locator": locator, "volume": volume_index, "filesystem": f"fat{fat.kind}",
+                   "file_name": item["name"], "short_name": item["short_name"], "file_size": item["size"],
+                   "file_extension": suffix, "in_use": not item["deleted"],
+                   "file_times_local": {k: item[k] for k in ("created", "modified", "accessed")}, "timezone_known": False}
+        label = "deleted_file_candidate" if item["deleted"] else "ntfs_file_inventory"
+
+        def event(action, timestamp=None, time_field=None, **extra):
+            return ForensicEvent("mft", source, action, timestamp, time_field, path=path, locator=locator,
+                                 status="ok" if action in ("ntfs_file_inventory", "photo_metadata") else "partial",
+                                 details={**details, **extra})
+        if item["deleted"]:
+            details["recovery_note"] = "삭제 항목: 데이터 위치를 이어진 클러스터로 가정했으며 덮어써졌을 수 있습니다"
         try:
-            checks = {"pdf": (_pdf_encryption, "pdf_encrypt_reference"), "zip": (_zip_encryption, "zip_encrypted_entry_flag"),
-                      "compound": (_compound_encryption, "office_encrypted_package")}
-            if kind in checks:
-                check, basis = checks[kind]
-                offset = check(read, file_size)
-                if offset is not None:
-                    yield event("encrypted_file", encryption_basis=basis, encryption_offset=offset)
-            if kind in ("jpeg", "tiff"):
-                metadata = _photo_metadata(read(0, min(file_size, 512 * 1024)), kind)
-                if metadata:
-                    original = bool(metadata.get("date_time_original_raw"))
-                    clock = "date_time_original" if original else "date_time"
-                    raw = metadata.get(clock + "_raw")
-                    stamp = metadata.get(clock + "_utc")
-                    field = "photo_capture_time" if original else "photo_metadata_time"
-                    yield event("photo_metadata", stamp, field if raw else None, **metadata,
-                                timestamp_raw_local=raw,
-                                time_basis="사진에 기록된 UTC 오프셋" if stamp else "시간대 미상" if raw else None)
+            read, size = fat.reader(item["first_cluster"], item["size"], deleted=item["deleted"])
+            prefix = read(0, min(size, 4096)) if size else b""
+            state = "deleted_contiguous_guess" if item["deleted"] else "readable"
         except (OSError, *READ_ERRORS):
-            continue
+            read, size, prefix, state = None, 0, b"", "unreadable"
+        yield from content_events(event, label, read if size else None, size, prefix, suffix, state, details)
+
+
+def content_events(event, label, read, file_size, prefix, suffix, state, details):
+    """Inventory row, then what the content shows (any file system): extension mismatch, encryption, photo metadata.
+    `event(action, timestamp, time_field, **extra)` makes the record; `details` gets the file type fields."""
+    kind, expected = _signature(prefix)
+    details.update(stream_state=state, file_type=kind or suffix.lstrip(".") or None,
+                   file_type_basis="signature" if kind else "extension" if suffix else "unknown")
+    yield event(label)
+    if kind and suffix not in UNKNOWN_SUFFIXES and suffix not in expected and (
+            suffix in FILE_SUFFIXES or suffix in TEXT_SUFFIXES or suffix in PE_SUFFIXES):
+        yield event("extension_mismatch", expected_extensions=expected, signature_offset=0)
+    if state == "efs":
+        yield event("encrypted_file", encryption_basis="ntfs_efs_stream_flag")
+    if not read:
+        return
+    try:
+        checks = {"pdf": (_pdf_encryption, "pdf_encrypt_reference"), "zip": (_zip_encryption, "zip_encrypted_entry_flag"),
+                  "compound": (_compound_encryption, "office_encrypted_package")}
+        if kind in checks:
+            check, basis = checks[kind]
+            offset = check(read, file_size)
+            if offset is not None:
+                yield event("encrypted_file", encryption_basis=basis, encryption_offset=offset)
+        if kind in ("jpeg", "tiff"):
+            metadata = _photo_metadata(read(0, min(file_size, 512 * 1024)), kind)
+            if metadata:
+                original = bool(metadata.get("date_time_original_raw"))
+                clock = "date_time_original" if original else "date_time"
+                raw = metadata.get(clock + "_raw")
+                stamp = metadata.get(clock + "_utc")
+                field = "photo_capture_time" if original else "photo_metadata_time"
+                yield event("photo_metadata", stamp, field if raw else None, **metadata,
+                            timestamp_raw_local=raw,
+                            time_basis="사진에 기록된 UTC 오프셋" if stamp else "시간대 미상" if raw else None)
+    except (OSError, *READ_ERRORS):
+        return

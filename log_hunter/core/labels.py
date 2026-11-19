@@ -92,7 +92,7 @@ ARTIFACT_DESCRIPTIONS = {
     "evtx": "로그인, 프로그램 실행, 서비스 설치 등 시스템 이벤트 (EVTX)",
     "mru": "열기/저장 창과 최근 문서 목록 (MRU)",
     "shellbag": "탐색기로 열어본 폴더 기록 (ShellBag)",
-    "mft": "NTFS 파일 시스템의 파일별 생성/수정/접근 시각 ($MFT)",
+    "mft": "NTFS 파일 시스템의 파일별 생성/수정/접근 시각 ($MFT)과 FAT 볼륨(USB 등)의 파일 목록. FAT 시각은 시간대 없는 현지 시각이라 원래 값으로만 둡니다",
     "srum": "앱별 실행 시간과 네트워크 사용량 (SRUM, 원본 SRUDB.dat 또는 SQLite 내보내기). 시각은 UTC 사용량 기록 시각",
     "jumplist": "작업 표시줄·시작 메뉴의 최근 항목 (Jump List)",
     "psreadline": "PowerShell 창에서 입력한 명령어 (PSReadLine)",
