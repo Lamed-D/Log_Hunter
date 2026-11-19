@@ -14,6 +14,11 @@ from .volumes import find_volumes
 HIVE_SIDECARS = (".LOG1", ".LOG2")
 SQLITE_SIDECARS = ("-wal", "-shm", "-journal")
 USER_HOMES = ("Users/*", "Documents and Settings/*")
+CACHE_FOLDER_SPECS = tuple(
+    f"Users/*/AppData/Local/{browser}/User Data/*/{folder}"
+    for browser in ("Google/Chrome", "Microsoft/Edge")
+    for folder in ("Cache", "Code Cache")
+)
 
 ARTIFACT_SPECS = [
     ('ProgramData/Microsoft/Windows Defender/Support/MPLog-*.log', ('defender',), ()),
@@ -69,11 +74,15 @@ class ImageExtraction:
     inputs: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     verification: dict = field(default_factory=dict)
+    cache_paths: dict = field(default_factory=dict)
 
     def to_dict(self):
-        return {"image_path": self.image_path, "output": self.output, "image": self.image,
+        result = {"image_path": self.image_path, "output": self.output, "image": self.image,
                 "volumes": self.volumes, "files": self.files, "warnings": self.warnings,
                 "verification": self.verification}
+        if self.cache_paths:
+            result["cache_paths"] = self.cache_paths
+        return result
 
     def file_index(self):
         return {str(Path(f["extracted"]).resolve()).casefold(): f for f in self.files}
@@ -86,8 +95,8 @@ def _safe(name):
     return cleaned if cleaned not in ("", ".", "..") else "_"
 
 
-def glob_ntfs(volume, pattern):
-    """Yield (relative parts, entry, parent record) for files matching a '/'-separated pattern."""
+def glob_ntfs(volume, pattern, *, directories=False, start_record=5, start_prefix=()):
+    """Yield matching paths, directory entries and parent record numbers."""
     parts = pattern.split("/")
     visited = set()  # (record, pattern index): a crafted index can link a folder back to its ancestor
 
@@ -107,12 +116,12 @@ def glob_ntfs(volume, pattern):
                 elif not entry.directory:
                     yield prefix + [entry.name], entry, record
             elif fnmatchcase(entry.name.lower(), part.lower()):
-                if last and not entry.directory:
+                if last and entry.directory == directories:
                     yield prefix + [entry.name], entry, record
                 elif not last and entry.directory:
                     yield from walk(entry.record, index + 1, prefix + [entry.name], depth + 1)
 
-    yield from walk(5, 0, [])
+    yield from walk(start_record, 0, list(start_prefix))
 
 
 def extract_artifacts(image_path, output_dir, include_mft=False, progress=None,
@@ -201,6 +210,21 @@ def _extract_volume(ntfs, volume_index, root, specs, result, progress):
                     sibling = siblings.get((entry.name + suffix).lower())
                     if sibling and not sibling.directory:
                         _copy(ntfs, sibling, Path(str(destination) + suffix), image_path + suffix, volume_index, (), result)
+    for pattern in CACHE_FOLDER_SPECS:
+        for parts, directory, _ in glob_ntfs(ntfs, pattern, directories=True):
+            folder = root.joinpath(*map(_safe, parts))
+            if not folder.resolve().is_relative_to(root.resolve()):
+                continue
+            folder.mkdir(parents=True, exist_ok=True)
+            result.cache_paths[str(folder)] = "\\" + "\\".join(parts)
+            result.inputs.append(["cache", str(folder), None])
+            for names, entry, _ in glob_ntfs(ntfs, "**", start_record=directory.record, start_prefix=parts):
+                destination = root.joinpath(*map(_safe, names))
+                if not destination.resolve().is_relative_to(folder.resolve()):
+                    continue
+                image_path = "\\" + "\\".join(names)
+                if _copy(ntfs, entry, destination, image_path, volume_index, ("cache",), result) and progress:
+                    progress(len(result.files), image_path)
 
 
 def _unique(destination):
@@ -238,7 +262,8 @@ def _assign_sids(result):
     profiles = load_profile_list(software["extracted"]) if software else {}
     by_user = {name.lower(): sid for sid, name in profiles.items()}
     owners = {}
-    for item in result.files:
+    cache_folders = [{"image_path": original, "extracted": copy} for copy, original in result.cache_paths.items()]
+    for item in [*result.files, *cache_folders]:
         parts = item["image_path"].strip("\\").split("\\")
         sid = None
         if len(parts) > 2 and parts[0].lower() in ("users", "documents and settings"):

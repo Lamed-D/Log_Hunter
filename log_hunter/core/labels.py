@@ -159,6 +159,7 @@ ACTION_LABELS = {
     "file_deleted": "파일 삭제",
     "cache_entry": "웹 캐시 항목",
     "cache_url_candidate": "웹 캐시 주소",
+    "cache_folder_status": "캐시 폴더 분석 상태",
     "ese_string_candidate": "사용량 기록 문자열",
     "folder_access": "폴더 열기",
     "network_interface": "네트워크 어댑터",
@@ -464,6 +465,7 @@ COLUMN_LABELS = {
     "lnk_file_created": "바로가기 생성", "lnk_file_modified": "바로가기 수정", "lnk_target_created": "대상 생성",
     "lnk_target_written": "대상 수정", "lnk_target_accessed": "대상 접근",
     "jump_list_item_count": "내부 항목 수", "jump_list_file_state": "파일 해석 상태",
+    "web_cache_status": "캐시 분석 상태", "web_cache_count": "읽은 항목 수", "web_cache_reason": "상태의 이유",
 }
 # 화면·분류별 CSV 뒤쪽 공통 열(타임라인 CSV와 같은 이름·값)의 뜻 — 열 설명 파일에 씀
 COMMON_FIELD_DESCRIPTIONS = {
@@ -513,6 +515,10 @@ JUMP_LIST_TEXT = {
     "nodes": {"files": "목록 파일", "items": "내부 항목"},
     "states": {"parsed": "해석 완료", "partial": "부분 해석", "no_entries": "내부 항목 없음",
                "failed": "읽기 실패", "deleted": "삭제됨 (복구 후보)"},
+}
+CACHE_TEXT = {
+    "nodes": {"entries": "캐시 항목", "status": "폴더 분석 상태"},
+    "states": {"parsed": "처리함", "partial": "일부 처리", "unsupported": "형식 미지원", "no_files": "항목 파일 없음"},
 }
 # 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
 WEB_TEXT = {
