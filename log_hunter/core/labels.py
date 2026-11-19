@@ -501,7 +501,7 @@ COLUMN_LABELS = {
 COMMON_FIELD_DESCRIPTIONS = {
     "artifact": "기록 종류 (내부 키)", "artifact_label": "기록 종류 (쉬운 이름)", "action": "무슨 일 (내부 키)",
     "timestamp_utc": "시각 (UTC, ISO 8601). 시간대를 모르는 값은 비움", "time_meaning": "시각의 의미",
-    "time_basis": "시각의 근거 (예: 키 수정, 로컬 기록 → UTC 환산, 시간대 미상)",
+    "time_basis": "시각의 근거 (예: key_lastwrite=레지스트리 키 수정, 로컬 기록 → UTC 환산, 시간대 미상; 비면 기록의 원래 시각)",
     "timestamp_raw_local": "시간대를 몰라 UTC로 바꾸지 않은 원래 시각", "user": "사용자 이름", "sid": "사용자 SID",
     "target": "대상 (파일·프로그램·주소)", "target_key": "같은 대상 묶음 키", "source_path": "이미지 안 원본 위치",
     "source_locator": "원본 안 위치 (키 경로·내부 위치·오프셋)", "status": "상태 (내부 키)",
