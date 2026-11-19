@@ -1,5 +1,6 @@
 import html
 import json
+import secrets
 from dataclasses import asdict
 from pathlib import Path
 from .correlation import summarize_correlations
@@ -21,19 +22,24 @@ def _script_json(value):
     return json.dumps(value, ensure_ascii=False).replace("</", "<\\/").replace("<!--", "<\\!--")
 
 
-class _EventRows(list):
-    def __init__(self, events):
-        self.events = events
-
-    def __len__(self):
-        return len(self.events)
-
-    def __iter__(self):
-        return (event_json_row(event) for event in self.events)
-
-
-def _payload_json(payload, events):
-    return json.JSONEncoder(ensure_ascii=False, indent=2).iterencode({**payload, "events": _EventRows(events)})
+def _payload_json(payload, events, batch=500):
+    """report.json text in chunks: the same bytes as indent=2 encoding of the whole payload, but each record goes
+    through the fast one-shot encoder and is re-indented to its depth (JSON strings hold no raw newlines)."""
+    mark = json.dumps("\x00events-" + secrets.token_hex(16))  # random per report: evidence text cannot forge it
+    head = json.dumps({**payload, "events": json.loads(mark)}, ensure_ascii=False, indent=2)
+    before, after = head.split(mark, 1)
+    yield before
+    rows, opened = [], False
+    for event in events:
+        rows.append(json.dumps(event_json_row(event), ensure_ascii=False, indent=2).replace("\n", "\n    "))
+        if len(rows) >= batch:
+            yield (",\n    " if opened else "[\n    ") + ",\n    ".join(rows)
+            rows, opened = [], True
+    if rows:
+        yield (",\n    " if opened else "[\n    ") + ",\n    ".join(rows)
+        opened = True
+    yield "\n  ]" if opened else "[]"
+    yield after
 
 
 def _payload_preview(payload, events, limit=500000):

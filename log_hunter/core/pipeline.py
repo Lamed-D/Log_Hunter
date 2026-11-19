@@ -1,3 +1,4 @@
+import functools
 import shutil
 import sqlite3
 import tempfile
@@ -97,13 +98,24 @@ PERMISSION_HINT = ("파일을 열 권한이 없습니다. 실행 중인 Windows�
                    "'이 PC 직접 분석'(관리자 권한, CLI는 --live)을 사용하거나 디스크 이미지(E01)로 분석하세요.")
 
 
+@functools.lru_cache(maxsize=1 << 16)
+def resolved(path):
+    """Path(path).resolve(), cached: the same extracted files are looked up once per record (cleared per analysis)."""
+    return Path(path).resolve()
+
+
+def path_key(path):
+    """Resolved, case-folded path text used to match a file across extraction, hashing and records."""
+    return str(resolved(path)).casefold()
+
+
 def apply_image_metadata(result, extraction):
     """Mark evidence copied out of a disk image with its original location and the image identity."""
     index = extraction.file_index()
     drive = extraction.image.get("drive")
     cache_folders = {Path(path).resolve(): original for path, original in getattr(extraction, "cache_paths", {}).items()}
     for item in result.evidence:
-        origin = index.get(str(Path(item.source).resolve()).casefold())
+        origin = index.get(path_key(item.source))
         if origin is None:
             continue
         item.method = "LIVE" if drive else "IMAGE"
@@ -116,8 +128,8 @@ def apply_image_metadata(result, extraction):
             item.metadata['snapshot'] = dict(origin['snapshot'])
     for event in result.events:
         if event.artifact == "cache" and cache_folders:
-            source = Path(event.source).resolve()
-            origin = index.get(str(source).casefold())
+            source = resolved(event.source)
+            origin = index.get(path_key(event.source))
             if origin:
                 event.details["source_path"] = origin["image_path"]
             elif event.action == "cache_folder_status":
@@ -129,7 +141,7 @@ def apply_image_metadata(result, extraction):
                         break
         if event.artifact != "recyclebin":
             continue
-        origin = index.get(str(Path(event.source).resolve()).casefold())
+        origin = index.get(path_key(event.source))
         if origin is not None and origin.get("recycle_pair"):
             pair = dict(origin["recycle_pair"])
             if origin.get("snapshot"):
@@ -186,7 +198,7 @@ def file_times(extractions):
     for extraction in extractions or ():
         for item in getattr(extraction, "files", None) or ():
             if item.get("extracted"):
-                times[str(Path(item["extracted"]).resolve()).casefold()] = {
+                times[path_key(item["extracted"])] = {
                     k: item.get(k) for k in ("created", "modified", "mft_modified", "accessed",
                                            "size", "mft_record", "mft_sequence", "image_path")}
     return times
@@ -234,6 +246,7 @@ class Pipeline:
 
     def analyze(self, inputs, sid=None, environment=None, progress=None, *, file_inventory=(), context_inputs=None):
         # Inputs are (artifact, path) or (artifact, path, owner_sid); the per-input SID wins over `sid`.
+        resolved.cache_clear()  # files may have been extracted again since the last analysis
         expanded = []
         for artifact, path, *rest in inputs:
             owner = rest[0] if rest and rest[0] else sid
@@ -301,13 +314,13 @@ class Pipeline:
             try:
                 sources = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
                 sources += [sidecar for sidecar in input_sidecars(artifact, path) if sidecar.exists()]
-                known = {source: latest_digest.pop(str(Path(source).resolve()).casefold(), None) for source in sources}
+                known = {source: latest_digest.pop(path_key(source), None) for source in sources}
                 hashed = hash_files([s for s, digest in known.items() if not digest])
                 for source in sources:
                     before[source] = known[source] or hashed[source]
                     if isinstance(before[source], BaseException):
                         raise before[source]
-                    key = str(Path(source).resolve()).casefold()
+                    key = path_key(source)
                     if key in registered:
                         continue
                     registered.add(key)
@@ -351,7 +364,7 @@ class Pipeline:
                     result.events.extend(parser.parse(path, profiles=profiles))
                 elif artifact == "jumplist":
                     result.events.extend(parser.parse_with_file_record(
-                        path, self.file_times.get(str(path.resolve()).casefold())))
+                        path, self.file_times.get(path_key(path))))
                 else:
                     result.events.extend(parser.parse(path))
                 if artifact == "userassist":
@@ -386,7 +399,7 @@ class Pipeline:
                             parser.error(source, "sha256", "분석 중 원본 무결성 변경 감지")
                             failed = True
                         else:
-                            latest_digest[str(Path(source).resolve()).casefold()] = after
+                            latest_digest[path_key(source)] = after
                     except PermissionError:
                         parser.error(source, "sha256", PERMISSION_HINT)
                         failed = True
