@@ -12,9 +12,35 @@ from log_hunter.database.incremental import reanalyze_case
 from log_hunter.main import main
 from test_browser_cache import simple_record
 from test_image import NTFSBuilder
+from test_vss_extract import STORE_ID, snapshot_image
 
 
 class IncrementalCaseTests(unittest.TestCase):
+    def test_snapshot_refresh_preserves_selection_and_checks_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "snapshot.img"
+            image.write_bytes(snapshot_image())
+            case = root / "case.sqlite"
+            saved = Pipeline().analyze_snapshot(image, root / "initial", 0, STORE_ID, include_mft=True)
+            save_case(case, saved)
+            with patch.object(Pipeline, "analyze_snapshot", side_effect=AssertionError("unchanged snapshot")):
+                _, counts, _ = reanalyze_case(case)
+            self.assertEqual(counts["reused"], 1)
+
+            image.write_bytes(snapshot_image(b"Write-Output refreshed\n"))
+            fresh, counts, sources = reanalyze_case(case, workdir=root / "updated" / "extracted")
+            self.assertEqual(counts["reanalyzed"], 1)
+            self.assertTrue(fresh.settings["include_mft"])
+            self.assertEqual(fresh.image["image"]["snapshot"]["store_id"], STORE_ID)
+            self.assertEqual([event.details["command"] for event in fresh.events if event.artifact == "psreadline"],
+                             ["Write-Output refreshed"])
+            self.assertEqual(sources[0]["expected_sha256"], hashlib.sha256(image.read_bytes()).hexdigest())
+
+            image.write_bytes(NTFSBuilder().build())
+            with self.assertRaisesRegex(ValueError, "같은 스냅숏"):
+                reanalyze_case(case, workdir=root / "missing" / "extracted")
+
     def test_folder_membership_change_replaces_old_rows(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
