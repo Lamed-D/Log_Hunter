@@ -79,7 +79,11 @@ class CaseDatabaseTests(unittest.TestCase):
         self.assertEqual(len(restored.events), 1)
         self.assertTrue(all(s['status'] == 'changed' for s in info.sources))
         self.source.unlink()
-        restored, info = load_case(self.path)
+        with patch('log_hunter.database.case_db._check_sources', side_effect=AssertionError('originals are deferred')):
+            restored, info = load_case(self.path)
+        self.assertEqual(len(restored.events), 1)
+        self.assertTrue(all(s['status'] == 'not_checked' for s in info.sources))
+        restored, info = load_case(self.path, probe_sources=True)
         self.assertEqual(len(restored.events), 1)
         self.assertTrue(all(s['status'] == 'missing' for s in info.sources))
         self.assertTrue(info.warnings)

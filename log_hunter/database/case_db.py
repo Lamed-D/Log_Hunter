@@ -300,7 +300,7 @@ def _check_sources(info, verify):
             _warn(info, T['source_unreadable'].format(path=path))
 
 
-def load_case(path, *, verify=False, case_id=None):
+def load_case(path, *, verify=False, case_id=None, probe_sources=False):
     """Restore rows in memory only; unsupported or damaged information never becomes a false result."""
     path = Path(path).resolve()
     try:
@@ -398,7 +398,13 @@ def load_case(path, *, verify=False, case_id=None):
     except (sqlite3.DatabaseError, OSError, TypeError) as exc:
         _warn(info, T['damaged'].format(detail=str(exc)), True)
     info.inputs, info.settings, info.tags, info.sid_names = result.inputs, result.settings, result.tags, result.sid_names
-    _check_sources(info, verify)
+    if verify or probe_sources:
+        _check_sources(info, verify)
+    else:
+        from log_hunter.image.live import is_live_path
+        for source in info.sources:
+            live = is_live_path(source.get('path')) or is_live_path(source.get('resolved_path'))
+            source.update(status='live_unverified' if live else 'not_checked', actual_sha256=None)
     return result, info
 
 

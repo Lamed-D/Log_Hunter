@@ -1836,21 +1836,26 @@ def run(live=None):
         if not path:
             return
         status.set(CASE_TEXT["relink_checking"])
+        case = loaded_case["info"]
+        manifest = result.image
 
         def job():
-            import hashlib
-            digest = hashlib.sha256()
-            with open(path, "rb") as stream:
-                for block in iter(lambda: stream.read(4 * 1024 * 1024), b""):
-                    digest.update(block)
-            return path, digest.hexdigest(), sorted(expected)
+            from log_hunter.database.source_link import verify_image_attachment
+            return case, *verify_image_attachment(path, manifest, case.sources)
         runner.submit("case_relink", job)
 
-    def _finish_relink(path, actual, expected):
+    def _finish_relink(case, path, actual, expected, matched):
+        if loaded_case["info"] is not case:
+            return
         status.set(loaded_case.get("status") or "")
-        if actual not in expected:
+        if not expected:
+            messagebox.showwarning(CASE_TEXT["relink_button"], CASE_TEXT["relink_unknown"])
+            return
+        if not matched:
             messagebox.showwarning(CASE_TEXT["relink_button"],
-                                   CASE_TEXT["relink_mismatch"].format(expected=", ".join(expected), actual=actual))
+                                   CASE_TEXT["relink_mismatch"].format(
+                                       expected=" / ".join(", ".join(group) for group in expected),
+                                       actual=", ".join(actual)))
             return
         loaded_case["linked_image"] = path
         runner.submit("open", lambda: (path, fs_model.image_source_name(path), _browser(path).volume_info()))
