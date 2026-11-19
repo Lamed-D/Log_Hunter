@@ -8,7 +8,7 @@ from .recent_targets import target_label
 from .correlation import _build_program_groups
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, PROGRAM_GROUP_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, COLUMN_LABELS, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, PROGRAM_GROUP_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -436,7 +436,7 @@ def event_properties(event, origin_text=None, username=None):
     if event.details:
         details = _nested(event.details)
         for row in details:  # top level: explain keys that are easy to over-read
-            if row.name in DETAIL_LABELS:
+            if row.name in DETAIL_LABELS or row.name in COLUMN_LABELS:
                 if row.value == "":
                     row.value = "알 수 없음"
                 row.name = detail_label(row.name)

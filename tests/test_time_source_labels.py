@@ -34,6 +34,14 @@ class TimeSourceLabelTests(unittest.TestCase):
         self.assertIn("의미 미상", raw)
         self.assertEqual(details[raw], "0a000000")
 
+    def test_detail_keys_get_korean_names_with_raw_key(self):
+        event = ForensicEvent("services", "SYSTEM", "service_installed", None, None, None,
+                              details={"service_name": "TestSvc", "email_to": ["bob@example.org"], "zz_internal": 1})
+        details = _details(event_properties(event))
+        self.assertIn("서비스 이름 [service_name]", details)  # detail label
+        self.assertTrue(any(k.endswith("[email_to]") and not k.startswith("email") for k in details))  # column label
+        self.assertIn("zz_internal", details)  # unknown keys stay raw
+
 
 if __name__ == "__main__":
     unittest.main()
