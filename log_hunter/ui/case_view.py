@@ -104,6 +104,94 @@ def case_status(info, events, derived=()):
     return T["title"].format(name=name), status, warnings
 
 
+def db_tree(counts):
+    """Navigation roots built from saved-case aggregates (tree_counts), with the same node keys, kinds and values as
+    the loaded tree so a node click can be answered by a database query. Folder levels below the data source names
+    and per-device USB groups are only in the loaded tree."""
+    from log_hunter.core.labels import RECENT_TEXT, SID_TEXT, artifact_label
+    from log_hunter.core.sid_resolver import display_name
+    from log_hunter.core.tree import ACTION_NODES, ARTIFACT_CATEGORIES, TreeNode, _artifact_groups
+    artifacts = counts.get("artifacts") or {}
+    actions = {(r["artifact"], r["action"]): r["records"] for r in counts.get("actions") or ()}
+    sources = TreeNode("src", "데이터 출처", "source", None, counts.get("records") or 0)
+    for row in counts.get("sources") or ():
+        parts = tuple(row.get("parts") or ())
+        sources.children.append(TreeNode("src:" + "\\".join((row["name"], *parts)), parts[-1] if parts else row["name"],
+                                          "source", (row["name"], parts), row["records"]))
+    found = TreeNode("art", "찾은 기록", "all", None, counts.get("records") or 0)
+    for key, label, kinds in ARTIFACT_CATEGORIES:
+        category = TreeNode(f"art:{key}", label, "artifacts", tuple(kinds), sum(artifacts.get(a, 0) for a in kinds))
+        groups = _artifact_groups(list(kinds))
+        if len(groups) > 1:
+            category.children = [TreeNode(f"art:{key}:{g[0]}", artifact_label(g[0]), "artifacts", g,
+                                          sum(artifacts.get(a, 0) for a in g)) for g in groups]
+        for child in [category, *category.children]:
+            if len(child.value) == 1 and child.value[0] in ACTION_NODES:
+                artifact = child.value[0]
+                child.children = [TreeNode(f"art:{key}:{artifact}:{name}", _action_labels(artifact)[name],
+                                           "action_set", (artifact, acts), sum(actions.get((artifact, a), 0) for a in acts))
+                                  for name, acts in ACTION_NODES[artifact]]
+            if child.value == ("lnk",):
+                child.children.append(TreeNode(f"art:{key}:lnk:shortcuts", RECENT_TEXT["nodes"]["shortcuts"], "lnk_shortcuts",
+                                               None, counts.get("shortcuts") or 0))
+        if key == "recent_documents":
+            targets = counts.get("targets") or ()
+            shared = sorted((t for t in targets if t["kinds"] > 1), key=lambda t: (-t["kinds"], -t["records"], t["group"]))
+            node = TreeNode(f"art:{key}:targets", RECENT_TEXT["nodes"]["targets"], "target_groups", None,
+                            sum(t["records"] for t in targets))
+            node.children = [TreeNode(f"art:{key}:target:{t['group']}", RECENT_TEXT["group"].format(
+                name=t["group"].split(":", 1)[-1], kinds=t["kinds"], count=t["records"]), "target_group", t["group"], t["records"])
+                for t in shared]
+            single = sum(t["records"] for t in targets if t["kinds"] == 1)
+            if single:
+                node.children.append(TreeNode(f"art:{key}:target:single", RECENT_TEXT["nodes"]["single"], "target_single",
+                                              None, single))
+            category.children.append(node)
+        found.children.append(category)
+    accounts = TreeNode("acct", "사용자 계정")
+    for row in counts.get("users") or ():
+        name = row.get("name") or display_name(row["sid"])
+        accounts.children.append(TreeNode(f"acct:{row['sid']}", SID_TEXT["node"].format(name=name, sid=row["sid"]) if name
+                                          else row["sid"], "account", row["sid"], row["records"]))
+    return [sources, found, accounts]
+
+
+def _action_labels(artifact):
+    from log_hunter.core import labels
+    table = {"jumplist": labels.JUMP_LIST_TEXT, "cache": labels.CACHE_TEXT, "history": labels.WEB_TEXT,
+             "webcache": labels.WEB_TEXT, "mft": labels.FILE_INVENTORY_TEXT}[artifact]
+    return table["nodes"]
+
+
+def node_filter(node):
+    """The database query form of a tree node ({"kind", "value"}), or None for nodes only the loaded tree knows."""
+    if node is None or node.kind in ("all", "group"):
+        return None
+    if node.kind in ("artifacts", "action_set", "lnk_shortcuts", "target_groups", "target_group", "target_single",
+                     "account", "source", "device_kind", "usb_hidden", "usb_device", "task_signals"):
+        value = node.value
+        if node.kind == "action_set":
+            value = [value[0], list(value[1])]
+        elif node.kind == "source" and value is not None:
+            value = [value[0], list(value[1])]
+        elif isinstance(value, tuple):
+            value = list(value)
+        return {"kind": node.kind, "value": value}
+    return False
+
+
+def db_page(path, filters, node, limit):
+    """(records, total, warnings) of one tree node and filter bar from a saved analysis, first `limit` in time order."""
+    from log_hunter.database.case_query import open_case_query
+    query_filters = {k: v for k, v in filters.items() if v}
+    shape = node_filter(node)
+    if shape:
+        query_filters["node"] = shape
+    with open_case_query(path) as query:
+        page = query.query_events(query_filters, limit=limit)
+        return list(page.events), query.count_events(query_filters), list(query.warnings)
+
+
 def quick_page(path, limit):
     """(first records in timeline order, total) read straight from a saved analysis with an up-to-date query index,
     or None (no index, damaged or older format: the normal full load shows it)."""
@@ -114,7 +202,7 @@ def quick_page(path, limit):
             if not query.indexed or query.partial:
                 return None
             page = query.query_events({}, limit=limit)
-            return list(page.events), query.count_events({})
+            return list(page.events), query.count_events({}), query.quick_counts()
     except (QueryInputError, OSError):
         return None
 

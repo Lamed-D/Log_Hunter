@@ -153,6 +153,24 @@ class QueryDetails:
         rows = self._fetch(self._execute('SELECT COUNT(*) FROM ' + base + ' WHERE ' + where, values), 1)
         return rows[0][0] if rows else None
 
+    def quick_counts(self, *, max_groups=5000):
+        """The aggregates a first navigation tree needs, from indexed columns only (no per-row path splitting):
+        records, artifacts, actions, same-target groups, shortcut rows, users and data source names."""
+        filters = {}
+        artifacts = self._groups(filters, 'q.artifact', 'q.artifact', maximum=max_groups)
+        actions = self._groups(filters, 'q.artifact,q.action', 'q.artifact,q.action', maximum=max_groups)
+        targets = self._groups(filters, 'q.target_group,COUNT(DISTINCT q.artifact)', 'q.target_group',
+                               maximum=max_groups, extra='q.target_group IS NOT NULL')
+        names = self._groups(filters, 'q.origin_name', 'q.origin_name', maximum=max_groups)
+        users = self._groups(filters, 'q.sid,MIN(q.user_name)', 'q.sid', maximum=max_groups, extra="q.sid IS NOT NULL AND q.sid!=''")
+        return {'records': self.count_events(filters), 'artifacts': dict(artifacts),
+                'actions': [{'artifact': a, 'action': b, 'records': n} for a, b, n in actions],
+                'targets': [{'group': g, 'kinds': k, 'records': n} for g, k, n in targets],
+                'shortcuts': self._count_extra(filters, "q.artifact='lnk' AND q.lnk_rep=1"),
+                'sources': [{'name': name, 'parts': [], 'records': n} for name, n in names],
+                'users': [{'sid': sid, 'name': name, 'records': n} for sid, name, n in users],
+                'warnings': list(self.warnings), 'partial': self.partial}
+
     def tree_counts(self, filters=None, *, source_prefix=None, max_groups=1000):
         filters = filters_sql.normalize(filters)
         artifacts = self._groups(filters, 'q.artifact', 'q.artifact', maximum=max_groups)
