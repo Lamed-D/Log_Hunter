@@ -45,6 +45,11 @@ def verify_image_attachment(selected, image, sources):
     expected = _image_sets(image or {}, sources)
     if not expected:
         return str(selected), (), (), False
+    paths, actual, _ = _fingerprint_image(selected)
+    return str(paths[0]), actual, tuple(expected), actual in expected
+
+
+def _fingerprint_image(selected):
     if is_live_path(selected):
         raise ValueError("원본 파일을 선택하세요")
     chosen = Path(selected).resolve()
@@ -55,4 +60,4 @@ def verify_image_attachment(selected, image, sources):
         after = [_file_state(path) for path in paths]
         if before != after:
             raise ValueError("원본 파일이 해시 확인 중 변경됐습니다")
-    return str(paths[0]), actual, tuple(expected), actual in expected
+    return paths, actual, before

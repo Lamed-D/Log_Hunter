@@ -104,18 +104,21 @@ def _readonly(path):
             db.close()
 
 
-def _sources(result):
+def _sources(result, known=()):
+    known_keys = {(row.get('path'), row.get('kind')) for row in known}
     sources = {}
     for item in result.evidence:
-        sources[(item.source, 'file')] = {'path': item.source, 'resolved_path': str(Path(item.source).resolve()),
-                                               'kind': 'file', 'expected_sha256': item.sha256 or None}
+        key = (item.source, 'file')
+        if key not in known_keys:
+            sources[key] = {'path': item.source, 'resolved_path': str(Path(item.source).resolve()),
+                            'kind': 'file', 'expected_sha256': item.sha256 or None}
     images = [result.image or {}, *(result.image.get('additional_images') or [])]
     for image in images:
         details = image.get('image') or {}
         paths = details.get('segments') or ([image['image_path']] if image.get('image_path') else [])
         for path in paths:
             key = (str(path), 'image')
-            if key in sources:
+            if key in sources or key in known_keys:
                 continue
             digest = None
             try:
@@ -143,7 +146,8 @@ def save_case(path, result, *, name=None, tags=None, inputs=None, settings=None,
             state[key] = copy.deepcopy(value)
     saved_sources = copy.deepcopy(sources) if sources is not None else []
     source_keys = {(row.get('path'), row.get('kind')) for row in saved_sources}
-    saved_sources.extend(row for row in _sources(result) if (row.get('path'), row.get('kind')) not in source_keys)
+    saved_sources.extend(row for row in _sources(result, saved_sources)
+                         if (row.get('path'), row.get('kind')) not in source_keys)
     state.update(created_at=state['settings'].get('analysis_at') or datetime.now(timezone.utc).isoformat(),
                  tool_version=__version__, sources=saved_sources)
     repository = Repository(path)
