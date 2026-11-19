@@ -187,6 +187,8 @@ class ESEDatabase:
                 break
         result = {}
         for index, (column_id, offset, has_flags) in enumerate(entries):
+            if column_id < 256:
+                continue  # tagged ids start at 256; a lower id here is damage, not a fixed or variable column
             end = entries[index + 1][1] if index + 1 < len(entries) else len(data)
             value = data[offset:end]
             flags = 0
@@ -210,7 +212,11 @@ class ESEDatabase:
             except (ESEError, struct.error) as exc:
                 self.warnings.append(f"카탈로그: {exc}")
                 continue
-            number = lambda cid, fmt="<i": struct.unpack(fmt, row[cid])[0] if row.get(cid) else None
+            def number(cid, fmt="<i"):
+                value = row.get(cid)
+                if not isinstance(value, (bytes, bytearray)) or len(value) < struct.calcsize(fmt):
+                    return None
+                return struct.unpack(fmt, bytes(value[:struct.calcsize(fmt)]))[0]
             kind, objid, ident, coltype = number(2, "<h"), number(1), number(3), number(4)
             name = (row.get(128) or b"").decode("ascii", "replace")
             if kind == 1:
