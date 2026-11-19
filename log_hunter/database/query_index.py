@@ -10,11 +10,13 @@ from log_hunter.core.sid_resolver import display_name
 from log_hunter.core.tags import event_key, migrate_row
 from log_hunter.core.tree import OriginIndex, usb_hidden
 
-QUERY_VERSION = 1
+# 2: action, target_group and lnk_rep let the views (방문/다운로드, 같은 대상, 바로가기별) filter in SQL.
+QUERY_VERSION = 2
 COLUMNS = ('event_id', 'case_id', 'event_index', 'artifact', 'source', 'locator', 'sid', 'status',
            'timestamp', 'clock_kind', 'clock_value', 'path', 'process', 'url', 'user_name',
            'origin_name', 'origin_path', 'origin_parts', 'query_text', 'quick_text',
-           'has_note', 'device_kind', 'physical_group', 'physical_rep', 'physical_aux', 'usb_hidden', 'task_signals', 'search_safe')
+           'has_note', 'device_kind', 'physical_group', 'physical_rep', 'physical_aux', 'usb_hidden', 'task_signals', 'search_safe',
+           'action', 'target_group', 'lnk_rep')
 
 
 def clock_value(text):
@@ -76,7 +78,9 @@ def projection(event_id, case_id, event_index, event, state_context):
               str(details.get('device_kind') or 'unknown'),
               str(details['physical_device_id']) if details.get('physical_device_id') is not None else None,
               int(bool(details.get('physical_device_representative'))), int(bool(details.get('auxiliary_device'))), usb_hidden(details),
-              int(bool(details.get('task_signals') or details.get('suspicion_flags'))), int('\0' not in quick))
+              int(bool(details.get('task_signals') or details.get('suspicion_flags'))), int('\0' not in quick),
+              str(event.action or ''), str(details['target_group']) if details.get('target_group') else None,
+              int(event.artifact == 'lnk' and bool(details.get('lnk_representative'))))
     return values, tag.get('tags') or []
 
 
@@ -123,12 +127,13 @@ def schema(db):
         query_text TEXT NOT NULL, quick_text TEXT NOT NULL, has_note INTEGER NOT NULL,
         device_kind TEXT NOT NULL, physical_group TEXT, physical_rep INTEGER NOT NULL, physical_aux INTEGER NOT NULL,
         usb_hidden TEXT, task_signals INTEGER NOT NULL,
-        search_safe INTEGER NOT NULL)''')
+        search_safe INTEGER NOT NULL, action TEXT NOT NULL, target_group TEXT, lnk_rep INTEGER NOT NULL)''')
     for name, columns in (('timeline', 'case_id,clock_kind,clock_value,artifact,source,locator,event_id'),
                           ('artifact', 'case_id,artifact,event_id'), ('sid', 'case_id,sid,event_id'),
                           ('status', 'case_id,status,event_id'), ('source', 'case_id,source,event_id'),
                           ('origin', 'case_id,origin_name,origin_path,event_id'),
-                          ('ordinal', 'case_id,event_index')):
+                          ('ordinal', 'case_id,event_index'), ('action', 'case_id,artifact,action,event_id'),
+                          ('target', 'case_id,target_group,event_id')):
         db.execute(f'CREATE INDEX IF NOT EXISTS query_{name} ON event_query({columns})')
     db.execute('''CREATE TABLE IF NOT EXISTS event_query_tags(
         case_id INTEGER NOT NULL, event_id INTEGER NOT NULL REFERENCES events(id), tag TEXT NOT NULL,

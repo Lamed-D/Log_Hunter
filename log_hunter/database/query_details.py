@@ -187,7 +187,16 @@ class QueryDetails:
         physical = self._fetch(group_cursor, max_groups + 1)
         if len(physical) > max_groups:
             self._warn(T['limit'].format(detail='USB kind groups'), True)
+        # View nodes under the categories: records by action (방문/다운로드, 목록 파일/내부 항목, ...), same-target
+        # groups with how many kinds of record left them, and one-row-per-shortcut.
+        actions = self._groups(filters, 'q.artifact,q.action', 'q.artifact,q.action', maximum=max_groups)
+        targets = self._groups(filters, 'q.target_group,COUNT(DISTINCT q.artifact)', 'q.target_group',
+                               maximum=max_groups, extra='q.target_group IS NOT NULL')
+        shortcuts = self._count_extra(filters, "q.artifact='lnk' AND q.lnk_rep=1")
         return {'records': self.count_events(filters), 'artifacts': dict(artifacts), 'categories': categories,
+                'actions': [{'artifact': a, 'action': b, 'records': n} for a, b, n in actions],
+                'targets': [{'group': g, 'kinds': k, 'records': n} for g, k, n in targets],
+                'shortcuts': shortcuts,
                 'source_self_records': self_records,
                 'sources': [{'name': name, 'parts': json.loads(parts), 'records': count} for name, parts, count in sources],
                 'users': [{'sid': sid, 'name': name, 'records': count} for sid, name, count in sids],
