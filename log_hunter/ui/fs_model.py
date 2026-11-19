@@ -43,7 +43,7 @@ def volume_nodes(source_name, image, volumes, counts):
         nodes.append(TreeNode(f"fs:{source_name}:{volume['index']}", volume_label(volume), "source",
                               (source_name, parts), _count(counts, source_name, parts),
                               fs={"image": image, "volume": volume["index"], "parts": (), "directory": True,
-                                  "browsable": volume.get("filesystem") in ("ntfs", "fat")}))
+                                  "browsable": volume.get("filesystem") in ("ntfs", "fat", "exfat")}))
     return nodes
 
 

@@ -227,10 +227,13 @@ def scan_fat_inventory(fat, volume_index, source):
         path = item["path"]
         locator = f"volume:{volume_index}:fat_entry:{path}"
         suffix = PureWindowsPath(item["name"]).suffix.casefold()
-        details = {"source_path": path, "source_locator": locator, "volume": volume_index, "filesystem": f"fat{fat.kind}",
+        utc = bool(item.get("times_utc"))  # exFAT entries can carry a UTC offset; FAT never does
+        details = {"source_path": path, "source_locator": locator, "volume": volume_index,
+                   "filesystem": fat.kind if isinstance(fat.kind, str) else f"fat{fat.kind}",
                    "file_name": item["name"], "short_name": item["short_name"], "file_size": item["size"],
                    "file_extension": suffix, "in_use": not item["deleted"],
-                   "file_times_local": {k: item[k] for k in ("created", "modified", "accessed")}, "timezone_known": False}
+                   "file_times" if utc else "file_times_local": {k: item[k] for k in ("created", "modified", "accessed")},
+                   "timezone_known": utc}
         label = "deleted_file_candidate" if item["deleted"] else "ntfs_file_inventory"
 
         def event(action, timestamp=None, time_field=None, **extra):
@@ -240,7 +243,8 @@ def scan_fat_inventory(fat, volume_index, source):
         if item["deleted"]:
             details["recovery_note"] = "삭제 항목: 데이터 위치를 이어진 클러스터로 가정했으며 덮어써졌을 수 있습니다"
         try:
-            read, size = fat.reader(item["first_cluster"], item["size"], deleted=item["deleted"])
+            read, size = fat.reader(item["first_cluster"], item["size"], deleted=item["deleted"],
+                                    contiguous=item.get("contiguous", False))
             prefix = read(0, min(size, 4096)) if size else b""
             state = "deleted_contiguous_guess" if item["deleted"] else "readable"
         except (OSError, *READ_ERRORS):

@@ -79,7 +79,7 @@ class FATVolume:
     def _cluster_offset(self, cluster):
         return self.offset + self.data_offset + (cluster - 2) * self.cluster_size
 
-    def reader(self, first, size, deleted=False):
+    def reader(self, first, size, deleted=False, contiguous=False):
         """read(offset, length) over a file's data. A deleted file's chain is gone from the table, so its clusters are
         assumed to be contiguous from the first one (a recovery candidate, may be overwritten)."""
         if deleted:
