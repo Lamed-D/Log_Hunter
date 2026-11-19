@@ -123,10 +123,13 @@ class UserAssistParser(ArtifactParser):
                 continue
             for value in key.values():
                 try:
+                    raw_name = decode_rot13(value["name"])
                     if value["type"] != 3:
                         raise ValueError("REG_BINARY가 아닙니다")
+                    if raw_name.casefold() == "ueme_ctlsession" and not value.get("error"):
+                        self.error(path, locator + "\\" + value["name"], "세션 관리용 값 제외", "excluded")
+                        continue
                     result = parse_userassist_value(value["raw"])
-                    raw_name = decode_rot13(value["name"])
                     name = resolve_guid_path(raw_name)
                     details = {**result, "encoded_name": value["name"],
                                "raw_path": raw_name if raw_name != name else None,
