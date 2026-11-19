@@ -802,9 +802,18 @@ def run(live=None):
         if result:
             count_var.set(view_model.count_text(len(matched), len(visible), len(result.events), bool(search_text)))
 
+    db_view = {"path": None, "token": 0}
+
     def _show_quick_page(path, page):
-        """Fill the table with the first saved records (read-only, no tree yet); replaced by the full view."""
-        events, total = page
+        """While the whole analysis loads: the tree from the saved aggregates and the first saved records. Node clicks
+        are answered by database pages until the full view replaces this."""
+        from . import case_view
+        events, total, counts = page
+        db_view["path"] = path
+        nav_tree.delete(*nav_tree.get_children())
+        nav_nodes.clear()
+        nav_state["node"] = None
+        nav_nodes.update(nav.fill_nav(nav_tree, case_view.db_tree(counts)))
         visible.clear()
         _apply_columns(table_columns.DEFAULT)
         tree.delete(*tree.get_children())
@@ -812,6 +821,46 @@ def run(live=None):
             tree.insert("", "end", iid=f"quick{i}", values=table_columns.row(event, table_state["columns"], {}, None),
                         tags=(event.artifact,) if event.artifact in ARTIFACT_COLORS else ())
         status.set(CASE_TEXT["quick_view"].format(shown=len(events), total=total))
+        warnings = counts.get("warnings") or []
+        if counts.get("partial") or warnings:
+            status.set(status.get() + " · " + CASE_TEXT["quick_warnings"].format(count=len(warnings)))
+
+    def _db_refresh():
+        """A node or filter change while only the database view is shown: query one page on its own thread."""
+        from . import case_view
+        db_view["token"] += 1
+        token, path, node = db_view["token"], db_view["path"], nav_state["node"]
+        if case_view.node_filter(node) is False:
+            tree.delete(*tree.get_children())
+            status.set(CASE_TEXT["quick_wait"])
+            return
+        filters = {"artifact": filter_artifact.get(), "start": start_date.get(), "end": end_date.get(),
+                   "sid": sid_var.get(), "query": query.get(), "status": status_filter.get()}
+        status.set(CASE_TEXT["quick_loading"])
+
+        def work():
+            try:
+                found = case_view.db_page(path, filters, node, view_model.TIMELINE_PAGE_ROWS)
+            except Exception as exc:  # shown in the status line; the full load continues
+                found = exc
+            mailbox.put(("db_page", (token, node, found)))
+        thread = threading.Thread(target=work, daemon=True)
+        background_threads.append(thread)
+        thread.start()
+
+    def _show_db_page(token, node, found):
+        if token != db_view["token"] or result is not None or db_view["path"] is None:
+            return  # a newer click, or the full view already took over
+        if isinstance(found, Exception):
+            status.set(CASE_TEXT["quick_error"].format(error=found))
+            return
+        events, total, warnings = found
+        visible.clear()
+        visible.extend(events)
+        _apply_columns(table_columns.columns_for(node))
+        _populate_tree()
+        status.set(CASE_TEXT["quick_page"].format(shown=len(events), total=total or 0)
+                   + (" · " + CASE_TEXT["quick_warnings"].format(count=len(warnings)) if warnings else ""))
 
     def turn_timeline_page(delta):
         timeline_page["page"] += delta
@@ -877,6 +926,8 @@ def run(live=None):
         tree.delete(*tree.get_children())
         visible.clear()
         if not result:
+            if db_view["path"]:
+                _db_refresh()
             return
         filters = Filters(filter_artifact.get(), start_date.get(), end_date.get(), sid_var.get(), query.get(),
                           status_filter.get())
@@ -1163,6 +1214,8 @@ def run(live=None):
                 if kind == "job":
                     on_job(*value)
 
+                elif kind == "db_page":
+                    _show_db_page(*value)
                 elif kind == "verify_progress":
                     done, total = value
                     status.set(f"이미지 저장 해시 검증 중... {done * 100 // max(total, 1)}% ({done:,} / {total:,}바이트)")
@@ -1811,6 +1864,7 @@ def run(live=None):
 
     def _show_loaded_case(path, analysis, info):
         nonlocal result, sid_map
+        db_view["path"] = None
         from . import case_view
         inputs.clear()
         listing.delete(0, "end")

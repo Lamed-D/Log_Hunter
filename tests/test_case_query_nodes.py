@@ -86,11 +86,28 @@ class CaseQueryNodeTests(unittest.TestCase):
     def test_quick_page_reads_first_records_only_from_an_indexed_case(self):
         from log_hunter.core.timeline import timeline
         from log_hunter.ui.case_view import quick_page
-        events, total = quick_page(self.path, 3)
+        events, total, counts = quick_page(self.path, 3)
+        self.assertEqual(counts["records"], len(self.events))
         self.assertEqual(total, len(self.events))
         self.assertEqual([e.locator or e.action for e in events], [e.locator or e.action for e in timeline(self.events)[:3]])
         self.assertIsNone(quick_page(self.legacy, 3))  # no current index: the normal full load shows it
         self.assertIsNone(quick_page(Path(self.temp.name) / "missing.sqlite", 3))
+
+    def test_db_tree_matches_loaded_tree_and_pages(self):
+        from log_hunter.ui.case_view import db_page, db_tree, node_filter, quick_page
+        _events, _total, counts = quick_page(self.path, 5)
+        db_nodes = {n.key: n for r in db_tree(counts) for n in r.walk()}
+        for key, node in self.nodes.items():
+            if not key.startswith("art:") or key not in db_nodes:
+                continue
+            self.assertEqual((db_nodes[key].kind, db_nodes[key].count), (node.kind, node.count), key)
+            if node_filter(node):
+                got, total, _warnings = db_page(self.path, {"artifact": "전체", "status": "전체"}, db_nodes[key], 500)
+                self.assertEqual(total, node.count, key)
+                self.assertEqual(sorted(e.locator or e.action for e in got), self.expected(node), key)
+        for key in ("art:web_history:history:visits", "art:recent_documents:lnk:shortcuts", "art:recent_documents:targets"):
+            self.assertIn(key, db_nodes)
+        self.assertFalse(node_filter(type("N", (), {"kind": "event_set", "value": frozenset()})()))
 
     def test_bad_view_node_values_are_rejected(self):
         from log_hunter.database.query_common import QueryInputError
