@@ -93,7 +93,7 @@ ARTIFACT_DESCRIPTIONS = {
     "mru": "열기/저장 창과 최근 문서 목록 (MRU)",
     "shellbag": "탐색기로 열어본 폴더 기록 (ShellBag)",
     "mft": "NTFS 파일 시스템의 파일별 생성/수정/접근 시각 ($MFT)",
-    "srum": "앱별 실행 시간과 네트워크 사용량 (SRUM)",
+    "srum": "앱별 실행 시간과 네트워크 사용량 (SRUM, 원본 SRUDB.dat 또는 SQLite 내보내기). 시각은 UTC 사용량 기록 시각",
     "jumplist": "작업 표시줄·시작 메뉴의 최근 항목 (Jump List)",
     "psreadline": "PowerShell 창에서 입력한 명령어 (PSReadLine)",
     "usb": "USB·저장 장치·입력 장치·블루투스 장치 등록과 속성 시각 (USB/USBSTOR/HID/BTHENUM)",

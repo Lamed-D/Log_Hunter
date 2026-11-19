@@ -1,8 +1,6 @@
-"""SRUM (System Resource Usage Monitor) parser for SQLite-exported SRUDB data.
-
-Reads SRUM data exported to SQLite (e.g. via srum-dump or similar tools).
-Raw ESE SRUDB.dat files are detected but not directly parsed — a warning
-is emitted with guidance to use an export tool first.
+"""SRUM (System Resource Usage Monitor) parser: the original SRUDB.dat (ESE database, read with the built-in ESE
+reader) or the same tables exported to SQLite. TimeStamp is an OLE date in UTC (days since 1899-12-30) in the
+database; exports may keep it as a FILETIME number instead — both become UTC ISO text.
 
 SRUM tables tracked:
   - NetworkDataUsageMonitor: per-app bytes sent/received
@@ -15,7 +13,12 @@ import sqlite3
 from pathlib import Path
 from .base import ArtifactParser
 from log_hunter.core.models import ForensicEvent
+from datetime import datetime, timedelta, timezone
+
 from log_hunter.core.timestamp import filetime
+from .ese import ESEDatabase, ESEError
+
+OLE_EPOCH = datetime(1899, 12, 30, tzinfo=timezone.utc)
 
 SRUM_TABLES = {
     "{D10CA2FE-6FCF-4F6D-848E-B2E99266FA89}": "network_usage",
@@ -48,15 +51,61 @@ def _safe_int(value):
         return 0
 
 
+def srum_time(value):
+    """UTC ISO text of a SRUM time: an OLE date (float days, the database form), a FILETIME integer (some exports) or
+    ISO text with an offset. Anything else is not guessed."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, float) or (isinstance(value, int) and 0 < value < 2_958_466):  # up to year 9999 in days
+        if not 1 <= float(value) < 2_958_466:
+            return None
+        try:
+            return (OLE_EPOCH + timedelta(days=float(value))).isoformat()
+        except OverflowError:
+            return None
+    if isinstance(value, int):
+        return filetime(value) if value > 0 else None
+    if isinstance(value, str):
+        try:
+            moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return srum_time(float(value)) if value.replace(".", "", 1).isdigit() else None
+        return moment.astimezone(timezone.utc).isoformat() if moment.tzinfo else None
+    return None
+
+
 def _row_timestamp(row, columns):
     for col in ("TimeStamp", "Timestamp", "timestamp", "ConnectStartTime"):
         if col in columns:
             val = row[columns[col]]
             if val is not None:
-                ts = _safe_int(val)
-                if ts > 0:
-                    return filetime(ts)
+                return srum_time(val)
     return None
+
+
+def sid_text(blob):
+    """S-1-… from a binary SID, or None."""
+    if not isinstance(blob, (bytes, bytearray)) or len(blob) < 8 or blob[0] != 1 or len(blob) != 8 + 4 * blob[1]:
+        return None
+    authority = int.from_bytes(blob[2:8], "big")
+    subs = [int.from_bytes(blob[8 + 4 * i:12 + 4 * i], "little") for i in range(blob[1])]
+    return "S-1-" + "-".join(str(x) for x in [authority, *subs])
+
+
+def id_text(id_type, blob):
+    """Readable form of a SruDbIdMapTable entry: type 3 is a user SID, the others UTF-16 names or paths."""
+    if blob is None:
+        return None
+    if isinstance(blob, (bytes, bytearray)):
+        if id_type == 3:
+            sid = sid_text(bytes(blob))
+            if sid:
+                return sid
+        try:
+            return bytes(blob).decode("utf-16-le").rstrip("\x00")
+        except UnicodeDecodeError:
+            return bytes(blob).hex()
+    return str(blob)
 
 
 def _get_columns(cursor, table):
@@ -88,10 +137,8 @@ class SRUMParser(ArtifactParser):
         with path.open("rb") as f:
             header = f.read(16)
 
-        if len(header) >= 4 and header[:4] == ESE_MAGIC:
-            self.error(path, "format", "ESE 형식의 원본 SRUDB.dat 파일입니다. "
-                       "직접 ESE 파싱은 미지원 — srum-dump 등의 도구로 SQLite로 변환 후 분석하세요", "warning")
-            yield from self._extract_ese_strings(path)
+        if len(header) >= 8 and ESE_MAGIC in (header[4:8], header[:4]):
+            yield from self._parse_ese(path)
             return
 
         if not (len(header) >= 16 and header[:16] == b"SQLite format 3\x00"):
@@ -146,16 +193,9 @@ class SRUMParser(ArtifactParser):
             cursor.execute("SELECT IdType, IdIndex, IdBlob FROM SruDbIdMapTable")
             for row in cursor:
                 id_type, id_index, id_blob = row
-                if id_blob is None:
-                    continue
-                if isinstance(id_blob, bytes):
-                    try:
-                        value = id_blob.decode("utf-16-le").rstrip("\x00")
-                    except UnicodeDecodeError:
-                        value = id_blob.hex()
-                else:
-                    value = str(id_blob)
-                id_map[id_index] = value
+                value = id_text(id_type, id_blob)
+                if value is not None:
+                    id_map[id_index] = value
         except sqlite3.Error:
             self.error(path, "SruDbIdMapTable", "ID 매핑 테이블을 읽을 수 없습니다 — ID가 숫자로 표시됩니다", "warning")
         return id_map
@@ -177,7 +217,7 @@ class SRUMParser(ArtifactParser):
         if action == "network_usage":
             details.update(
                 bytes_sent=_safe_int(_col(row, columns, "BytesSent")),
-                bytes_received=_safe_int(_col(row, columns, "BytesReceived")),
+                bytes_received=_safe_int(_col(row, columns, "BytesReceived", _col(row, columns, "BytesRecvd"))),
                 interface_luid=_col(row, columns, "InterfaceLuid"),
                 l2_profile_id=_col(row, columns, "L2ProfileId"),
                 l2_profile_flags=_col(row, columns, "L2ProfileFlags"),
@@ -225,6 +265,41 @@ class SRUMParser(ArtifactParser):
             status="ok" if timestamp else "partial",
             details={k: v for k, v in details.items() if v is not None and v != 0},
         )
+
+    def _parse_ese(self, path):
+        """The original SRUDB.dat through the ESE reader; rows go through the same field mapping as exports."""
+        try:
+            db = ESEDatabase(path)
+        except (ESEError, OSError) as exc:
+            self.error(path, "ese", f"ESE 데이터베이스를 읽지 못했습니다({exc}). 문자열 후보만 찾습니다", "warning")
+            yield from self._extract_ese_strings(path)
+            return
+        if db.state != 3:
+            self.error(path, "header", "정상 종료되지 않은 SRUM 데이터베이스입니다: 로그 파일 내용은 반영하지 않았습니다", "warning")
+        id_map = {}
+        if "SruDbIdMapTable" in db.tables:
+            for row in db.rows("SruDbIdMapTable"):
+                value = id_text(row.get("IdType"), row.get("IdBlob"))
+                if value is not None and row.get("IdIndex") is not None:
+                    id_map[row["IdIndex"]] = value
+        else:
+            self.error(path, "SruDbIdMapTable", "ID 매핑 테이블이 없습니다 — ID가 숫자로 표시됩니다", "warning")
+        found = False
+        for table_name, action in SRUM_TABLES.items():
+            if table_name not in db.tables:
+                continue
+            found = True
+            for record in db.rows(table_name):
+                names = list(record)
+                columns = {name: index for index, name in enumerate(names)}
+                try:
+                    yield from self._parse_row([record[n] for n in names], columns, action, id_map, path, table_name)
+                except Exception as exc:
+                    self.error(path, table_name, f"행 파싱 오류: {exc}", "warning")
+        for warning in db.warnings[:50]:
+            self.error(path, "page", warning, "warning")
+        if not found:
+            self.error(path, "tables", "알려진 SRUM 테이블이 없습니다", "warning")
 
     def _extract_ese_strings(self, path):
         try:
