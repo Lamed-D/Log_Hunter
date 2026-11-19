@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import PureWindowsPath
 
-from log_hunter.core.labels import (DEFENDER_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, RECENT_TEXT, WEB_TEXT, action_label,
+from log_hunter.core.labels import (DEFENDER_TEXT, JUMP_LIST_TEXT, PROPERTY_LABELS as L, PROPERTY_TITLE, UNKNOWN_VALUE, RECENT_TEXT, WEB_TEXT, action_label,
                                     artifact_label, column_label, time_field_label)
 from log_hunter.parser.history import URL_ROLES
 from log_hunter.core.sid_resolver import display_name
@@ -331,11 +331,12 @@ def recent_properties(event, ctx):
     d = event.details or {}
     origins = type("O", (), {"text": staticmethod(ctx.origin)})() if ctx.origin else None
     user = display_name(event.sid, ctx.sid_map)
+    moment = display_event_time(event) or UNKNOWN_VALUE if event.artifact == "shellbag" else format_time(event.timestamp, ctx.tz)
     fields = [
         (L["target"], _text(display_target(event))),
         (L["artifact"], artifact_label(event.artifact)),
         (L["action"], action_label(event.action)),
-        (L["timestamp"], format_time(event.timestamp, ctx.tz)),
+        (L["timestamp"], moment),
         (L["time_field"], _meaning(event.time_field)),
         (column_label("source_location"), _text(source_location(event, origins))),
         (column_label("target_match"), RECENT_TEXT["match"].get(d.get("target_match"), UNKNOWN_VALUE)),
@@ -347,12 +348,31 @@ def recent_properties(event, ctx):
     others = [f"{artifact_label(e.artifact)} · {format_time(e.timestamp, ctx.tz) if e.timestamp else UNKNOWN_VALUE}"
               f" · {_meaning(e.time_field)} · {source_location(e, origins)}" for e in related]
     tabs = [(RECENT_TEXT["times_tab"], times or [RECENT_TEXT["time_line"].format(
-        label=_meaning(event.time_field), time=format_time(event.timestamp, ctx.tz))], False),
+        label=_meaning(event.time_field), time=moment)], False),
         (RECENT_TEXT["nodes"]["targets"], others or [UNKNOWN_VALUE], True), _raw_tab(event)]
     return fields, tabs, None
 
 
-CATEGORY_FIELDS = {"mru": recent_properties, "lnk": recent_properties, "jumplist": recent_properties,
+def jump_list_properties(event, ctx):
+    if event.action != "jump_list_file":
+        return recent_properties(event, ctx)
+    details = event.details
+    fields = common_fields(event, ctx)
+    fields.extend([
+        (column_label("jump_list_file_state"), JUMP_LIST_TEXT["states"].get(details.get("file_parse_state"), UNKNOWN_VALUE)),
+        (column_label("jump_list_item_count"), _text(details.get("item_count"))),
+        (column_label("file_size"), size_text(details.get("file_size"))),
+        (JUMP_LIST_TEXT["app"], _text(details.get("app_name"))),
+        (JUMP_LIST_TEXT["reason"], _text(details.get("file_parse_reason"))),
+    ])
+    times = details.get("file_times", {})
+    for key, field in (("created", "si_created"), ("modified", "si_modified"),
+                       ("mft_modified", "si_mft_changed"), ("accessed", "si_accessed")):
+        fields.append((time_field_label(field), format_time(times.get(key))))
+    return fields, [_raw_tab(event)], None
+
+
+CATEGORY_FIELDS = {"mru": recent_properties, "lnk": recent_properties, "jumplist": jump_list_properties,
                    "shellbag": recent_properties,"tasks": task_properties, "taskcache": task_properties, "evtx": evtx_properties, "wlan": wifi_properties, "defender": defender_properties, "prefetch": prefetch_properties, "usb": usb_properties, "recyclebin": recycle_properties,
                    "history": web_properties}
 

@@ -164,6 +164,7 @@ ACTION_LABELS = {
     "network_interface": "네트워크 어댑터",
     "network_signature": "네트워크 식별 정보",
     "recent_file_access": "최근 파일 사용",
+    "jump_list_file": "점프 목록 파일",
     "shortcut_target": "바로가기 대상 파일",
     "shortcut_file": "바로가기 파일 자체",
     "network_usage": "네트워크 사용량",
@@ -462,6 +463,7 @@ COLUMN_LABELS = {
     "email_attachments": "첨부 이름", "email_date_raw": "Date 원문",
     "lnk_file_created": "바로가기 생성", "lnk_file_modified": "바로가기 수정", "lnk_target_created": "대상 생성",
     "lnk_target_written": "대상 수정", "lnk_target_accessed": "대상 접근",
+    "jump_list_item_count": "내부 항목 수", "jump_list_file_state": "파일 해석 상태",
 }
 # 최근 파일·폴더: 같은 대상 묶어 보기(출처별 기록), 바로가기 한 줄 보기, 원본 위치와 시각의 의미
 RECENT_TEXT = {
@@ -483,6 +485,13 @@ RECENT_TEXT = {
         "lnk_file_modified": "바로가기 수정 = 마지막 연 시각 후보",
         None: "시각 없음 (목록 순서만 기록)",
     },
+}
+JUMP_LIST_TEXT = {
+    "counts": "파일 {files:,} / 항목 {items:,}",
+    "app": "연결된 앱", "reason": "해석 상태의 이유",
+    "nodes": {"files": "목록 파일", "items": "내부 항목"},
+    "states": {"parsed": "해석 완료", "partial": "부분 해석", "no_entries": "내부 항목 없음",
+               "failed": "읽기 실패", "deleted": "삭제됨 (복구 후보)"},
 }
 # 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
 WEB_TEXT = {

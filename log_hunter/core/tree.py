@@ -7,7 +7,7 @@ from pathlib import PureWindowsPath
 from .recent_targets import target_label
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, DETAIL_LABELS, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
+from .labels import (ARTIFACT_NAV_STATUS, DETAIL_LABELS, JUMP_LIST_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -183,6 +183,11 @@ def _data_artifacts(events, summaries=(), errors=()):
             lnk.children = [TreeNode(f"art:{key}:lnk:shortcuts", RECENT_TEXT["nodes"]["shortcuts"], "lnk_shortcuts", None, count)]
         if key == "recent_documents":
             category.children = [*category.children, _target_groups(key, events)]
+            jump = next((c for c in category.children if c.value == ("jumplist",)), None)
+            if jump is not None:
+                jump.children = _action_nodes(key, "jumplist", events)
+                files, items = (child.count for child in jump.children)
+                jump.label += " · " + JUMP_LIST_TEXT["counts"].format(files=files, items=items)
         if "history" in present:  # 방문 / 다운로드: one browser database, two kinds of record
             history = next((c for c in category.children if c.value == ("history",)), category)
             history.children = _action_nodes(key, "history", events)
@@ -219,12 +224,16 @@ def _target_groups(category, events):
 
 
 # Sub-nodes that split one artifact by what its records are: (node name, actions).
-ACTION_NODES = {"history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)), ("searches", ("web_search",)))}
+ACTION_NODES = {
+    "history": (("visits", ("url_visit", "url_summary")), ("downloads", ("download",)), ("searches", ("web_search",))),
+    "jumplist": (("files", ("jump_list_file",)), ("items", ("recent_file_access",))),
+}
 
 
 def _action_nodes(category, artifact, events):
     counts = Counter(e.action for e in events if e.artifact == artifact)
-    return [TreeNode(f"art:{category}:{artifact}:{name}", WEB_TEXT["nodes"][name], "action_set", (artifact, actions),
+    labels = JUMP_LIST_TEXT["nodes"] if artifact == "jumplist" else WEB_TEXT["nodes"]
+    return [TreeNode(f"art:{category}:{artifact}:{name}", labels[name], "action_set", (artifact, actions),
                      sum(counts[a] for a in actions)) for name, actions in ACTION_NODES[artifact]]
 
 
