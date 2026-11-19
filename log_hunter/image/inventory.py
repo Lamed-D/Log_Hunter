@@ -102,6 +102,49 @@ def _pdf_encryption(read, size):
     return prefix + match.start() if match else None
 
 
+ZIP_LOCAL, ZIP_CENTRAL, ZIP_END = b"PK\x03\x04", b"PK\x01\x02", b"PK\x05\x06"
+ENCRYPTED_PACKAGE = "EncryptedPackage".encode("utf-16-le")  # stream of a password-protected Office file
+MAX_CENTRAL_DIRECTORY = 4 * 1024 * 1024
+
+
+def _zip_encryption(read, size):
+    """Offset of the first ZIP entry whose 'encrypted' flag (general purpose bit 0) is set, or None."""
+    head = read(0, min(size, 30))
+    if len(head) >= 8 and head.startswith(ZIP_LOCAL) and struct.unpack_from("<H", head, 6)[0] & 1:
+        return 0
+    tail_at = max(0, size - 65557)
+    tail = read(tail_at, size - tail_at)
+    end = tail.rfind(ZIP_END)
+    if end < 0 or end + 22 > len(tail):
+        return None
+    count, length, start = struct.unpack_from("<HII", tail, end + 10)
+    if not 0 < length <= MAX_CENTRAL_DIRECTORY or start + length > size:
+        return None
+    directory = read(start, length)
+    at = 0
+    for _ in range(min(count, 65535)):
+        if at + 46 > len(directory) or directory[at:at + 4] != ZIP_CENTRAL:
+            break
+        flags, = struct.unpack_from("<H", directory, at + 8)
+        if flags & 1:
+            return start + at
+        name, extra, comment = struct.unpack_from("<HHH", directory, at + 28)
+        at += 46 + name + extra + comment
+    return None
+
+
+def _compound_encryption(read, size):
+    """Offset of an 'EncryptedPackage' directory name in a compound file (password-protected Office), or None.
+    The directory can sit anywhere; the first and last megabyte are searched (the whole file when small)."""
+    window = 1024 * 1024
+    for start in ((0,) if size <= 2 * window else (0, size - window)):
+        block = read(start, min(window, size - start))
+        found = block.find(ENCRYPTED_PACKAGE)
+        if found >= 0:
+            return start + found
+    return None
+
+
 def _file_stream(volume, record):
     chunks = volume._fragments(record, ATTR_DATA, "")
     if not chunks:
@@ -184,10 +227,13 @@ def scan_file_inventory(volume, volume_index, source):
         if not read:
             continue
         try:
-            if kind == "pdf":
-                offset = _pdf_encryption(read, file_size)
+            checks = {"pdf": (_pdf_encryption, "pdf_encrypt_reference"), "zip": (_zip_encryption, "zip_encrypted_entry_flag"),
+                      "compound": (_compound_encryption, "office_encrypted_package")}
+            if kind in checks:
+                check, basis = checks[kind]
+                offset = check(read, file_size)
                 if offset is not None:
-                    yield event("encrypted_file", encryption_basis="pdf_encrypt_reference", encryption_offset=offset)
+                    yield event("encrypted_file", encryption_basis=basis, encryption_offset=offset)
             if kind in ("jpeg", "tiff"):
                 metadata = _photo_metadata(read(0, min(file_size, 512 * 1024)), kind)
                 if metadata:
