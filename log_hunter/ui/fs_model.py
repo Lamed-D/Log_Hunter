@@ -43,7 +43,7 @@ def volume_nodes(source_name, image, volumes, counts):
         nodes.append(TreeNode(f"fs:{source_name}:{volume['index']}", volume_label(volume), "source",
                               (source_name, parts), _count(counts, source_name, parts),
                               fs={"image": image, "volume": volume["index"], "parts": (), "directory": True,
-                                  "browsable": volume.get("filesystem") == "ntfs"}))
+                                  "browsable": volume.get("filesystem") in ("ntfs", "fat")}))
     return nodes
 
 
@@ -191,9 +191,17 @@ def table_values(row):
     else:
         state = "사용 중" if row["in_use"] else "삭제됨"
     return (row["name"], file_kind_label(row.get("kind") or kind_of(row["name"], row.get("directory"))),
-            "" if row.get("directory") else human_size(row.get("size")), row.get("modified") or "",
-            row.get("created") or "", row.get("accessed") or "", row.get("mft_modified") or "", state,
+            "" if row.get("directory") else human_size(row.get("size")), _time(row.get("modified")),
+            _time(row.get("created")), _time(row.get("accessed")), _time(row.get("mft_modified")), state,
             row.get("records") or "")
+
+
+def _time(value):
+    """File times as shown everywhere: '… UTC', or a local time without a zone (FAT) marked '(시간대 미상)'."""
+    if not value:
+        return ""
+    from .record_fields import format_time
+    return format_time(value)
 
 
 def folder_rows(parent, rows, counts):

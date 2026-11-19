@@ -132,6 +132,11 @@ def _display(key, value):
         return f"{value:,}바이트"
     if key == "in_use":
         return "사용 중" if value else "삭제됨(사용 안 함)"
+    if key in ("created", "modified", "accessed", "mft_modified") and isinstance(value, str):
+        from .record_fields import format_time
+        return format_time(value)
+    if key == "timezone_known" and value is False:
+        return "시간대 정보 없음 (현지 시각 그대로)"
     return str(value)
 
 

@@ -50,8 +50,8 @@ class ContentTests(unittest.TestCase):
             extraction = SimpleNamespace(file_index=lambda: {str(path.resolve()).casefold(): {"created": "2020-01-01T00:00:00+00:00"}})
             extra = content.record_file_extra(str(path), evidence, [extraction])
             rows = dict(content.load(content.LocalFile(path), extra)["info"])
-        self.assertEqual(rows["생성 (UTC)"], "2020-01-01T00:00:00+00:00")
-        self.assertNotIn("수정 (UTC)", rows)  # the copy's mtime is the extraction time
+        self.assertEqual(rows["생성"], "2020-01-01 00:00:00 UTC")
+        self.assertNotIn("수정", rows)  # the copy's mtime is the extraction time
         self.assertEqual(rows["분석에 쓴 추출 사본"], str(path))
         self.assertEqual(rows["SHA-256"], "ab" * 32)
         self.assertEqual(rows["디스크 이미지"], "case.E01")
