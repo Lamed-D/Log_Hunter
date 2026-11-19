@@ -57,11 +57,13 @@ class AutoDetectTests(unittest.TestCase):
         return detect_inputs(paths)
 
     def test_multimapping_and_usrclass(self):
-        expected = {"NTUSER.DAT": {"userassist", "mru", "run", "shellbag", "rdp"},
-                    "SYSTEM": {"bam", "usb", "services", "windows_os"},
-                    "SOFTWARE": {"network", "run", "usb", "taskcache", "windows_installed", "windows_os", "windows_accounts"},
-                    "SAM": {"windows_accounts"},
-                    "UsrClass.dat": {"shellbag"}}
+        # Every hive is also scanned once for deleted keys/values left in its free cells.
+        expected = {"NTUSER.DAT": {"userassist", "mru", "run", "shellbag", "rdp", "registry_deleted"},
+                    "SYSTEM": {"bam", "usb", "services", "windows_os", "registry_deleted"},
+                    "SOFTWARE": {"network", "run", "usb", "taskcache", "windows_installed", "windows_os", "windows_accounts",
+                                 "registry_deleted"},
+                    "SAM": {"windows_accounts", "registry_deleted"},
+                    "UsrClass.dat": {"shellbag", "registry_deleted"}}
         for name, kinds in expected.items():
             with self.subTest(name=name):
                 path = self.source(name)
@@ -95,7 +97,7 @@ class AutoDetectTests(unittest.TestCase):
         path = self.source("collection/C/Users/alice/NTUSER.DAT", hive_bytes())
         before = hashlib.sha256(path.read_bytes()).digest()
         rows = self.detect([self.root / "collection", path])
-        self.assertEqual(len(rows), 5)
+        self.assertEqual(len(rows), 6)
         self.assertEqual(before, hashlib.sha256(path.read_bytes()).digest())
         self.assertTrue(all(row[3] for row in rows))
 
@@ -143,7 +145,7 @@ class AutoDetectTests(unittest.TestCase):
     def test_sidecar_with_main_is_not_an_extra_input(self):
         main = self.source("NTUSER.DAT")
         sidecar = self.source("NTUSER.DAT.LOG1")
-        self.assertEqual(len(self.detect([main, sidecar])), 5)
+        self.assertEqual(len(self.detect([main, sidecar])), 6)
 
     def test_sid_connection_uses_shared_image_logic(self):
         software = self.source("collection/C/Windows/System32/config/SOFTWARE")

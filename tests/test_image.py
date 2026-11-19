@@ -444,13 +444,13 @@ class ImageTests(unittest.TestCase):
         paths = {f["image_path"]: f for f in extraction.files}
         self.assertIn("\\Windows\\System32\\config\\SYSTEM", paths)
         self.assertIn("\\Windows\\System32\\config\\SYSTEM.LOG1", paths)
-        self.assertEqual(paths["\\Windows\\System32\\config\\SAM"]["artifacts"], ["windows_accounts"])
+        self.assertEqual(paths["\\Windows\\System32\\config\\SAM"]["artifacts"], ["windows_accounts", "registry_deleted"])
         self.assertNotIn("\\Windows\\Prefetch\\Layout.ini", paths)
         system = Path(paths["\\Windows\\System32\\config\\SYSTEM"]["extracted"])
         self.assertEqual(system.read_bytes(), self.system)
         self.assertTrue(Path(str(system) + ".LOG1").exists())
         artifacts = sorted({a for a, _p, _s in extraction.inputs})
-        self.assertEqual(artifacts, ["bam", "network", "prefetch", "psreadline", "recyclebin", "run", "services",
+        self.assertEqual(artifacts, ["bam", "network", "prefetch", "psreadline", "recyclebin", "registry_deleted", "run", "services",
                                      "taskcache", "usb", "windows_accounts", "windows_installed", "windows_os"])
         recycle = next(i for i in extraction.inputs if i[0] == "recyclebin")
         self.assertEqual(recycle[2], "S-1-5-21-1-2-3-1001")

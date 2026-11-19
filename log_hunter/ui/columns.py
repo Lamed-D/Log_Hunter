@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from log_hunter.core.export import CSV_ENCODING, COMMON_FIELDS, DOWNLOAD_FIELDS, common_row, csv_safe
 from log_hunter.core import thumbcache_view, wifi_view
 from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, CACHE_TEXT, DEFENDER_TEXT, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, USB_BASIS_LABELS, USB_CONFIDENCE_LABELS, USB_DEVICE_KINDS, USB_GROUP_AUXILIARY, USB_GROUP_BASIS_LABELS, USB_GROUP_NOT_CONFIRMED,
-                                    USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, WEB_TEXT, RECENT_TEXT, action_label,
+                                    USB_KIND_CONFLICT, USB_NO_COMPOSITE_BASIS, USB_SERIAL_MAY_BE_GENERATED, WEB_TEXT, RECENT_TEXT, DELETED_CONFIDENCE, action_label,
                                     artifact_label, column_label, status_label, time_field_label)
 from log_hunter.core.tree import category_of
 from . import task_view
@@ -75,6 +75,10 @@ CATEGORY_COLUMNS = {
                      Column("account_name", 220), Column("browser", 120), Column("user", 100), Column("origin", 300)),
     "web_bookmarks": (Column("timestamp", 170), Column("bookmark_title", 240), Column("url", 380), Column("bookmark_folder", 200),
                       Column("browser", 120), Column("user", 100), Column("time_field", 160), Column("origin", 300)),
+    # Deleted registry candidates: what is left in free cells, with how far it can be trusted.
+    "deleted_records": (Column("timestamp", 170), Column("action", 190), Column("deleted_path", 380),
+                        Column("value_type", 120), Column("value_preview", 260), Column("deleted_confidence", 150),
+                        Column("confidence_reason", 320), Column("origin", 300)),
     # Saved mail: header facts only; the body and attachment contents are not kept.
     "email": (Column("timestamp", 170), Column("email_subject", 280), Column("email_from", 220), Column("email_to", 260),
               Column("email_attachments", 220), Column("user", 100), Column("time_field", 160), Column("origin", 300)),
@@ -260,6 +264,10 @@ def cell(key, event, sid_map, origins):
         return RECENT_TEXT["match"].get(details.get("target_match"), "")
     if key.startswith("lnk_file_") or key.startswith("lnk_target_"):
         return str((details.get("lnk_times") or {}).get(key) or "") if event.artifact == "lnk" else ""
+    if key == "deleted_path":
+        return str(details.get("key_path") or details.get("key_name") or details.get("value_name") or "")
+    if key == "deleted_confidence":
+        return DELETED_CONFIDENCE.get(details.get(key), str(details.get(key) or ""))
     if key in ("email_from", "email_to", "email_cc", "email_attachments"):
         return ", ".join(str(v) for v in details.get(key) or ())
     if key in _WEB_CELLS:

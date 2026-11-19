@@ -8,11 +8,11 @@ from itertools import islice
 
 
 HIVE_ARTIFACTS = {
-    "ntuser.dat": ("userassist", "mru", "run", "shellbag", "rdp"),
-    "system": ("bam", "usb", "services", "windows_os"),
-    "software": ("network", "run", "usb", "taskcache", "windows_installed", "windows_os", "windows_accounts"),
-    "sam": ("windows_accounts",),
-    "usrclass.dat": ("shellbag",), "amcache.hve": ("amcache",),
+    "ntuser.dat": ("userassist", "mru", "run", "shellbag", "rdp", "registry_deleted"),
+    "system": ("bam", "usb", "services", "windows_os", "registry_deleted"),
+    "software": ("network", "run", "usb", "taskcache", "windows_installed", "windows_os", "windows_accounts", "registry_deleted"),
+    "sam": ("windows_accounts", "registry_deleted"),
+    "usrclass.dat": ("shellbag", "registry_deleted"), "amcache.hve": ("amcache", "registry_deleted"),
 }
 
 
