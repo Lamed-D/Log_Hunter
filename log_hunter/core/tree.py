@@ -21,7 +21,7 @@ ARTIFACT_CATEGORIES = [
     ("recent_documents", "최근 문서", ("mru", "lnk", "jumplist")),
     ('thumbnail_cache', '파일 미리 보기 흔적', ('thumbcache',)),
     ("recycle_bin", "휴지통", ("recyclebin",)),
-    ("deleted_records", "삭제된 기록 후보", ("registry_deleted",)),
+    ("deleted_records", "삭제된 기록 후보", ("registry_deleted", "browser_deleted")),
     ("shell_bags", "열어본 폴더", ("shellbag",)),
     ("usb_devices", "USB·외부 장치 연결", ("usb",)),
     ("web_history", "웹 기록", ("history", "cache", "cookies", "favicons", "autofill", "browser_extensions", "browser_profiles", "bookmarks", "webcache")),

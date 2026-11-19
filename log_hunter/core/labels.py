@@ -38,6 +38,7 @@ ARTIFACT_LABELS = {
     "email": "저장된 이메일 (머리글)",
     "webcache": "IE·레거시 엣지 웹 기록 (WebCache)",
     "registry_deleted": "삭제된 레지스트리 후보",
+    "browser_deleted": "삭제된 웹 기록 주소 후보",
     "cache": "웹 캐시 (임시 파일)",
     "srum": "앱·네트워크 사용량",
     "network": "접속한 네트워크",
@@ -103,6 +104,7 @@ ARTIFACT_DESCRIPTIONS = {
     "browser_extensions": "브라우저 프로필에 설치된 확장 프로그램의 이름·ID·버전·권한·설치 시각 (Preferences)",
     "browser_profiles": "브라우저 프로필 목록과 로그인한 계정 이름, 마지막 사용 시각 (Local State)",
     "bookmarks": "브라우저 책갈피와 즐겨찾기 바로가기(.url)의 주소와 저장 시각 (Bookmarks)",
+    "browser_deleted": "브라우저 기록 파일의 빈 페이지·WAL에 남은 웹 주소 (History). 주소 글자만 회수하며 방문 시각과 방문 여부는 알 수 없습니다",
     "registry_deleted": "레지스트리 파일의 빈 칸에 남은 지워진 키·값 (하이브 free cell). 후보일 뿐이며 이전 버전이거나 일부가 덮였을 수 있습니다",
     "webcache": "인터넷 익스플로러와 예전 엣지가 쓰는 웹 캐시 데이터베이스의 방문·쿠키·다운로드 (WebCacheV01.dat). 쿠키 값과 캐시된 내용은 읽지 않습니다",
     "email": "사용자 폴더에 저장된 메일 파일의 보낸·받는 주소, 제목, 보낸 시각, 첨부 이름 (.eml). 본문과 첨부 내용은 저장하지 않습니다",
@@ -164,6 +166,7 @@ ACTION_LABELS = {
     "email_message": "메일 메시지",
     "deleted_registry_key": "삭제된 레지스트리 키 후보",
     "deleted_registry_value": "삭제된 레지스트리 값 후보",
+    "deleted_url_candidate": "삭제된 웹 주소 후보",
     "activity_update": "앱 사용 기록",
     "network_profile": "네트워크 접속",
     "wlan_profile": "Wi-Fi 저장",
@@ -534,7 +537,7 @@ NODE_HINTS = {
 }
 # 삭제된 기록 후보의 신뢰도
 DELETED_CONFIDENCE = {"intact": "구조 온전", "old_copy": "이전 버전일 수 있음", "partial": "일부만 읽힘",
-                      "value_only": "값만 남음 (키 미상)"}
+                      "value_only": "값만 남음 (키 미상)", "carved_text": "주소 글자만 회수"}
 # 날짜 필터: 입력한 날짜는 UTC 기준으로 해석 (화면의 모든 시각도 UTC)
 FILTER_TEXT = {"start": "시작 (UTC):", "end": "종료 (UTC):"}
 # 최근 파일·폴더: 같은 대상 묶어 보기(출처별 기록), 바로가기 한 줄 보기, 원본 위치와 시각의 의미
