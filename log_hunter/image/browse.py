@@ -187,7 +187,8 @@ def _scan_record(raw, number):
     if info is not None and len(info.value) >= 32:
         times = {key: filetime(value) for key, value in zip(TIME_KEYS, struct.unpack_from("<QQQQ", info.value))}
     return {"record": number, "sequence": struct.unpack_from("<H", data, 16)[0], "name": name["name"],
-            "parent": name["parent"], "in_use": bool(flags & 1), "directory": bool(flags & 2), "size": size,
+            "parent": name["parent"], "parent_sequence": name["parent_sequence"],
+            "in_use": bool(flags & 1), "directory": bool(flags & 2), "size": size,
             **times}
 
 

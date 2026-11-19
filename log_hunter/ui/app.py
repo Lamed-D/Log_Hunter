@@ -1090,7 +1090,11 @@ def run(live=None):
         def worker():
             try:
                 mapping = _resolve_sids(batch)
-                analysis = Pipeline(file_times(extractions)).analyze(batch, progress=report)
+                inventory = (event for extraction in extractions
+                             if any(artifact == "mft" and str(Path(path).resolve()).casefold() in used
+                                    for artifact, path, _ in extraction.inputs)
+                             for event in extraction.file_inventory)
+                analysis = Pipeline(file_times(extractions)).analyze(batch, progress=report, file_inventory=inventory)
                 for extraction in extractions:
                     if used & set(extraction.file_index()):
                         apply_image_metadata(analysis, extraction)

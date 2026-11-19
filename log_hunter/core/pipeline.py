@@ -172,7 +172,9 @@ class Pipeline:
                                              include_mft=include_mft, progress=extract_progress,
                                              verification_progress=verification_progress, verification_cancel=verification_cancel)
         self.file_times = {**self.file_times, **file_times([extraction])}
-        return apply_image_metadata(self.analyze(extraction.inputs, sid, environment, progress), extraction)
+        return apply_image_metadata(
+            self.analyze(extraction.inputs, sid, environment, progress, file_inventory=extraction.file_inventory),
+            extraction)
 
     def analyze_image(self, image_path, workdir, sid=None, environment=None, progress=None,
                       include_mft=False, extract_progress=None, verify=False,
@@ -182,7 +184,7 @@ class Pipeline:
                                        verify=verify, verification_progress=verification_progress,
                                        verification_cancel=verification_cancel)
         self.file_times = {**self.file_times, **file_times([extraction])}
-        result = self.analyze(extraction.inputs, sid, environment, progress)
+        result = self.analyze(extraction.inputs, sid, environment, progress, file_inventory=extraction.file_inventory)
         result = apply_image_metadata(result, extraction)
         for error in extraction.verification.get('errors', []):
             result.errors.append(ParserError(str(image_path), 'image',
@@ -196,7 +198,7 @@ class Pipeline:
                                              '이미지 무결성 검증: ' + IMAGE_VERIFICATION_LABELS[extraction.verification['status']], 'info'))
         return result
 
-    def analyze(self, inputs, sid=None, environment=None, progress=None):
+    def analyze(self, inputs, sid=None, environment=None, progress=None, *, file_inventory=()):
         # Inputs are (artifact, path) or (artifact, path, owner_sid); the per-input SID wins over `sid`.
         expanded = []
         for artifact, path, *rest in inputs:
@@ -367,6 +369,7 @@ class Pipeline:
             if event.timestamp is None and local:
                 event.timestamp, time_details = local_time_to_utc(local, clock)
                 event.details.update(time_details)
+        result.events.extend(file_inventory)
         from .task_merge import merge_tasks
         result.events = merge_tasks(result.events, result.evidence)
         result.events = combine_os_records(result.events)

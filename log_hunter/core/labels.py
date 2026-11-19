@@ -166,6 +166,11 @@ ACTION_LABELS = {
     "cache_entry": "웹 캐시 항목",
     "cache_url_candidate": "웹 캐시 주소",
     "cache_folder_status": "캐시 폴더 분석 상태",
+    "deleted_file_candidate": "삭제 파일 후보",
+    "ntfs_file_inventory": "파일 목록 항목",
+    "extension_mismatch": "파일 확장자와 내용 형식 불일치",
+    "encrypted_file": "파일에 암호화 표시 있음",
+    "photo_metadata": "사진에 기록된 메타데이터",
     "ese_string_candidate": "사용량 기록 문자열",
     "folder_access": "폴더 열기",
     "network_interface": "네트워크 어댑터",
@@ -481,6 +486,7 @@ COLUMN_LABELS = {
     "product_name": "제품 이름", "build_number": "빌드 번호", "computer_name": "컴퓨터 이름",
     "time_zone_name": "기록된 Windows 시간대", "account_name": "등록된 계정 이름",
     "account_rid": "로컬 계정 번호", "profile_path": "프로필 폴더",
+    "file_type": "파일 형식", "file_extension": "파일 확장자", "file_type_basis": "형식 확인 근거",
 }
 # 화면·분류별 CSV 뒤쪽 공통 열(타임라인 CSV와 같은 이름·값)의 뜻 — 열 설명 파일에 씀
 COMMON_FIELD_DESCRIPTIONS = {
@@ -534,6 +540,11 @@ JUMP_LIST_TEXT = {
 CACHE_TEXT = {
     "nodes": {"entries": "캐시 항목", "status": "폴더 분석 상태"},
     "states": {"parsed": "처리함", "partial": "일부 처리", "unsupported": "형식 미지원", "no_files": "항목 파일 없음"},
+}
+FILE_INVENTORY_TEXT = {
+    "nodes": {"inventory": "파일 목록", "deleted": "삭제 파일 후보", "mismatch": "확장자 불일치",
+              "encrypted": "암호화 표시", "photos": "사진 메타데이터", "timestamps": "파일 시스템 시각"},
+    "basis": {"signature": "파일 시그니처", "extension": "이름의 확장자", "unknown": "알 수 없음"},
 }
 # 웹 기록: 방문·다운로드 나눔, 다운로드 주소의 역할(어느 주소가 파일을 내려 준 곳인지)과 상태
 WEB_TEXT = {
