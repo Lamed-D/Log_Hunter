@@ -108,11 +108,12 @@ def load(source, extra=None):
         info["extracted_copy"] = info.pop("path", None)
         info.pop("modified", None)
     info.update(extra)
+    record_source = bool(info.pop("record_source", False))
     if "sha256" not in info:
         info["sha256"] = source.sha256() if source.size <= HASH_LIMIT else "파일이 커서 계산하지 않았습니다"
     head = source.read(0, STRING_SCAN_LIMIT)
     strings = extract_strings(head)
-    return {"info": info_rows(info), "page": 0, "pages": page_count(source.size), "hex": read_page(source, 0),
+    return {"info": info_rows(info, record_source), "page": 0, "pages": page_count(source.size), "hex": read_page(source, 0),
             "strings": strings_text(strings, source.size > STRING_SCAN_LIMIT or len(strings) >= STRING_LIMIT)}
 
 
@@ -121,10 +122,18 @@ def read_page(source, page):
     return "\n".join(hex_lines(data, page * PAGE_SIZE)) or "(빈 파일)"
 
 
-def info_rows(info):
+def info_rows(info, record_source=False):
+    """(name, value) rows. For the file behind a selected record the first row says so, and its times are named
+    '원본 파일 … (MFT)' so they are not read as the record's own times."""
     keys = [k for k in FILE_INFO_ORDER if info.get(k) not in (None, "")]
     keys += sorted(k for k in info if k not in FILE_INFO_ORDER and info[k] not in (None, ""))
-    return [(file_info_label(k), _display(k, info[k])) for k in keys]
+    if not record_source:
+        return [(file_info_label(k), _display(k, info[k])) for k in keys]
+    from log_hunter.core.labels import SOURCE_FILE_TEXT as S
+    where = S["from_mft"] if info.get("image_path") or info.get("mft_record") is not None else S["from_fs"]
+    rows = [(S["note_label"], S["note"])]
+    rows += [(S["times"][k] + where if k in S["times"] else file_info_label(k), _display(k, info[k])) for k in keys]
+    return rows
 
 
 def _display(key, value):
@@ -151,6 +160,7 @@ def record_file_extra(source, evidence, extractions=()):
             extra = {k: meta[k] for k in ("image", "drive", "volume", "image_path", "mft_record") if meta.get(k) is not None}
             extra["sha256"] = item.sha256
             break
+    extra["record_source"] = True
     for extraction in extractions:
         origin = extraction.file_index().get(str(os.path.abspath(str(source))).casefold())
         if origin:

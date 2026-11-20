@@ -332,15 +332,47 @@ def recent_properties(event, ctx):
         (column_label("target_match"), RECENT_TEXT["match"].get(d.get("target_match"), UNKNOWN_VALUE)),
         (L["user"], f"{user} ({event.sid})" if user else _text(event.sid)),
     ]
-    times = [RECENT_TEXT["time_line"].format(label=_meaning(field), time=format_time(value))
-             for field, value in sorted((d.get("lnk_times") or {}).items(), key=lambda kv: kv[1])]
+    times = time_table(event, ctx)
     related = sorted((e for e in ctx.related if e is not event), key=lambda e: (e.timestamp is None, e.timestamp or ""))
     others = [f"{artifact_label(e.artifact)} · {event_time_text(e)}"
               f" · {_meaning(e.time_field)} · {source_location(e, origins)}" for e in related]
-    tabs = [(RECENT_TEXT["times_tab"], times or [RECENT_TEXT["time_line"].format(
-        label=_meaning(event.time_field), time=moment)], False),
+    tabs = [(RECENT_TEXT["times_tab"], times, False),
         (RECENT_TEXT["nodes"]["targets"], others or [UNKNOWN_VALUE], True), _raw_tab(event)]
     return fields, tabs, None
+
+
+def time_table(event, ctx):
+    """Every time known for the same item, one line each with where it sits: the record's own time, the other times of
+    the same shell item or shortcut (same locator), the registry key's last write, then the source file's MFT times,
+    which are marked as not being the record's times."""
+    from log_hunter.core.labels import SOURCE_FILE_TEXT, TIME_BASIS_TEXT as T
+    from log_hunter.core.tree import time_source
+    entries = {}  # time meaning -> shown time
+
+    def add(field, text):
+        if field and text and text != UNKNOWN_VALUE:
+            entries.setdefault(field, text)
+    add(event.time_field, event_time_text(event))
+    if event.locator:
+        for other in ctx.siblings:
+            if other.locator == event.locator and other.source == event.source:
+                add(other.time_field, event_time_text(other))
+    d = event.details or {}
+    for field, value in (d.get("lnk_times") or {}).items():
+        add(field, format_time(value))
+    if d.get("registry_key_lastwrite"):
+        add("key_lastwrite", format_time(d["registry_key_lastwrite"]))
+    lines = [T["table_line"].format(label=_meaning(field), time=text, source=time_source(field))
+             for field, text in sorted(entries.items(), key=lambda kv: kv[1])]
+    if not lines:
+        lines = [RECENT_TEXT["time_line"].format(label=_meaning(event.time_field), time=event_time_text(event))]
+    extra = ctx.file_extra or {}
+    for key in ("created", "modified", "accessed", "mft_modified"):
+        if extra.get(key):
+            label = SOURCE_FILE_TEXT["times"][key].removeprefix("원본 파일 ")
+            lines.append(T["table_line"].format(label=T["source_file"].format(label=label), time=format_time(extra[key]),
+                                                source=T["sources"]["mft"]))
+    return lines
 
 
 def jump_list_properties(event, ctx):

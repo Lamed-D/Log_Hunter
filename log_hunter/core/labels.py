@@ -267,6 +267,72 @@ TIME_FIELD_LABELS = {
     "last_removal": "마지막 분리",
 }
 
+# Where a record's time comes from and how it was written (기록 정보 tab, properties dialog). Shown as stored:
+# every time on screen, in CSV and in reports is UTC; a time written without a zone stays 시간대 미상.
+TIME_BASIS_TEXT = {
+    # time_basis codes some parsers store
+    "codes": {
+        "key_lastwrite": "레지스트리 키 마지막 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "unknown": "이 항목 자체의 시각 없음 (키 시각은 목록 맨 앞 항목에만 해당)",
+        "device_property_filetime": "장치 속성에 적힌 FILETIME (UTC로 기록, 100나노초 단위)",
+        "FILETIME": "FILETIME (UTC로 기록, 100나노초 단위)",
+        "Unix epoch": "Unix 시각 (UTC 기준 초)",
+    },
+    # default by time meaning, when the record does not store its own basis
+    "fields": {
+        "key_lastwrite": "레지스트리 키 마지막 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "key_last_write": "레지스트리 키 마지막 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "shell_item_created": "셸 항목 안 DOS 날짜·시각 (UTC로 기록, 2초 단위)",
+        "shell_item_modified": "셸 항목 안 DOS 날짜·시각 (UTC로 기록, 2초 단위)",
+        "shell_item_accessed": "셸 항목 안 DOS 날짜·시각 (UTC로 기록, 2초 단위)",
+        "lnk_target_created": "바로가기 머리글의 FILETIME (UTC로 기록, 100나노초 단위)",
+        "lnk_target_written": "바로가기 머리글의 FILETIME (UTC로 기록, 100나노초 단위)",
+        "lnk_target_accessed": "바로가기 머리글의 FILETIME (UTC로 기록, 100나노초 단위)",
+        "lnk_file_created": "바로가기 파일 자체의 MFT 시각 (FILETIME, UTC로 기록)",
+        "lnk_file_modified": "바로가기 파일 자체의 MFT 시각 (FILETIME, UTC로 기록)",
+        "si_created": "NTFS MFT 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "si_modified": "NTFS MFT 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "si_accessed": "NTFS MFT 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "si_mft_changed": "NTFS MFT 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "fn_created": "NTFS MFT 이름 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "fn_modified": "NTFS MFT 이름 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "fn_accessed": "NTFS MFT 이름 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "fn_mft_changed": "NTFS MFT 이름 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
+        "visit_time": "브라우저 기록 DB의 1601년 기준 마이크로초 (UTC로 기록)",
+        "last_visit_time": "브라우저 기록 DB의 1601년 기준 마이크로초 (UTC로 기록)",
+        "start_time": "브라우저 기록 DB의 1601년 기준 마이크로초 (UTC로 기록)",
+        "search_last_visit": "브라우저 기록 DB의 1601년 기준 마이크로초 (UTC로 기록)",
+        "cookie_created": "브라우저 쿠키 DB의 1601년 기준 마이크로초 (UTC로 기록)",
+        "cookie_last_access": "브라우저 쿠키 DB의 1601년 기준 마이크로초 (UTC로 기록)",
+        "cookie_last_update": "웹 캐시 DB의 FILETIME (UTC로 기록, 100나노초 단위)",
+        "icon_updated": "브라우저 아이콘 DB의 1601년 기준 마이크로초 (UTC로 기록)",
+        "autofill_created": "브라우저 자동 완성 DB의 Unix 초 (UTC 기준)",
+        "autofill_last_used": "브라우저 자동 완성 DB의 Unix 초 (UTC 기준)",
+        "extension_installed": "브라우저 설정 파일의 1601년 기준 마이크로초 (UTC로 기록)",
+        "profile_last_active": "브라우저 설정 파일(Local State)의 Unix 초 (UTC 기준)",
+        "bookmark_added": "브라우저 책갈피 파일의 1601년 기준 마이크로초 (UTC로 기록)",
+        "bookmark_file_created": "즐겨찾기 파일 자체의 MFT 시각 (FILETIME, UTC로 기록)",
+        "webcache_accessed": "웹 캐시 DB의 FILETIME (UTC로 기록)",
+        "webcache_last_accessed": "웹 캐시 DB의 FILETIME (UTC로 기록)",
+        "email_sent": "메일 Date 머리글 (적힌 시간대 오프셋으로 UTC 환산)",
+        "record_filetime": "이벤트 로그 레코드 머리글의 FILETIME (UTC로 기록)",
+        "time_created": "이벤트 XML의 SystemTime (UTC로 기록)",
+        "last_execution": "레지스트리 값 안 FILETIME (UTC로 기록)",
+        "last_run_time": "Prefetch 파일 안 FILETIME (UTC로 기록)",
+    },
+    "unknown_zone": "시간대 미상 — 현지 시각으로 기록됐지만 어느 시간대인지 몰라 UTC로 바꾸지 않음",
+    "not_recorded": "따로 기록되지 않음 (저장된 시각은 UTC)",
+    "unknown_zone_hint": "시간대 미상 기록은 날짜 필터를 쓰면 결과에서 빠지고, 시각순 정렬에서는 시각 없는 기록과 함께 맨 뒤에 놓입니다",
+    # where the time sits
+    "sources": {"shell_item": "셸 항목 안 (레지스트리 값 데이터)", "registry_key": "레지스트리 키 (키 마지막 기록)",
+                "mft": "파일 시스템 (MFT)", "lnk_header": "바로가기 파일 안", "record": "기록 안"},
+    "rows": {"time": "시각 (UTC)", "basis": "시각 근거", "source": "시각 출처", "raw_local": "원래 값 (현지 시각)",
+             "zone": "환산에 쓴 시간대", "hint": "날짜 필터·정렬", "key_time": "레지스트리 키 마지막 기록 (UTC)"},
+    # 속성 창 (recent files/folders): every time of the same item, each with its source
+    "table_line": "{label}: {time}  ·  출처: {source}",
+    "source_file": "원본 파일 {label} (MFT, 기록 시각 아님)",
+}
+
 CHART_LABELS = {
     "empty": "표시할 기록이 없습니다", "other": "기타",
     "artifacts": "기록 종류별 기록 수", "actions": "가장 많은 활동",
@@ -454,6 +520,14 @@ FILE_INFO_LABELS = {
     "mft_record": "MFT 번호", "mft_sequence": "MFT 순번", "in_use": "상태", "size": "크기",
     "created": "생성", "modified": "수정", "accessed": "접근", "mft_modified": "MFT 변경", "timezone_known": "시간대",
     "sha256": "SHA-256", "note": "참고", "extracted_copy": "분석에 쓴 추출 사본", "extracted_sha256": "추출 사본 SHA-256", "drive": "드라이브",
+}
+# 파일 정보 tab for a selected record: the file the record was read from, not the record itself.
+SOURCE_FILE_TEXT = {
+    "note_label": "이 탭의 내용",
+    "note": "이 기록을 꺼낸 원본 파일(예: 하이브)의 정보 — 기록 자체의 시각이 아님 (기록 시각은 '기록 정보' 탭)",
+    "times": {"created": "원본 파일 생성", "modified": "원본 파일 수정", "accessed": "원본 파일 접근",
+              "mft_modified": "원본 파일 MFT 변경"},
+    "from_mft": " (MFT)", "from_fs": " (이 PC 파일 시스템)",
 }
 
 
