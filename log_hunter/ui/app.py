@@ -10,7 +10,7 @@ from log_hunter.core.tree import OriginIndex, TreeNode, build_tree, event_proper
 from log_hunter.core.auto_detect import detect_inputs
 from log_hunter.core.sid_resolver import display_name, is_service_sid, resolve_sids
 from log_hunter.core import tags as tag_book
-from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, COLUMN_LAYOUT_HINT, COLUMN_LAYOUT_RESET, TAGGED_IMAGE_CHANGED, TAGGED_IMAGE_CHANGED_NOTE, TAG_COLOR_WORDS, TAG_MENU, TASK_TEXT, SNAPSHOT_TEXT, DIAGNOSTIC_TEXT, anomaly_label,
+from log_hunter.core.labels import (ARTIFACT_DESCRIPTIONS, COLUMN_LAYOUT_HINT, COLUMN_LAYOUT_RESET, TAGGED_FILES_SKIPPED, TAGGED_IMAGE_CHANGED, TAGGED_IMAGE_CHANGED_NOTE, TAG_COLOR_WORDS, TAG_MENU, TASK_TEXT, SNAPSHOT_TEXT, DIAGNOSTIC_TEXT, anomaly_label,
                                     artifact_from_label, artifact_label, status_label)
 from log_hunter.image import (extract_artifacts, is_admin, is_live_path, live_device,
                               relaunch_as_admin, system_drive)
@@ -1687,12 +1687,18 @@ def run(live=None):
         """파일 목록 with every tagged image file (any image), opened through its own image/volume."""
         files_state.update(node=None, view=None, tagged=True)
         _update_path_bar()
-        rows = []
+        rows, skipped = [], 0
         for item in book.rows():
             ref = item["ref"]
             if item["target"] != "file":
                 continue
-            parts = tuple(ref.get("parts", ()))
+            parts = ref.get("parts", ())
+            # A tag file from elsewhere may lack the image/volume a file tag needs: list it as skipped, not fail.
+            if (not isinstance(ref.get("image"), str) or type(ref.get("volume")) is not int
+                    or not isinstance(parts, (list, tuple)) or not all(isinstance(p, str) for p in parts)):
+                skipped += 1
+                continue
+            parts = tuple(parts)
             changed = ref.get("image_id") != tag_book.image_identity(ref["image"])
             rows.append({"name": parts[-1] if parts else "", "parts": parts, "record": ref.get("mft_record"),
                          "sequence": ref.get("mft_sequence"), "kind": fs_model.kind_of(parts[-1] if parts else ""),
@@ -1700,6 +1706,8 @@ def run(live=None):
                          "image_id": ref.get("image_id"), "check": TAGGED_IMAGE_CHANGED if changed else ""})
         tabs.select(files.frame)
         note = TAGGED_IMAGE_CHANGED_NOTE if any(row["check"] for row in rows) else "태그는 오른쪽 클릭으로 바꿉니다"
+        if skipped:
+            note += " · " + TAGGED_FILES_SKIPPED.format(count=skipped)
         files.show(rows, "분석자 태그를 붙인 파일", note)
 
     def on_relation_select(_event=None):

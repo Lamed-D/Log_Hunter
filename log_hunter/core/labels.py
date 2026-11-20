@@ -1041,6 +1041,7 @@ TAG_MENU = {"subcategories": "{color} 하위 분류", "new_subcategory": "새 �
 # 태그한 파일의 이미지가 태그할 때와 크기·수정 시각이 다를 때 (같은 경로에 다른 이미지일 수 있음)
 TAGGED_IMAGE_CHANGED = "이미지 바뀜 · 확인 필요"
 TAGGED_IMAGE_CHANGED_NOTE = "태그한 뒤 이미지 파일의 크기나 수정 시각이 바뀐 파일이 있습니다. 같은 파일인지 확인하세요"
+TAGGED_FILES_SKIPPED = "이미지·볼륨 정보가 없거나 형식이 맞지 않는 파일 태그 {count}건은 목록에서 뺐습니다"
 
 
 def tag_label(key):
