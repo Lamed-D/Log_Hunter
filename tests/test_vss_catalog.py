@@ -69,6 +69,7 @@ class VSSCatalogTests(unittest.TestCase):
         self.assertEqual(first['store_id'], str(uuid.UUID(int=1)))
         self.assertEqual(first['created_at'], '2020-12-30T00:00:01+00:00')
         self.assertEqual(first['time_field'], 'snapshot_creation_time')
+        self.assertIn('FILETIME', first['time_basis'])
         self.assertEqual(first['store']['store_header_offset'], BLOCK_SIZE * 7)
         self.assertTrue(first['catalog_complete'])
         self.assertFalse(first['readable'])

@@ -466,4 +466,6 @@ def deleted_jump_list_records(events):
             row.details["file_times"][field] = event.timestamp
         if field == "modified" and event.timestamp:
             row.timestamp, row.time_field = event.timestamp, event.time_field
+            if event.details.get("time_basis"):
+                row.details["time_basis"] = event.details["time_basis"]
     return list(groups.values())

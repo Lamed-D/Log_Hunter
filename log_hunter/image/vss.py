@@ -109,6 +109,7 @@ def read_catalog(image, volume, source='image'):
                     table[identity] = {'store_id': identity, 'volume_size': size,
                         'created_at': timestamp, 'creation_filetime_raw': str(creation),
                         'time_field': 'snapshot_creation_time' if timestamp else None,
+                        'time_basis': '볼륨 섀도 복사본 FILETIME (UTC, 100ns 단위)' if timestamp else None,
                         'catalog_entry_offset': offset + index}
                     if timestamp is None:
                         warning(locator, '스냅숏 생성 시각을 해석할 수 없습니다')

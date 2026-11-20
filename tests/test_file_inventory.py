@@ -43,6 +43,11 @@ class FileInventoryTests(unittest.TestCase):
         target, = [e for e in rows["ntfs_file_inventory"] if e.details["mft_record"] == encrypted.details["mft_record"]]
         self.assertEqual(target.details["file_size"], len(encrypted_pdf()))
         self.assertEqual(target.details["source_path"], r"\Evidence\document.pdf")
+        mft = {e.time_field: e for e in result.events
+               if e.action == "file_metadata" and (e.path or "").endswith("document.pdf")}
+        self.assertIn("$STANDARD_INFORMATION", mft["si_created"].details["time_basis"])
+        self.assertIn("$FILE_NAME", mft["fn_created"].details["time_basis"])
+        self.assertEqual(mft["si_created"].timestamp, mft["fn_created"].timestamp)
 
     def test_photo_uses_the_offset_paired_with_the_original_timestamp(self):
         raw = b"2024:01:02 01:00:00\0"

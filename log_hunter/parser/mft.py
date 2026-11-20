@@ -168,6 +168,15 @@ class MFTParser(ArtifactParser):
                 details["data_size"] = record["data_size"]
             attr_types = [ATTR_NAMES.get(a["type"], f"0x{a['type']:X}") for a in record["attributes"]]
             details["attribute_types"] = attr_types
+            time_details = {}
             for label, timestamp in record["times"] or [("unknown", 0)]:
-                yield ForensicEvent(self.artifact, str(path), "file_metadata", filetime(timestamp), label,
-                                    path=full_path, locator=f"record:{index}", details=details)
+                stamp = filetime(timestamp)
+                event_details = details
+                if stamp:
+                    attribute = label.split("_", 1)[0]
+                    if attribute not in time_details:
+                        source = "$STANDARD_INFORMATION" if attribute == "si" else "$FILE_NAME"
+                        time_details[attribute] = {**details, "time_basis": f"NTFS {source} FILETIME (UTC, 100ns 단위)"}
+                    event_details = time_details[attribute]
+                yield ForensicEvent(self.artifact, str(path), "file_metadata", stamp, label,
+                                    path=full_path, locator=f"record:{index}", details=event_details)
