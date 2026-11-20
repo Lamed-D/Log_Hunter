@@ -5,6 +5,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 
 from log_hunter.core.pipeline import Pipeline
@@ -37,6 +38,21 @@ class SyntheticWindowsCaseTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(image.read(0, image.size)).hexdigest(), self.manifest["disk_sha256"])
         with self.assertRaises(FileExistsError):
             fixture.generate(self.root / "image")
+
+    def test_original_utc_records_survive_a_change_of_installation_timezone(self):
+        utc_artifacts = {"bam", "evtx", "history", "jumplist", "lnk", "prefetch", "recyclebin",
+                         "run", "shellbag", "taskcache", "usb", "userassist"}
+        clocks = []
+        for bias in (0, -540):
+            root = self.root / f"utc-bias-{bias}"
+            fixture.generate(root / "image", utc_bias_minutes=bias)
+            result = Pipeline().analyze_image(root / "image/synth.E01", root / "analysis")
+            self.assertEqual(result.settings["windows_time_zone"]["standard_bias"], bias)
+            clocks.append(Counter((e.artifact, e.action, e.time_field, e.timestamp, e.path)
+                                  for e in result.events if e.artifact in utc_artifacts))
+        self.assertEqual(clocks[0], clocks[1])
+        self.assertTrue({"evtx", "history", "jumplist", "lnk", "prefetch", "recyclebin",
+                         "shellbag", "usb", "userassist"} <= {a for a, _, _, stamp, _ in clocks[0] if stamp})
 
     def test_all_artifacts_survive_image_extraction(self):
         events = self.result.events
