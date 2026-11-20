@@ -135,6 +135,24 @@ class ExFATTests(unittest.TestCase):
         self.assertIn("file_times_local", local.details)
         self.assertEqual([e.path for e in actions["deleted_file_candidate"]], ["\\gone.jpg"])
 
+    def test_mixed_offsets_keep_utc_and_local_times_apart(self):
+        from log_hunter.image.inventory import scan_fat_inventory
+
+        class Volume:
+            kind = "exfat"
+
+            def walk(self):
+                yield {"path": "\a.txt", "name": "a.txt", "short_name": "a.txt", "size": 0, "first_cluster": 0,
+                       "deleted": False, "directory": False, "times_utc": False,
+                       "created": "2020-12-30T00:30:00+00:00", "modified": "2020-12-30T09:30:00", "accessed": None}
+
+            def reader(self, *args, **kwargs):
+                return (lambda offset, length: b""), 0
+        event = next(scan_fat_inventory(Volume(), 0, "usb.dd"))
+        self.assertFalse(event.details["timezone_known"])
+        self.assertEqual(event.details["file_times"], {"created": "2020-12-30T00:30:00+00:00"})
+        self.assertEqual(event.details["file_times_local"], {"modified": "2020-12-30T09:30:00", "accessed": None})
+
     def test_damaged_volumes_end_cleanly(self):
         import random
         from log_hunter.image.inventory import scan_fat_inventory

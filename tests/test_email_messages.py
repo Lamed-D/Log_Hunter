@@ -66,6 +66,12 @@ class EmailTests(unittest.TestCase):
         (event,) = result.events
         self.assertIsNone(event.timestamp)
         self.assertEqual(event.details["email_date_basis"], "zone_unknown")
+        # the written wall clock is kept and shown as 시간대 미상, never as UTC or converted with the PC's zone
+        self.assertEqual(event.details["timestamp_raw_local"], "2020-12-30T09:00:00")
+        self.assertFalse(event.details["timezone_known"])
+        self.assertEqual(event.time_field, "email_sent")
+        from log_hunter.core.timestamp import display_event_time
+        self.assertEqual(display_event_time(event), "2020-12-30 09:00:00 (시간대 미상)")
         self.assertIn("Wed, 30 Dec 2020 09:00:00 -0000", event.details["email_date_raw"])
         self.assertEqual(event.status, "partial")
 
