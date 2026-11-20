@@ -12,6 +12,17 @@ def event(artifact, source="generated", timestamp="2024-01-01T00:00:00+00:00", *
 
 
 class RelationEvidenceTests(unittest.TestCase):
+    def test_execution_chain_sorts_by_utc_instant_and_omits_unknown_clock(self):
+        events = [
+            event("prefetch", timestamp="2024-02-01T00:01:00+09:00", process="test.exe"),
+            event("bam", timestamp="2024-01-31T15:02:00+00:00", process="test.exe"),
+            event("userassist", timestamp="2024-01-31T15:00:00", process="test.exe"),
+        ]
+        chain = next(r for r in correlate(events) if r["type"] == "execution_chain")
+        self.assertEqual(chain["event_indices"], [0, 1, 2])
+        self.assertEqual(chain["first_seen"], "2024-01-31T15:01:00+00:00")
+        self.assertEqual(chain["last_seen"], "2024-01-31T15:02:00+00:00")
+
     def test_path_pair_preserves_raw_normalized_and_time_meaning(self):
         events = [event("bam", "SYSTEM", path=r"C:\Evidence\TEST.EXE"),
                   event("prefetch", "TEST.pf", timestamp="2024-01-01T00:00:20+00:00", process=r"c:\evidence\test.exe")]
