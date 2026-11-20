@@ -5,6 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 from .correlation import summarize_correlations
 from .sid_resolver import display_name
+from .timestamp import display_clock, normalize_event_timestamp
 from .task_merge import TASK_ARTIFACTS
 from .export import csv_source_paths, event_json_row, export_csv
 from . import thumbcache_view, wifi_view
@@ -94,10 +95,10 @@ def _write_html_report(path, payload, evidence, events, errors, relations, summa
     # Shown user names (found in the evidence > well-known account names); the exported sid values stay as they are.
     user_names = {sid: display_name(sid, sid_names) for sid in sorted(sid_set)}
     user_names = {sid: name for sid, name in user_names.items() if name}
-    timestamps = [e.timestamp for e in events if e.timestamp]
+    timestamps = [stamp for e in events if (stamp := normalize_event_timestamp(e).timestamp)]
     time_range = ""
     if timestamps:
-        time_range = f"{min(timestamps)[:19].replace('T', ' ')} UTC ~ {max(timestamps)[:19].replace('T', ' ')} UTC"
+        time_range = f"{display_clock(min(timestamps))} ~ {display_clock(max(timestamps))}"
 
     error_count = sum(1 for e in errors if e.severity == "error")
     warn_count = sum(1 for e in errors if e.severity == "warning")
@@ -539,7 +540,7 @@ document.addEventListener('keydown', e => {{
         for index, event in enumerate(events):
             if index:
                 stream.write(", ")
-            stream.write(_script_json(event.to_dict()))
+            stream.write(_script_json(normalize_event_timestamp(event).to_dict()))
         stream.write("];" + after)
 
 
