@@ -212,6 +212,7 @@ def resolve_event_metadata_clock(event, clock):
                 times[field] = resolve_record_clock(raw, clock)
                 stamp, basis = times[field]
                 details[field + "_utc"] = stamp
+                basis["time_basis"] = "로컬 SYSTEMTIME (1ms 단위), " + basis["time_basis"]
                 details[field + "_basis"] = basis["time_basis"]
         if times:
             field = next(iter(times))
@@ -225,4 +226,4 @@ def resolve_event_metadata_clock(event, clock):
                 if target.get(field):
                     stamp, provenance = resolve_record_clock(target[field], clock)
                     target[field + "_utc"] = stamp
-                    target[field + "_basis"] = provenance["time_basis"]
+                    target[field + "_basis"] = "예약 작업 XML 날짜, " + provenance["time_basis"]
