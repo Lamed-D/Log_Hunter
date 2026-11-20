@@ -51,7 +51,8 @@ class FileListView:
         self.menu = tk.Menu(self.table, tearoff=False)
         self.menu.add_command(label="파일로 저장 (읽기 전용 복사)", command=lambda: self._with_row(on_save))
         self.menu.add_command(label="이미지 안 경로 복사", command=lambda: self._with_row(on_copy_path))
-        self.table.bind("<<TreeviewSelect>>", lambda _e: self._with_row(on_select))
+        self._opened_row = None  # the file last passed to on_select; a redraw that re-selects it is not a new choice
+        self.table.bind("<<TreeviewSelect>>", lambda _e: self._on_table_select(on_select))
         activate = lambda row: on_open_folder(row) if row.get("directory") else (on_reveal or on_select)(row)
         self.table.bind("<Double-1>", lambda event: self._activate(event, activate))
         self.table.bind("<Return>", lambda _e: self._with_row(activate))
@@ -83,6 +84,14 @@ class FileListView:
             part.pack(side="left")
             if not last:
                 part.bind("<Button-1>", lambda _e, k=key: self._navigate(k))
+
+    def _on_table_select(self, on_select):
+        rows = []
+        self._with_row(rows.append)
+        if not rows or rows[0] is self._opened_row:
+            return  # nothing selected, or the same file still selected after a details refresh: do not read it again
+        self._opened_row = rows[0]
+        on_select(rows[0])
 
     def _with_row(self, callback):
         selection = self.table.selection()
@@ -167,17 +176,20 @@ class FileListView:
 
     def update_rows(self, described):
         """Merge details (times, state) read on the worker thread into the current rows."""
-        selected = self.table.selection()
+        chosen = []
+        self._with_row(chosen.append)  # the selected file itself, found again after the page is redrawn
         by_record = {row["record"]: row for row in described}
         for row in self.model.all:
             extra = by_record.get(row.get("record"))
             if extra is not None:
                 row.update({k: v for k, v in extra.items() if k not in ("name", "parts", "records", "kind")})
         self.render()
-        if selected and self.table.exists(selected[0]):
-            self.table.selection_set(selected[0])
-            self.table.focus(selected[0])
-            self.table.see(selected[0])
+        index = next((i for i, row in enumerate(self.model.page_slice()) if chosen and row is chosen[0]), None)
+        if index is not None:
+            iid = f"r{index}"
+            self.table.selection_set(iid)
+            self.table.focus(iid)
+            self.table.see(iid)
 
     def busy(self, text, cancellable=False):
         self.status.set(text)
