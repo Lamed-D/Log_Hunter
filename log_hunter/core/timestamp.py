@@ -79,9 +79,11 @@ def display_event_time(event):
 
 def normalize_event_timestamp(event):
     """Normalize a copy when a parser or an older case supplies a different clock format."""
-    if not event.timestamp or event.timestamp.endswith("+00:00") and event.details.get("timezone_known") is not False:
+    if event.timestamp is None:
         return event
     fields = event_time_fields(event)
+    if fields["timestamp_utc"] == event.timestamp:
+        return event
     details = event.details
     if fields["timestamp_raw_local"] and not fields["timestamp_utc"]:
         details = {**details, "timestamp_raw_local": fields["timestamp_raw_local"],
