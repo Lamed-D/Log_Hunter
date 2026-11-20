@@ -158,9 +158,10 @@ class TimeMeaningTests(unittest.TestCase):
         self.assertEqual(known["key_lastwrite"].details["mru_rank"], 0)
         for field, hour in (("modified", 1), ("created", 2), ("accessed", 3)):
             key = "shell_item_" + field
-            self.assertIsNone(unknown[key].timestamp)
-            self.assertIn("시간대 미상", display_event_time(unknown[key]))
-            self.assertEqual(known[key].timestamp, f"2024-01-01T{hour + 15}:00:00+00:00")
+            expected = f"2024-01-02T{hour:02}:00:00+00:00"
+            self.assertEqual(unknown[key].timestamp, expected)
+            self.assertEqual(known[key].timestamp, expected)
+            self.assertNotIn("timestamp_raw_local", unknown[key].details)
             self.assertTrue(display_event_time(known[key]).endswith(" UTC"))
 
     def test_last_visited_utf16_boundary_and_binary_pidl(self):

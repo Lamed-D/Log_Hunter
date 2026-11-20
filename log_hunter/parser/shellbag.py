@@ -4,7 +4,7 @@ Parses BagMRU tree structure to recover folder access history including
 deleted folders, network shares, and removable media paths.
 """
 import struct
-from datetime import datetime
+from datetime import datetime, timezone
 from .base import ArtifactParser
 from .registry import Hive
 from log_hunter.core.models import ForensicEvent
@@ -21,16 +21,15 @@ SHELLBAG_ROOTS = [
 ]
 
 
-def _fat_wall_time(data, offset):
+def _fat_utc_time(data, offset):
     raw = data[offset:offset + 4]
     date, time = struct.unpack("<HH", raw)
     try:
         stamp = datetime(1980 + (date >> 9), (date >> 5) & 15, date & 31,
-                         time >> 11, (time >> 5) & 63, (time & 31) * 2)
+                         time >> 11, (time >> 5) & 63, (time & 31) * 2, tzinfo=timezone.utc)
     except ValueError:
         return None
-    return {"timestamp_raw_local": stamp.isoformat(), "fat_time_hex": raw.hex(),
-            "shell_item_time_offset": offset, "timezone_known": False}
+    return stamp.isoformat(), {"fat_time_hex": raw.hex(), "shell_item_time_offset": offset}
 
 
 def _extract_shell_item_name(data, codepage=None):
@@ -57,7 +56,7 @@ def _extract_shell_item_name(data, codepage=None):
     if item_type in (0x31, 0x32, 0x35, 0xB1):
         details["type_name"] = "file_entry"
         if len(data) > 14:
-            times = {"shell_item_modified": _fat_wall_time(data, 8)}
+            times = {"shell_item_modified": _fat_utc_time(data, 8)}
             details["shell_item_times"] = times
             name_start = 14
             try:
@@ -83,8 +82,8 @@ def _extract_shell_item_name(data, codepage=None):
                 pass
             ext_offset = _find_extension_block(data, size)
             if ext_offset and ext_offset + 12 < size:
-                times["shell_item_created"] = _fat_wall_time(data, ext_offset + 8)
-                times["shell_item_accessed"] = _fat_wall_time(data, ext_offset + 12)
+                times["shell_item_created"] = _fat_utc_time(data, ext_offset + 8)
+                times["shell_item_accessed"] = _fat_utc_time(data, ext_offset + 12)
                 try:
                     relative_name = struct.unpack_from('<H', data, ext_offset + 16)[0]
                     block_size, version = struct.unpack_from('<HH', data, ext_offset)
@@ -254,11 +253,11 @@ class ShellBagParser(ArtifactParser):
             )
             for field, item_time in item_times.items():
                 if item_time:
+                    stamp, provenance = item_time
                     yield ForensicEvent(
-                        self.artifact, str(path), "folder_access", time_field=field,
+                        self.artifact, str(path), "folder_access", timestamp=stamp, time_field=field,
                         sid=self.sid, path=full_path, locator=value_loc,
-                        details={**details, **item_time, "time_basis": "시간대 미상",
-                                 "time_source": "shell_item_fat"}
+                        details={**details, **provenance, "time_source": "shell_item_fat"}
                     )
             child_locator = value_loc
             try:
