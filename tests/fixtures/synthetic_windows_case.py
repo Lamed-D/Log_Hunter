@@ -196,7 +196,7 @@ def complete_ewf(paths):
         path.write_bytes(data)
 
 
-def generate(destination):
+def generate(destination, *, utc_bias_minutes=None):
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
     if any((destination / name).exists() for name in ("synth.E01", "synth.E02", "fixture-manifest.json")):
@@ -210,6 +210,9 @@ def generate(destination):
         files[path] = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
 
     system, software = (read_tree(raw) for raw in synthetic_usb_hives())
+    if utc_bias_minutes is not None:
+        put(system, r"ControlSet002\Control\TimeZoneInformation",
+            [("Bias", 4, struct.pack("<i", utc_bias_minutes))])
     task_xml, expected_tasks = scheduled_tasks(software)
     mounted = system["MountedDevices"][":values"]
     mounted.extend(("\\??\\Volume" + guid, 3, "USBSTOR#TESTMEMORY001".encode("utf-16-le"))
