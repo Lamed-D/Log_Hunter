@@ -51,7 +51,7 @@ def _date(message, header):
     if moment is None:
         return None, str(raw), "unparsed"
     if moment.tzinfo is None:  # '-0000' or no zone: the sender's clock zone is unknown
-        return None, str(raw), "zone_unknown"
+        return moment.isoformat(), str(raw), "zone_unknown"
     return moment.astimezone(timezone.utc).isoformat(), str(raw), "utc"
 
 
@@ -91,6 +91,9 @@ class EmailParser(ArtifactParser):
         }
         status = "ok" if basis in ("utc", None) else "partial"
         if basis == "zone_unknown":
+            # Kept as the written wall clock, marked 시간대 미상: it is the sender's clock, so neither UTC nor the
+            # analyzed PC's zone may be applied (a naive value is never converted with the evidence's zone).
             self.error(path, "Date", "보낸 시각에 시간대가 없어 UTC로 바꾸지 않았습니다 (원문 보존)", "warning")
+            details.update(timezone_known=False, time_basis="시간대 미상 (메일 Date 머리글에 시간대 없음)")
         yield ForensicEvent(self.artifact, str(path), "email_message", sent, "email_sent" if sent else None, self.sid,
                             path=details["email_subject"], locator="headers", status=status, details=details)

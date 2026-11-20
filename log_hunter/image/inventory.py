@@ -1,6 +1,7 @@
 """Build a metadata inventory from base NTFS records and bounded content reads."""
 import re
 import struct
+from datetime import datetime
 from pathlib import PureWindowsPath
 
 from log_hunter.core.models import ForensicEvent
@@ -220,6 +221,13 @@ def scan_file_inventory(volume, volume_index, source):
         yield from content_events(event, label, read, file_size, prefix, suffix, state, details)
 
 
+def _has_offset(text):
+    try:
+        return datetime.fromisoformat(text).utcoffset() is not None
+    except (TypeError, ValueError):
+        return False
+
+
 def scan_fat_inventory(fat, volume_index, source):
     """The same inventory for a FAT volume: files, deleted entries (recovery candidates), type, mismatch, encryption,
     photo metadata. FAT dates are local wall-clock values: kept raw under file_times, never as UTC record times."""
@@ -230,12 +238,17 @@ def scan_fat_inventory(fat, volume_index, source):
         locator = f"volume:{volume_index}:fat_entry:{path}"
         suffix = PureWindowsPath(item["name"]).suffix.casefold()
         utc = bool(item.get("times_utc"))  # exFAT entries can carry a UTC offset; FAT never does
+        times = {k: item[k] for k in ("created", "modified", "accessed")}
         details = {"source_path": path, "source_locator": locator, "volume": volume_index,
                    "filesystem": fat.kind if isinstance(fat.kind, str) else f"fat{fat.kind}",
                    "file_name": item["name"], "short_name": item["short_name"], "file_size": item["size"],
                    "file_extension": suffix, "in_use": not item["deleted"],
-                   "file_times" if utc else "file_times_local": {k: item[k] for k in ("created", "modified", "accessed")},
-                   "timezone_known": utc}
+                   "file_times" if utc else "file_times_local": times, "timezone_known": utc}
+        if not utc:  # exFAT may mark only some times with an offset: those are UTC and are kept apart from local ones
+            aware = {k: v for k, v in times.items() if v and _has_offset(v)}
+            if aware:
+                details["file_times"] = aware
+                details["file_times_local"] = {k: v for k, v in times.items() if k not in aware}
         label = "deleted_file_candidate" if item["deleted"] else "ntfs_file_inventory"
 
         def event(action, timestamp=None, time_field=None, **extra):
