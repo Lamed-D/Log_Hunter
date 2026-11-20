@@ -55,12 +55,15 @@ class WindowsTimeTests(unittest.TestCase):
         self.assertEqual(network.timestamp, "2024-01-01T16:00:00+00:00")
         self.assertEqual(network.details["timestamp_raw_local"], raw)
         self.assertEqual(network.time_field, "network_last_connected")
+        self.assertIn("SYSTEMTIME", network.details["time_basis"])
         task = ForensicEvent("tasks", "synthetic", "task_definition",
                              details={"registration_date": raw, "triggers": [{"startboundary": raw + "+09:00"}]})
         resolve_event_metadata_clock(task, clock)
         self.assertIsNone(task.timestamp)
         self.assertEqual(task.details["registration_date_utc"], network.timestamp)
         self.assertEqual(task.details["triggers"][0]["startboundary_utc"], network.timestamp)
+        self.assertIn("XML", task.details["registration_date_basis"])
+        self.assertIn("XML", task.details["triggers"][0]["startboundary_basis"])
 
     def test_fixed_bias_and_missing_rules(self):
         clock = WindowsTimeRules("Synthetic", "SYSTEM\\ControlSet001", -540, -540, (0,) * 8, (0,) * 8)
