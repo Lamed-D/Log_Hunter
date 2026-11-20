@@ -1,13 +1,23 @@
 import re
 import struct
+from datetime import datetime
+from pathlib import Path
 from .base import ArtifactParser
 from .registry import Hive, current_controlset, walk
 from log_hunter.core.models import ForensicEvent
 from log_hunter.core.timestamp import filetime
+from log_hunter.core.text import decode_text, target_acp
 from .usb_devices import classify_device
 from log_hunter.core.labels import USB_DEVICE_KINDS, USB_UNKNOWN_REASON_LABELS
 
 DEVICE_PROPERTY_FILETIME = 0xFFFF0010
+SETUPAPI_TIME_BASIS = "SetupAPI 로컬 텍스트 (1ms 단위)"
+_SETUPAPI_LIMIT = 32 * 1024 * 1024
+_SETUPAPI_USB_HEADER = re.compile(r">>>\s+\[Device Install[^\]]*? - ((?:USB|USBSTOR)\\[^\]]+)\]", re.I)
+_SETUPAPI_CLOCK = r"\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}"
+_SETUPAPI_TIME = re.compile(
+    rf"(?P<marker>(?:>>>|<<<))\s+(?:Section (?P<kind>start|end) (?P<raw>{_SETUPAPI_CLOCK})"
+    rf"|(?P<alternate>{_SETUPAPI_CLOCK}):?\s+Section (?P<alternate_kind>start|end))\s*", re.I)
 
 
 def _match_mounted_device(mounted_values, device_name, serial):
@@ -39,6 +49,9 @@ class USBParser(ArtifactParser):
     artifact = "usb"
 
     def parse(self, path):
+        if Path(path).name.casefold() == "setupapi.dev.log":
+            yield from self._setupapi(Path(path))
+            return
         hive = Hive(path, on_error=lambda offset, exc: self.error(path, offset, exc, "warning"))
         try:
             control = current_controlset(hive)
@@ -202,6 +215,42 @@ class USBParser(ArtifactParser):
                                                     labels[key.name], locator=property_locator,
                                                     details={**identity, "raw": raw.hex(), "registry_value_type": value_type,
                                                              "time_basis": "device_property_filetime"})
+
+    def _setupapi(self, path):
+        with path.open("rb") as stream:
+            raw = stream.read(_SETUPAPI_LIMIT + 1)
+        clipped = len(raw) > _SETUPAPI_LIMIT
+        if clipped:
+            self.error(path, "size", "장치 설치 로그 크기 상한 초과", "warning")
+        text = decode_text(raw[:_SETUPAPI_LIMIT], target_acp(self.environment))["text"]
+        instance = None
+        for number, line in enumerate(text.splitlines(), 1):
+            if line.startswith(">>>") and line[3:].lstrip().startswith("["):
+                header = _SETUPAPI_USB_HEADER.fullmatch(line.rstrip())
+                instance = header[1] if header else None
+                continue
+            match = _SETUPAPI_TIME.fullmatch(line)
+            if instance is None or match is None:
+                continue
+            kind = (match["kind"] or match["alternate_kind"]).lower()
+            if (match["marker"] == ">>>") != (kind == "start"):
+                continue
+            original = match["raw"] or match["alternate"]
+            try:
+                wall = datetime.strptime(original, "%Y/%m/%d %H:%M:%S.%f")
+            except ValueError:
+                self.error(path, f"line:{number}", "장치 설치 로그의 시각 값 오류", "warning")
+            else:
+                field = f"setupapi_section_{kind}"
+                yield ForensicEvent(
+                    self.artifact, str(path), field, time_field=field, sid=self.sid,
+                    locator=f"line:{number}", details={
+                        "device_instance": instance, "timestamp_raw_local": wall.isoformat(timespec="milliseconds"),
+                        "log_time_raw": original, "physical_observation": False,
+                        "timezone_known": False, "time_basis": SETUPAPI_TIME_BASIS + ", 시간대 미상",
+                    })
+            if kind == "end":
+                instance = None
 
     def _bluetooth_peers(self, hive, control, path):
         """Read recorded Bluetooth peers; key/seen/connected times keep their own meanings."""
