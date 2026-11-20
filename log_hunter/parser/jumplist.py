@@ -312,6 +312,9 @@ class JumpListParser(ArtifactParser):
                 if val is not None and val != "" and val != [] and val != 0:
                     details[key] = val
             details = {k: v for k, v in details.items() if v is not None}
+            if best_time:
+                clock = "DestList" if dest_entry.get("timestamp") else "LNK 대상"
+                details["time_basis"] = f"{clock} FILETIME (UTC, 100ns 단위)"
 
             yield ForensicEvent(
                 self.artifact, str(jl_file), "recent_file_access",
@@ -342,6 +345,7 @@ class JumpListParser(ArtifactParser):
                         "jump_list_type": "automatic", "source": "destlist_only",
                         "access_count": entry.get("access_count"),
                         "netbios_name": entry.get("netbios_name"),
+                        "time_basis": "DestList FILETIME (UTC, 100ns 단위)" if entry.get("timestamp") else None,
                     },
                 )
 
@@ -381,6 +385,8 @@ class JumpListParser(ArtifactParser):
                         'creation_time', 'access_time', 'write_time', 'text_decoding'):
                 if info.get(key) is not None:
                     details[key] = info[key]
+            if timestamp:
+                details["time_basis"] = "LNK 대상 FILETIME (UTC, 100ns 단위)"
             yield ForensicEvent(self.artifact, str(jl_file), 'recent_file_access', timestamp, time_field,
                                 sid=self.sid, path=info.get('target_path') or info.get('relative_path'),
                                 locator=f'{jl_file.name}:byte:{offset}',
@@ -416,6 +422,8 @@ class JumpListParser(ArtifactParser):
                 if val is not None and val != "" and val != [] and val != 0:
                     details[key] = val
             details = {k: v for k, v in details.items() if v is not None}
+            if best_time:
+                details["time_basis"] = "LNK 대상 FILETIME (UTC, 100ns 단위)"
 
             yield ForensicEvent(
                 self.artifact, str(jl_file), "recent_file_access",

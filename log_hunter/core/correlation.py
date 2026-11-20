@@ -1,7 +1,7 @@
 import ntpath
 from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from .normalization import normalize_executable_path
 
@@ -392,15 +392,14 @@ def _is_evtx_execution(event):
     return event_id == 1 and "sysmon" in str(details.get("provider") or "").lower()
 
 
-def _chain_confidence(sorted_events, artifacts, parse_ts=_parse_ts):
+def _chain_confidence(sorted_events, artifacts, stamps):
     """'corroborated_execution' only when an execution log, Prefetch and BAM/UserAssist/Amcache
     for the same program name fall inside CHAIN_WINDOW with no conflicting user SIDs.
     Otherwise the records only share a file name ('multi_source')."""
     sids = {e.sid for _, e in sorted_events if e.sid}
     if len(sids) > 1 or "prefetch" not in artifacts or not artifacts & {"bam", "userassist", "amcache"}             or not any(_is_evtx_execution(e) for _, e in sorted_events):
         return "multi_source"
-    stamps = [t for t in (parse_ts(e.timestamp) for _, e in sorted_events) if t]
-    if len(stamps) < 3 or len({_time_position(t)[0] for t in stamps}) != 1 or (max(stamps) - min(stamps)).total_seconds() > CHAIN_WINDOW:
+    if len(stamps) < 3 or (stamps[-1] - stamps[0]).total_seconds() > CHAIN_WINDOW:
         return "multi_source"
     return "corroborated_execution"
 
@@ -423,11 +422,22 @@ def _build_execution_chains(events, parse_ts=_parse_ts):
     for proc_name, data in proc_map.items():
         if len(data["artifacts"]) < 2:
             continue
-        sorted_events = sorted(data["events"], key=lambda x: x[1].timestamp or "")
-        timestamps = [parse_ts(e.timestamp) for _, e in sorted_events]
-        first_ts = next((t for t in timestamps if t), None)
-        last_ts = next((t for t in reversed(timestamps) if t), None)
-        confidence = _chain_confidence(sorted_events, data["artifacts"], parse_ts)
+        timed, undated = [], []
+        for index, event in data["events"]:
+            stamp = parse_ts(event.timestamp)
+            if stamp is not None and stamp.utcoffset() is not None and event.details.get("timezone_known") is not False:
+                try:
+                    timed.append((stamp.astimezone(timezone.utc), index, event))
+                    continue
+                except OverflowError:
+                    pass
+            undated.append((index, event))
+        timed.sort(key=lambda entry: (entry[0], entry[1]))
+        sorted_events = [(index, event) for _, index, event in timed] + undated
+        timestamps = [stamp for stamp, _, _ in timed]
+        first_ts = timestamps[0] if timestamps else None
+        last_ts = timestamps[-1] if timestamps else None
+        confidence = _chain_confidence(sorted_events, data["artifacts"], timestamps)
         chains.append({
             "type": "execution_chain",
             "process": proc_name,

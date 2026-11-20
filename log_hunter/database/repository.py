@@ -2,6 +2,9 @@ import json
 import sqlite3
 from dataclasses import asdict
 
+from log_hunter.core.tags import event_key
+from log_hunter.core.timestamp import normalize_event_timestamp
+
 
 ENTITY_TABLES = ("users", "processes", "files", "urls", "devices")
 
@@ -55,7 +58,11 @@ class Repository:
 
             seen_entities = {}
             ids = []
-            for event in events:
+            tag_keys = {}
+            for original in events:
+                event = normalize_event_timestamp(original)
+                if tags and event is not original:
+                    tag_keys[event_key(original)] = event_key(event)
                 event_row_id = self.connection.execute(
                     "INSERT INTO events(case_id,artifact,timestamp,sid,data) VALUES(?,?,?,?,?)",
                     (case, event.artifact, event.timestamp, event.sid, encode(event.to_dict()))
@@ -108,9 +115,10 @@ class Repository:
                 self.connection.executemany("INSERT OR REPLACE INTO meta(key,value) VALUES(?,?)",
                                             ((k, str(state[k])) for k in ('tool_version', 'created_at')))
             if tags:
+                tags = [{**row, 'key': tag_keys.get(row['key'], row['key'])} for row in tags]
                 self.connection.execute("CREATE TABLE IF NOT EXISTS examiner_tags(id INTEGER PRIMARY KEY, key TEXT NOT NULL, data TEXT NOT NULL)")
                 self.connection.executemany("INSERT INTO examiner_tags(key,data) VALUES(?,?)",
-                                            ((r['key'], encode(r)) for r in tags))
+                                            ((row['key'], encode(row)) for row in tags))
             if state is not None:
                 from .query_index import build_case_index
                 build_case_index(self.connection, case, state, relations)
