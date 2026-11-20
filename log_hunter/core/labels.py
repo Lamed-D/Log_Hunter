@@ -149,6 +149,8 @@ ACTION_LABELS = {
     "last_visited_dialog": "열기/저장 창 마지막 폴더",
     "file_metadata": "파일 정보",
     "device_registration": "USB 장치 처음 인식",
+    "setupapi_section_start": "USB 장치 설치 로그 시작",
+    "setupapi_section_end": "USB 장치 설치 로그 종료",
     "install": "USB 장치 설치",
     "first_install": "USB 장치 최초 설치",
     "last_arrival": "USB 마지막 연결",
@@ -201,6 +203,8 @@ ACTION_LABELS = {
 }
 
 TIME_FIELD_LABELS = {
+    "setupapi_section_start": "장치 설치 로그 구간 시작 시각",
+    "setupapi_section_end": "장치 설치 로그 구간 종료 시각",
     'defender_log_record_time': '백신 로그 기록 시각',
     'lnk_access_time': '바로가기 대상의 접근 시각 (목록 사용 시각 아님)',
     'lnk_write_time': '바로가기 대상의 수정 시각 (목록 사용 시각 아님)',
