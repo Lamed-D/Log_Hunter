@@ -56,6 +56,28 @@ class AutoDetectTests(unittest.TestCase):
         from log_hunter.core.auto_detect import detect_inputs
         return detect_inputs(paths)
 
+    def test_cache_does_not_hide_neighboring_evidence(self):
+        self.source("0123456789abcdef_0")
+        self.source("sub/ConsoleHost_history.txt", b"Write-Output example\n")
+        self.assertEqual({kind for kind, *_ in self.detect([self.root]) if kind}, {"cache", "psreadline"})
+
+    def test_nested_cache_read_by_parent_is_not_repeated(self):
+        from log_hunter.core.pipeline import Pipeline
+        from test_browser_cache import simple_record
+
+        top = self.source("Default/Cache/fedcba9876543210_0",
+                          simple_record(b"https://example.com/parent", b""))
+        child = self.source("Default/Cache/Cache_Data/0123456789abcdef_0",
+                            simple_record(b"https://example.com/child", b""))
+        history = self.source("Default/Cache/Cache_Data/ConsoleHost_history.txt", b"Write-Output example\n")
+        rows = self.detect([child.parent, self.root])
+        inputs = [(kind, path, sid) for kind, path, sid, _ in rows if kind]
+        self.assertEqual({(kind, Path(path)) for kind, path, _ in inputs},
+                         {("cache", top.parent), ("psreadline", history)})
+        events = Pipeline().analyze(inputs).events
+        self.assertCountEqual([e.url for e in events if e.url],
+                              ["https://example.com/parent", "https://example.com/child"])
+
     def test_multimapping_and_usrclass(self):
         # Every hive is also scanned once for deleted keys/values left in its free cells.
         expected = {"NTUSER.DAT": {"userassist", "mru", "run", "shellbag", "rdp", "registry_deleted"},

@@ -26,6 +26,7 @@ class FileInventoryTests(unittest.TestCase):
         folder = ntfs.makedirs("Evidence")
         ntfs.add_file(folder, "photo.bmp", jpeg)
         ntfs.add_file(folder, "document.pdf", encrypted_pdf())
+        ntfs.add_file(folder, "renamed.lnk", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + bytes(64))
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             image = root / "synthetic.dd"
@@ -35,8 +36,8 @@ class FileInventoryTests(unittest.TestCase):
                 ("extension_mismatch", "photo_metadata", "encrypted_file", "ntfs_file_inventory")}
         photo, = rows["photo_metadata"]
         self.assertEqual(photo.details["camera_model"], "ABC")
-        mismatch, = rows["extension_mismatch"]
-        self.assertEqual(mismatch.details["file_type"], "jpeg")
+        mismatches = {Path(e.path).suffix: e.details["file_type"] for e in rows["extension_mismatch"]}
+        self.assertEqual(mismatches, {".bmp": "jpeg", ".lnk": "compound"})
         encrypted, = rows["encrypted_file"]
         self.assertEqual(encrypted.details["encryption_basis"], "pdf_encrypt_reference")
         target, = [e for e in rows["ntfs_file_inventory"] if e.details["mft_record"] == encrypted.details["mft_record"]]

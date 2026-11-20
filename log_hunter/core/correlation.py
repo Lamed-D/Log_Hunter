@@ -100,7 +100,7 @@ def correlate(events):
     result = []
     for index, event in enumerate(events):
         target = event.path or event.process
-        if target and event.artifact != "usb":
+        if target and event.artifact not in ("usb", "windows_installed"):
             normalized = normalize_executable_path(target)
             name = ntpath.basename(normalized)
             if name:
@@ -228,6 +228,8 @@ def correlate(events):
     # Deletion correlation — match recyclebin events against other artifacts by filename
     deletion_groups = defaultdict(list)
     for index, event in enumerate(events):
+        if event.artifact == "windows_installed":
+            continue
         target = event.path if event.artifact == "recyclebin" else event.path or event.process
         if target:
             name = ntpath.basename(target).lower()
@@ -444,6 +446,8 @@ def _build_execution_chains(events, parse_ts=_parse_ts):
 def _build_program_groups(events):
     groups = defaultdict(lambda: {"event_indices": [], "artifacts": set()})
     for index, event in enumerate(events):
+        if event.artifact == "windows_installed":
+            continue
         exe = event.process or (event.path if event.path and event.path.lower().endswith((".exe", ".dll", ".sys")) else None)
         if not exe:
             continue

@@ -26,6 +26,13 @@ def link(path, extra=b''):
 
 
 class CustomJumpListTests(unittest.TestCase):
+    def test_failed_parse_still_reports_the_file(self):
+        parser = JumpListParser()
+        with patch.object(parser, "parse", side_effect=OSError("synthetic read failure")):
+            record, = parser.parse_with_file_record("1111111111111111.customDestinations-ms")
+        self.assertEqual(record.details["file_parse_state"], "failed")
+        self.assertEqual(len(parser.errors), 1)
+
     def test_pipeline_keeps_empty_file_and_links_entries_to_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

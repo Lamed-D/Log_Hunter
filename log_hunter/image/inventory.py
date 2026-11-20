@@ -5,11 +5,13 @@ from pathlib import PureWindowsPath
 
 from log_hunter.core.models import ForensicEvent
 from log_hunter.core.preview_images import _exif
+from log_hunter.parser.lnk import LNK_CLSID
 from .browse import ImageBrowser, SCAN_CHUNK_RECORDS, READ_ERRORS, _scan_record
 from .ntfs import ATTR_DATA, FLAG_COMPRESSED, FLAG_ENCRYPTED, ROOT_RECORD, _extents
 
 
 SIGNATURES = (
+    (b"\x4c\0\0\0" + LNK_CLSID, "shell_link", (".lnk",)),
     (b"%PDF-", "pdf", (".pdf",)),
     (b"\xff\xd8\xff", "jpeg", (".jpg", ".jpeg", ".jpe", ".jfif")),
     (b"\x89PNG\r\n\x1a\n", "png", (".png",)),
@@ -20,7 +22,7 @@ SIGNATURES = (
     (b"PK\x03\x04", "zip", (".zip", ".docx", ".xlsx", ".pptx", ".docm", ".xlsm", ".pptm",
                           ".jar", ".apk", ".appx", ".msix", ".epub", ".odt", ".ods", ".odp")),
     (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", "compound",
-     (".doc", ".xls", ".ppt", ".hwp", ".msi", ".msg", ".lnk", ".automaticdestinations-ms",
+     (".doc", ".xls", ".ppt", ".hwp", ".msi", ".msg", ".automaticdestinations-ms",
       ".docx", ".xlsx", ".pptx")),
     (b"\x7fELF", "elf", (".elf", ".so", ".out")),
     (b"Rar!\x1a\x07", "rar", (".rar",)),

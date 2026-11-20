@@ -6,6 +6,8 @@ from pathlib import Path
 
 from fixtures.synthetic_windows_case import put, registry_bytes, text
 from log_hunter.core.auto_detect import detect_inputs
+from log_hunter.core.correlation import correlate
+from log_hunter.core.models import ForensicEvent
 from log_hunter.core.pipeline import Pipeline
 from log_hunter.parser.windows_inventory import (
     ACCOUNT_NAMES_KEY, OS_VERSION_KEY, PROFILE_LIST_KEY, REGISTRY_UNINSTALL,
@@ -41,6 +43,8 @@ class WindowsInventoryTests(unittest.TestCase):
         programs = [e for e in result.events if e.artifact == 'windows_installed']
         self.assertEqual(len(programs), 2)
         self.assertEqual({e.details['registry_view'] for e in programs}, {'default', 'wow64'})
+        folder = ForensicEvent("shellbag", "synthetic", "folder_access", path=r"C:\Program Files\Example App")
+        self.assertFalse(any(row["type"] == "path_correlation" for row in correlate([*programs, folder])))
         config, = [e for e in result.events if e.artifact == 'windows_os']
         self.assertEqual(config.timestamp, '2024-01-01T00:00:00+00:00')
         self.assertEqual(config.details['computer_name'], 'DESKTOP-TEST01')
