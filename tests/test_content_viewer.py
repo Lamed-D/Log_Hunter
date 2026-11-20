@@ -50,11 +50,27 @@ class ContentTests(unittest.TestCase):
             extraction = SimpleNamespace(file_index=lambda: {str(path.resolve()).casefold(): {"created": "2020-01-01T00:00:00+00:00"}})
             extra = content.record_file_extra(str(path), evidence, [extraction])
             rows = dict(content.load(content.LocalFile(path), extra)["info"])
-        self.assertEqual(rows["생성"], "2020-01-01 00:00:00 UTC")
-        self.assertNotIn("수정", rows)  # the copy's mtime is the extraction time
+        self.assertEqual(rows["원본 파일 생성 (MFT)"], "2020-01-01 00:00:00 UTC")
+        self.assertNotIn("원본 파일 수정 (MFT)", rows)  # the copy's mtime is the extraction time
+        self.assertIn("기록 자체의 시각이 아님", rows["이 탭의 내용"])
+        self.assertNotIn("생성", rows)  # never the bare name a record time could be mistaken for
         self.assertEqual(rows["분석에 쓴 추출 사본"], str(path))
         self.assertEqual(rows["SHA-256"], "ab" * 32)
         self.assertEqual(rows["디스크 이미지"], "case.E01")
+
+
+    def test_file_browsed_directly_keeps_plain_time_names(self):
+        rows = dict(content.info_rows({"image_path": r"\Windows\a.bin", "created": "2020-01-01T00:00:00+00:00"}))
+        self.assertEqual(rows["생성"], "2020-01-01 00:00:00 UTC")
+        self.assertNotIn("이 탭의 내용", rows)
+
+    def test_record_source_on_this_pc_is_named_by_file_system(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "NTUSER.DAT"
+            path.write_bytes(b"regf")
+            rows = dict(content.load(content.LocalFile(path), content.record_file_extra(str(path), []))["info"])
+        self.assertIn("원본 파일 수정 (이 PC 파일 시스템)", rows)
+        self.assertTrue(rows["원본 파일 수정 (이 PC 파일 시스템)"].endswith(" UTC"))
 
 
 class JobRunnerTests(unittest.TestCase):

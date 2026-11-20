@@ -1,5 +1,6 @@
 """Left navigation tree: data sources (file tree), artifact categories, analysis results, accounts."""
 import os
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import PureWindowsPath
@@ -8,7 +9,8 @@ from .recent_targets import target_label
 from .correlation import _build_program_groups
 from .sid_resolver import display_name
 from .task_merge import TASK_ARTIFACTS
-from .labels import (ARTIFACT_NAV_STATUS, CACHE_TEXT, COLUMN_LABELS, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, PROGRAM_GROUP_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
+from .timestamp import display_clock, display_event_time, event_time_fields
+from .labels import (TIME_BASIS_TEXT, ARTIFACT_NAV_STATUS, CACHE_TEXT, COLUMN_LABELS, DETAIL_LABELS, FILE_INVENTORY_TEXT, JUMP_LIST_TEXT, PROGRAM_GROUP_TEXT, SID_TEXT, TASK_TEXT, USB_DEVICE_KINDS, USB_GROUP_NODES, WEB_TEXT, RECENT_TEXT, action_label, artifact_label, detail_label, relation_label,
                      status_label, time_field_label)
 
 # (key, plain label, artifacts), in the order shown under 찾은 기록.
@@ -35,6 +37,7 @@ ARTIFACT_CATEGORIES = [
     ("file_system", "파일 시스템 기록", ("mft",)),
 ]
 DIRECT_SOURCE = "직접 추가한 파일"
+_ISO_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(\+00:00|Z)$")
 
 
 @dataclass
@@ -417,13 +420,63 @@ class Property:
     children: list = field(default_factory=list)
 
 
+def time_source(time_field):
+    """Where a record's time sits: inside a shell item, on a registry key, in the file system (MFT), in a shortcut."""
+    field = str(time_field or "")
+    if field.startswith("shell_item_"):
+        key = "shell_item"
+    elif field in ("key_lastwrite", "key_last_write"):
+        key = "registry_key"
+    elif field.startswith(("si_", "fn_", "lnk_file_")) or field in ("bookmark_file_created", "startup_file_created"):
+        key = "mft"
+    elif field.startswith("lnk_target_"):
+        key = "lnk_header"
+    else:
+        key = "record"
+    return TIME_BASIS_TEXT["sources"][key]
+
+
+def time_basis_text(event):
+    """How the record's time was written: the stored basis (plain words for known codes), else the usual basis of
+    its time meaning; a time without a zone says so."""
+    fields = event_time_fields(event)
+    if fields["timestamp_raw_local"] and not fields["timestamp_utc"]:
+        return TIME_BASIS_TEXT["unknown_zone"]
+    stored = (event.details or {}).get("time_basis")
+    if stored and stored != "key_lastwrite" or stored == "key_lastwrite" and event.time_field == "key_lastwrite":
+        return TIME_BASIS_TEXT["codes"].get(stored, str(stored))
+    return TIME_BASIS_TEXT["fields"].get(event.time_field) or TIME_BASIS_TEXT["not_recorded"]
+
+
+def _time_rows(event):
+    """시각 (UTC) in the same form as the table, what it means, how it was written and where it sits; a time without
+    a zone also shows its original value and how filters treat it."""
+    T = TIME_BASIS_TEXT["rows"]
+    fields = event_time_fields(event)
+    details = event.details or {}
+    rows = [Property(T["time"], display_event_time(event) or "알 수 없음"),
+            Property("시각의 의미", time_field_label(event.time_field) if event.time_field else "")]
+    if fields["timestamp_utc"] or fields["timestamp_raw_local"]:
+        rows += [Property(T["basis"], time_basis_text(event)), Property(T["source"], time_source(event.time_field))]
+    if fields["timestamp_raw_local"] and not fields["timestamp_utc"]:
+        rows.append(Property(T["raw_local"], str(fields["timestamp_raw_local"])))
+        rows.append(Property(T["hint"], TIME_BASIS_TEXT["unknown_zone_hint"]))
+    elif details.get("timestamp_raw_local"):  # a local record converted with a known zone
+        rows.append(Property(T["raw_local"], str(details["timestamp_raw_local"])))
+    if details.get("time_zone_name"):
+        rows.append(Property(T["zone"], str(details["time_zone_name"])))
+    key_time = details.get("registry_key_lastwrite")
+    if key_time and event.time_field != "key_lastwrite":
+        rows.append(Property(T["key_time"], display_clock(key_time)))
+    return rows
+
+
 def event_properties(event, origin_text=None, username=None):
     """Item/value rows for one event; nested details become child rows."""
     rows = [
         Property("기록 종류", artifact_label(event.artifact)),
         Property("무슨 일", action_label(event.action)),
-        Property("시각 (UTC)", event.timestamp or "알 수 없음"),
-        Property("시각의 의미", time_field_label(event.time_field) if event.time_field else ""),
+        *_time_rows(event),
         Property("사용자", f"{username} ({event.sid})" if username and event.sid else event.sid or ""),
         Property("파일/프로그램", event.path or ""),
         Property("실행 파일", event.process or ""),
@@ -440,6 +493,8 @@ def event_properties(event, origin_text=None, username=None):
                 if row.value == "":
                     row.value = "알 수 없음"
                 row.name = detail_label(row.name)
+            if not row.children and _ISO_UTC.match(row.value):
+                row.value = display_clock(row.value)  # the same '… UTC' form as every other time on screen
         rows.append(Property("세부 정보", f"{len(event.details)}개 항목", details))
     return rows
 

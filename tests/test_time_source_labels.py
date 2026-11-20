@@ -20,7 +20,7 @@ class TimeSourceLabelTests(unittest.TestCase):
         details = _details(rows)
         key = next(k for k in details if k.endswith("[time_created]"))
         self.assertIn("TimeCreated", key)
-        self.assertEqual(details[key], "2024-01-01T00:00:05+00:00")
+        self.assertEqual(details[key], "2024-01-01 00:00:05 UTC")  # same form as the table
         self.assertEqual(details["event_id"], "4624")
 
     def test_jumplist_raw_count_is_not_a_confirmed_count(self):
