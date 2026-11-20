@@ -54,6 +54,17 @@ class CaseDatabaseTests(unittest.TestCase):
     def snapshot(self):
         return {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in self.root.iterdir() if p.is_file()}
 
+    def test_repository_stores_canonical_utc_and_preserves_unknown_local(self):
+        explicit = ForensicEvent('tasks', 'synthetic', 'task_registered', '2024-02-01T00:30:00+09:00')
+        local = ForensicEvent('tasks', 'synthetic', 'task_registered', '2024-02-01T00:30:00')
+        repository = Repository(self.path)
+        with closing(repository.connection) as db:
+            repository.save('synthetic', [], [explicit, local], [], [])
+            rows = db.execute('SELECT timestamp, data FROM events ORDER BY id').fetchall()
+        self.assertEqual([row[0] for row in rows], ['2024-01-31T15:30:00+00:00', None])
+        self.assertEqual(json.loads(rows[0][1])['timestamp'], rows[0][0])
+        self.assertEqual(json.loads(rows[1][1])['details']['timestamp_raw_local'], local.timestamp)
+
     def test_complete_roundtrip_readonly_and_integrity_sources(self):
         original = self.result()
         saved = save_case(self.path, original, name='synthetic case')
