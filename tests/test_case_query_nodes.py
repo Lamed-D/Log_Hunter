@@ -109,6 +109,18 @@ class CaseQueryNodeTests(unittest.TestCase):
             self.assertIn(key, db_nodes)
         self.assertFalse(node_filter(type("N", (), {"kind": "event_set", "value": frozenset()})()))
 
+    def test_db_page_offset_and_sort(self):
+        from log_hunter.ui.case_view import db_page, db_sort
+        every = {"artifact": "전체", "status": "전체"}
+        first, total, _ = db_page(self.path, every, None, 3)
+        second, _, _ = db_page(self.path, every, None, 3, offset=3)
+        self.assertEqual(total, 8)
+        self.assertEqual([e.timestamp for e in first + second], [T.format(i) for i in range(1, 7)])
+        newest, _, _ = db_page(self.path, every, None, 2, sort=db_sort("timestamp", True))
+        self.assertEqual([e.timestamp for e in newest], [T.format(8), T.format(7)])
+        self.assertEqual(db_sort("timestamp", False), "timeline")
+        self.assertIsNone(db_sort("path", False))  # only the loaded view sorts by shown text
+
     def test_bad_view_node_values_are_rejected(self):
         from log_hunter.database.query_common import QueryInputError
         with open_case_query(self.path) as query:

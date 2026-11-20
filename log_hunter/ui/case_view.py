@@ -180,15 +180,26 @@ def node_filter(node):
     return False
 
 
-def db_page(path, filters, node, limit):
-    """(records, total, warnings) of one tree node and filter bar from a saved analysis, first `limit` in time order."""
+# Table columns the saved database can sort by itself (others wait for the full view): column key → database sort.
+DB_SORTS = {"timestamp": "timeline", "sid": "sid"}
+
+
+def db_sort(column, descending):
+    """Database sort name for a table column, or None when only the loaded view can sort by it."""
+    sort = DB_SORTS.get(column)
+    return None if sort is None else ("-" + sort if descending else sort)
+
+
+def db_page(path, filters, node, limit, offset=0, sort="timeline"):
+    """(records, total, warnings) of one tree node and filter bar from a saved analysis: `limit` records from `offset`
+    in the given database sort (time order by default)."""
     from log_hunter.database.case_query import open_case_query
     query_filters = {k: v for k, v in filters.items() if v}
     shape = node_filter(node)
     if shape:
         query_filters["node"] = shape
     with open_case_query(path) as query:
-        page = query.query_events(query_filters, limit=limit)
+        page = query.query_events(query_filters, sort=sort, offset=offset, limit=limit)
         return list(page.events), query.count_events(query_filters), list(query.warnings)
 
 
