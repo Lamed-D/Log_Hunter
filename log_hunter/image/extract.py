@@ -25,6 +25,7 @@ ARTIFACT_SPECS = [
     ('ProgramData/Microsoft/Windows Defender/Scans/History/Service/DetectionHistory/*/*', ('defender',), ()),
     ('ProgramData/Microsoft/Windows Defender/Quarantine/Entries/*', ('defender',), ()),
     ("Windows/System32/config/SYSTEM", ("bam", "usb", "services", "windows_os", "registry_deleted"), HIVE_SIDECARS),
+    ("Windows/inf/setupapi.dev.log", ("usb",), ()),
     ("Windows/System32/config/SOFTWARE", ("network", "run", "usb", "taskcache", "windows_installed",
                                          "windows_os", "windows_accounts", "registry_deleted"), HIVE_SIDECARS),
     ("Windows/System32/config/SAM", ("windows_accounts", "registry_deleted"), HIVE_SIDECARS),

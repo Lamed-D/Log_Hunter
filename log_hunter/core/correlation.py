@@ -159,7 +159,8 @@ def correlate(events):
 
     # USB-file temporal correlation
     usb_events = [(i, e) for i, e in enumerate(events) if e.artifact == "usb"
-                  and (e.details or {}).get('is_storage_device') is not False]
+                  and (e.details or {}).get('is_storage_device') is not False
+                  and (e.details or {}).get('physical_observation') is not False]
     file_events = [(i, e) for i, e in enumerate(events) if e.artifact != "usb" and e.path]
     file_clocks = {True: [], False: []}
     for file_idx, file_ev in file_events:

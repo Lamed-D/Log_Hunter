@@ -47,6 +47,8 @@ def detect_artifact(path_str):
         return None
     if name_lower.startswith('mplog-') and ext == '.log':
         return 'defender'
+    if name_lower == 'setupapi.dev.log':
+        return 'usb'
     if '/detectionhistory/' in normalized or '/quarantine/entries/' in normalized:
         return 'defender'
 
