@@ -15,6 +15,7 @@ BLOCK_HEADER_SIZE = 8192
 SIMPLE_START = 0xFCFB6D1BA7725C30
 SIMPLE_END = 0xF4FA6F45970D41D8
 SIMPLE_ENTRY = re.compile(r"[0-9a-f]{16}_0", re.IGNORECASE)
+CACHE_SUBFOLDERS = frozenset(("cache_data", "js", "wasm"))
 MAX_KEY = 65536
 MAX_METADATA = 1024 * 1024
 BLOCK_SIZES = {1: 36, 2: 256, 3: 1024, 4: 4096}
@@ -149,7 +150,7 @@ class CacheParser(ArtifactParser):
         if source.is_dir():
             try:
                 candidates = [source, *(folder for folder in sorted(source.iterdir())
-                                        if folder.is_dir() and folder.name.casefold() in ("cache_data", "js", "wasm"))]
+                                        if folder.is_dir() and folder.name.casefold() in CACHE_SUBFOLDERS)]
             except OSError:
                 candidates = [source]
             folders = candidates[1:] if len(candidates) > 1 and not cache_directory_format(source) else candidates

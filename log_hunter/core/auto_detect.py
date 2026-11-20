@@ -272,6 +272,7 @@ def _image_kind(path, header):
 def detect_inputs(paths):
     """Return (artifact, path, owner SID, reason); artifact=None denotes a diagnostic."""
     from log_hunter.image.extract import ARTIFACT_SPECS
+    from log_hunter.parser.cache import CACHE_SUBFOLDERS
     results, seen, emitted = [], set(), set()
     looks_like_cache = cache(_looks_like_cache_dir)
 
@@ -356,7 +357,18 @@ def detect_inputs(paths):
             for artifact in kinds or (None,):
                 row = (artifact, str(path), None, reason if kinds else reason if reason != "파일 이름" else "기록 종류를 인식하지 못했습니다.")
                 append(row)
-    return _assign_detected_sids(results)
+    # CacheParser reads these direct children of each selected cache directory.
+    # Process parents first regardless of the order in which inputs were selected.
+    cache_paths = {path: Path(path).resolve() for kind, path, _, _ in results if kind == "cache"}
+    selected_cache_paths = set()
+    covered_cache_paths = set()
+    for path, resolved in sorted(cache_paths.items(), key=lambda item: len(item[1].parts)):
+        if Path(path).name.casefold() in CACHE_SUBFOLDERS and resolved.parent in selected_cache_paths:
+            covered_cache_paths.add(path)
+        else:
+            selected_cache_paths.add(resolved)
+    return _assign_detected_sids([row for row in results
+                                 if row[0] != "cache" or row[1] not in covered_cache_paths])
 
 
 def _assign_detected_sids(rows):
