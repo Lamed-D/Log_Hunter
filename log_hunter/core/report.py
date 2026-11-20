@@ -111,7 +111,9 @@ def _write_html_report(path, payload, evidence, events, errors, relations, summa
 
     artifact_options = "".join(f'<option value="{html.escape(a)}">{html.escape(artifact_label(a))} ({c})</option>'
                                for a, c in sorted(artifact_counts.items(), key=lambda x: artifact_label(x[0])))
-    events_json = "__LOG_HUNTER_EVENTS_STREAM__"
+    # Placeholder for the streamed records: random per report, so evidence text shown earlier in the page
+    # (the raw JSON panel) can never contain it and take the split.
+    events_json = "__LOG_HUNTER_EVENTS_" + secrets.token_hex(16) + "__"
     relations_json = _script_json(relations)
     labels_json = _script_json({"artifact": ARTIFACT_LABELS, "action": ACTION_LABELS, "status": STATUS_LABELS,
                                 "relation": RELATION_LABELS, "confidence": CONFIDENCE_LABELS, "time": TIME_FIELD_LABELS,
@@ -531,7 +533,7 @@ document.addEventListener('keydown', e => {{
 </script>
 </body>
 </html>'''
-    before, after = page.split("const ALL_EVENTS = __LOG_HUNTER_EVENTS_STREAM__;", 1)
+    before, after = page.split(f"const ALL_EVENTS = {events_json};", 1)
     with path.open("w", encoding="utf-8") as stream:
         stream.write(before + "const ALL_EVENTS = [")
         for index, event in enumerate(events):
