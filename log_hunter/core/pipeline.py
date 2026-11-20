@@ -19,7 +19,7 @@ from log_hunter.parser.userassist import UserAssistParser
 from log_hunter.parser.bam import BAMParser, load_profile_list
 from log_hunter.parser.run import RunParser
 from log_hunter.parser.mru import MRUParser
-from log_hunter.parser.usb import USBParser
+from log_hunter.parser.usb import SETUPAPI_TIME_BASIS, USBParser
 from log_hunter.parser.amcache import AmcacheParser
 from log_hunter.parser.psreadline import PSReadLineParser
 from log_hunter.parser.history import HistoryParser
@@ -426,6 +426,8 @@ class Pipeline:
                 clock = clock_for_source(clocks, event.source)
                 if event.timestamp is None and local:
                     event.timestamp, time_details = local_time_to_utc(local, clock)
+                    if event.time_field in ("setupapi_section_start", "setupapi_section_end"):
+                        time_details["time_basis"] = SETUPAPI_TIME_BASIS + ", " + time_details["time_basis"]
                     event.details.update(time_details)
                 resolve_event_metadata_clock(event, clock)
         result.events.extend(file_inventory)

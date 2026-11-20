@@ -5,13 +5,42 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from log_hunter.core.auto_detect import detect_artifact
 from log_hunter.core.models import ForensicEvent
+from log_hunter.core.pipeline import Pipeline
 from log_hunter.core.windows_time import (WindowsTimeRules, clock_for_source, local_time_to_utc,
                                          read_evidence_clocks, read_windows_time_rules, resolve_event_metadata_clock)
 from fixtures.synthetic_windows_case import put, registry_bytes, text
 
 
 class WindowsTimeTests(unittest.TestCase):
+    def test_setupapi_usb_install_uses_only_the_evidence_clock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / "setupapi.dev.log"
+            log.write_text(
+                ">>>  [Device Install - USB\\VID_0000&PID_0000\\TESTSERIAL0001]\n"
+                ">>>  Section start 2024/02/01 00:30:00.123\n"
+                "<<<  2024/02/01 00:30:01.456: Section end\n"
+                ">>>  [Device Install - PCI\\TESTSERIAL0002]\n"
+                ">>>  Section start 2024/02/01 10:30:00.123\n", encoding="utf-8")
+            system = root / "SYSTEM"
+            tree = {}
+            put(tree, "Select", [("Current", 4, struct.pack("<I", 1))])
+            put(tree, r"ControlSet001\Control\TimeZoneInformation", [("Bias", 4, struct.pack("<i", -540))])
+            system.write_bytes(registry_bytes(tree, system.name))
+            self.assertEqual(detect_artifact(log), "usb")
+            unknown, unknown_end = Pipeline().analyze([("usb", log)]).events
+            known, known_end = Pipeline().analyze([("usb", log), ("services", system)]).events
+        self.assertIsNone(unknown.timestamp)
+        self.assertEqual(unknown.details["timestamp_raw_local"], "2024-02-01T00:30:00.123")
+        self.assertIn("시간대 미상", unknown.details["time_basis"])
+        self.assertEqual(known.timestamp, "2024-01-31T15:30:00.123000+00:00")
+        self.assertIn("SetupAPI", known.details["time_basis"])
+        self.assertEqual(unknown_end.details["timestamp_raw_local"], "2024-02-01T00:30:01.456")
+        self.assertEqual(known_end.time_field, "setupapi_section_end")
+        self.assertEqual(known_end.timestamp, "2024-01-31T15:30:01.456000+00:00")
+
     def test_annual_rule_and_scope_are_read_from_the_same_installation(self):
         def dword(name, value):
             return name, 4, struct.pack("<i", value)
