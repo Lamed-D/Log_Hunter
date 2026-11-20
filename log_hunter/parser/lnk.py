@@ -335,13 +335,15 @@ class LNKParser(ArtifactParser):
             # the whole shortcut (all its times are in lnk_times) so the list can show one shortcut per row.
             emitted = False
             for action, entries in (("shortcut_target", timestamps), ("shortcut_file", own_times)):
+                source = "LNK 대상" if action == "shortcut_target" else "NTFS $STANDARD_INFORMATION"
                 for time_field, timestamp in entries:
                     if timestamp:
                         yield ForensicEvent(
                             self.artifact, str(lnk_file), action,
                             timestamp, time_field, sid=self.sid,
                             path=target, locator=str(lnk_file.name),
-                            details={**details, "lnk_representative": not emitted},
+                            details={**details, "lnk_representative": not emitted,
+                                     "time_basis": f"{source} FILETIME (UTC, 100ns 단위)"},
                         )
                         emitted = True
 
