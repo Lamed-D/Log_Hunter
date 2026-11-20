@@ -138,6 +138,8 @@ class RecycleBinParser(ArtifactParser):
                 "r_file_exists": r_exists,
                 "recycle_pair": pair,
             }
+            if info["deletion_time"]:
+                detail["time_basis"] = "휴지통 $I FILETIME (UTC, 100ns 단위)"
 
             yield ForensicEvent(
                 self.artifact, str(file), "파일 삭제",

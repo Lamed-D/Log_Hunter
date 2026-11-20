@@ -115,6 +115,10 @@ class ShortcutFileTimeTests(unittest.TestCase):
                              ["lnk_file_created", "lnk_file_modified"])
             self.assertEqual(sum(1 for e in events if e.details["lnk_representative"]), 1)
             self.assertEqual(events[0].details["lnk_times"]["lnk_file_modified"], T2)
+            for event in events:
+                expected = "$STANDARD_INFORMATION" if event.action == "shortcut_file" else "LNK"
+                self.assertIn(expected, event.details["time_basis"])
+                self.assertIn("FILETIME", event.details["time_basis"])
             # Without image times (a file given directly) nothing is taken from the copy's own file system times.
             plain = Pipeline().analyze([("lnk", lnk)]).events
             self.assertFalse(any(e.action == "shortcut_file" for e in plain))
