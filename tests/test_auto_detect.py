@@ -56,6 +56,11 @@ class AutoDetectTests(unittest.TestCase):
         from log_hunter.core.auto_detect import detect_inputs
         return detect_inputs(paths)
 
+    def test_cache_does_not_hide_neighboring_evidence(self):
+        self.source("0123456789abcdef_0")
+        self.source("sub/ConsoleHost_history.txt", b"Write-Output example\n")
+        self.assertEqual({kind for kind, *_ in self.detect([self.root]) if kind}, {"cache", "psreadline"})
+
     def test_multimapping_and_usrclass(self):
         # Every hive is also scanned once for deleted keys/values left in its free cells.
         expected = {"NTUSER.DAT": {"userassist", "mru", "run", "shellbag", "rdp", "registry_deleted"},

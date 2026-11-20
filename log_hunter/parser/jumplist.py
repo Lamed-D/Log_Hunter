@@ -169,7 +169,11 @@ class JumpListParser(ArtifactParser):
         path = Path(path)
         metadata = metadata or {}
         before = len(self.errors)
-        entries = list(self.parse(path))
+        try:
+            entries = list(self.parse(path))
+        except (OSError, ValueError, struct.error) as exc:
+            entries = []
+            self.error(path, "file", exc)
         diagnostics = self.errors[before:]
         file_id = str(path.resolve())
         app_id = _app_id_from_filename(path.name)

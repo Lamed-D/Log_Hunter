@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from log_hunter.core.tags import TagBook, load_tag_file, save_tag_file
+from log_hunter.core.tags import TagBook, file_ref, load_tag_file, save_tag_file
 
 
 class TagFileTest(unittest.TestCase):
@@ -14,7 +14,7 @@ class TagFileTest(unittest.TestCase):
         book.rename_color("red", "중요 기록")
         book.add_subcategory("yellow", "재검토")
         book.toggle("event:synthetic", "event", {}, "red")
-        book.set_note("file:synthetic", "file", {}, "확인할 항목")
+        book.set_note("file:synthetic", "file", file_ref("synthetic.img", 0, ["example.txt"]), "확인할 항목")
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "tags.json"
             save_tag_file(path, book)
@@ -48,6 +48,10 @@ class TagFileTest(unittest.TestCase):
                     path.write_text(json.dumps(data), encoding="utf-8")
                     with self.assertRaises(ValueError):
                         load_tag_file(path)
+            broken_ref = {**valid, "rows": [{**valid["rows"][0], "target": "file", "ref": {}}]}
+            path.write_text(json.dumps(broken_ref), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                load_tag_file(path)
 
     def test_failed_replace_preserves_existing_file_and_cleans_temp(self):
         with tempfile.TemporaryDirectory() as folder:

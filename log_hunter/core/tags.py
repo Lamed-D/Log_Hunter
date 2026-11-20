@@ -118,6 +118,10 @@ def load_tag_file(path):
                 or not isinstance(row.get("ref"), dict) or not isinstance(row.get("tags"), list)
                 or not isinstance(row.get("note"), str) or not isinstance(row.get("updated_at"), str)):
             raise ValueError("태그 항목의 형식이 올바르지 않습니다.")
+        if row["target"] == "file":
+            ref = row["ref"]
+            if not isinstance(ref.get("image"), str) or not ref["image"] or type(ref.get("volume")) is not int:
+                raise ValueError("파일 태그의 이미지 또는 볼륨 정보가 올바르지 않습니다.")
         keys.add(row["key"])
         for tag in row["tags"]:
             if not isinstance(tag, str):

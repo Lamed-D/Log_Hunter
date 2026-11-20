@@ -1,6 +1,7 @@
 """Auto-detect forensic artifact types from file paths and content."""
 from pathlib import Path
 from fnmatch import fnmatchcase
+from functools import cache
 import mmap
 import struct
 import os
@@ -138,15 +139,15 @@ def _looks_like_cache_dir(dir_path):
             or (root / "index-dir" / "the-real-index").is_file())
 
 
-def _cache_input_directory(path):
+def _cache_input_directory(path, looks_like_cache=_looks_like_cache_dir):
     from log_hunter.parser.cache import SIMPLE_ENTRY
     name = path.name.casefold()
     if path.is_dir():
-        return path if _looks_like_cache_dir(path) else None
+        return path if looks_like_cache(path) else None
     if name == "the-real-index" and path.parent.name.casefold() == "index-dir":
-        return path.parent.parent if _looks_like_cache_dir(path.parent.parent) else None
+        return path.parent.parent if looks_like_cache(path.parent.parent) else None
     if name == "index" or name.startswith(("data_", "f_")) or SIMPLE_ENTRY.fullmatch(name):
-        return path.parent if _looks_like_cache_dir(path.parent) else None
+        return path.parent if looks_like_cache(path.parent) else None
     return None
 
 
@@ -272,6 +273,7 @@ def detect_inputs(paths):
     """Return (artifact, path, owner SID, reason); artifact=None denotes a diagnostic."""
     from log_hunter.image.extract import ARTIFACT_SPECS
     results, seen, emitted = [], set(), set()
+    looks_like_cache = cache(_looks_like_cache_dir)
 
     def append(row):
         identity = (row[0], str(Path(row[1]).resolve()).casefold())
@@ -283,10 +285,8 @@ def detect_inputs(paths):
         def failure(exc):
             append((None, str(exc.filename or source), None, f"폴더를 읽을 수 없습니다: {exc}"))
         for root, dirs, files in os.walk(source, followlinks=False, onerror=failure):
-            if _looks_like_cache_dir(root):
-                dirs.clear()
+            if looks_like_cache(Path(root)):
                 yield Path(root)
-                continue
             dirs[:] = sorted(d for d in dirs if not Path(root, d).is_symlink())
             for name in sorted(files):
                 yield Path(root, name)
@@ -295,7 +295,7 @@ def detect_inputs(paths):
         source = Path(source)
         files = walk(source) if source.is_dir() else [source]
         for path in files:
-            cache_dir = _cache_input_directory(path)
+            cache_dir = _cache_input_directory(path, looks_like_cache)
             if cache_dir:
                 append(("cache", str(cache_dir), None, "캐시 구조"))
                 continue
