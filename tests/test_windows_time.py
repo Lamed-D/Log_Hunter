@@ -22,7 +22,8 @@ class WindowsTimeTests(unittest.TestCase):
             put(tree, r"ControlSet001\Control\TimeZoneInformation",
                 [dword("Bias", bias), text("TimeZoneKeyName", "Synthetic Standard Time")])
         zone = r"Microsoft\Windows NT\CurrentVersion\Time Zones\Synthetic Standard Time\Dynamic DST"
-        put(software, zone, [dword("FirstEntry", 2024), dword("LastEntry", 2024),
+        put(software, zone, [dword("FirstEntry", 2022), dword("LastEntry", 2024),
+                             ("2022", 3, struct.pack("<iii16H", -420, 0, 0, *([0] * 16))),
                              ("2024", 3, struct.pack("<iii16H", -480, 0, 0, *([0] * 16)))])
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -41,7 +42,9 @@ class WindowsTimeTests(unittest.TestCase):
         stamp, details = local_time_to_utc(raw, first)
         self.assertEqual(stamp, "2024-01-01T17:00:00+00:00")
         self.assertIn("SOFTWARE", details["time_basis"])
-        self.assertIsNone(local_time_to_utc("2025-01-02T01:00:00", first)[0])
+        self.assertEqual(local_time_to_utc("2021-01-02T01:00:00", first)[0], "2021-01-01T18:00:00+00:00")
+        self.assertIsNone(local_time_to_utc("2023-01-02T01:00:00", first)[0])
+        self.assertEqual(local_time_to_utc("2025-01-02T01:00:00", first)[0], "2025-01-01T17:00:00+00:00")
         self.assertEqual(local_time_to_utc(raw, second)[0], "2024-01-02T06:00:00+00:00")
 
     def test_network_observation_and_task_declaration_keep_distinct_semantics(self):

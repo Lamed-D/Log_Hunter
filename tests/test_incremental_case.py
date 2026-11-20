@@ -11,7 +11,7 @@ from log_hunter.database.case_db import load_case, save_case
 from log_hunter.database.incremental import reanalyze_case
 from log_hunter.main import main
 from test_browser_cache import simple_record
-from test_image import NTFSBuilder
+from test_image import CLUSTER, MFT_LCN, MFT_RECORDS, RECORD, NTFSBuilder
 from test_vss_extract import STORE_ID, snapshot_image
 
 
@@ -45,16 +45,42 @@ class IncrementalCaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             folder = root / "Cache"
-            folder.mkdir()
-            first = folder / "0123456789abcdef_0"
+            data = folder / "Cache_Data"
+            data.mkdir(parents=True)
+            first = data / "0123456789abcdef_0"
             first.write_bytes(simple_record(b"https://example.com/old", b""))
             case = root / "case.sqlite"
             save_case(case, Pipeline().analyze([("cache", folder)]))
             first.unlink()
-            (folder / "fedcba9876543210_0").write_bytes(simple_record(b"https://example.com/new", b""))
+            (data / "fedcba9876543210_0").write_bytes(simple_record(b"https://example.com/new", b""))
             refreshed, counts, _ = reanalyze_case(case)
         self.assertEqual(counts["changed"], 1)
         self.assertEqual([event.url for event in refreshed.events if event.url], ["https://example.com/new"])
+        self.assertEqual([event.source for event in refreshed.events if event.action == "cache_folder_status"],
+                         [str(data)])
+
+    def test_mft_refresh_replaces_and_removes_derived_jump_list(self):
+        def mft_data(name):
+            builder = NTFSBuilder()
+            number = builder.add_file(5, name, b"synthetic", mode="resident")
+            start = MFT_LCN * CLUSTER
+            data = bytearray(builder.build()[start:start + MFT_RECORDS * RECORD])
+            data[number * RECORD + 22:number * RECORD + 24] = b"\0\0"
+            return data
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "$MFT"
+            case = root / "case.sqlite"
+            source.write_bytes(mft_data("1111111111111111.customDestinations-ms"))
+            save_case(case, Pipeline().analyze([("mft", source)]))
+            source.write_bytes(mft_data("2222222222222222.customDestinations-ms"))
+            refreshed, _, _ = reanalyze_case(case)
+            candidate, = [event for event in refreshed.events if event.artifact == "jumplist"]
+            self.assertEqual(candidate.details["app_id"], "2222222222222222")
+            source.write_bytes(mft_data("unrelated.txt"))
+            refreshed, _, _ = reanalyze_case(case)
+            self.assertFalse(any(event.artifact == "jumplist" for event in refreshed.events))
 
     def test_image_fingerprint_skips_equal_image_and_refreshes_changed_one(self):
         def image_data(command):

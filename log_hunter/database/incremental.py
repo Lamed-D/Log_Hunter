@@ -159,6 +159,7 @@ def reanalyze_case(path, progress=None, *, workdir=None):
         return result, counts, info.sources
 
     replaced = {(inputs[i][0], path_key) for i in selection for path_key in families[i]}
+    replaced_folders = [(inputs[i][0], Path(_path_key(inputs[i][1]))) for i in selection if inputs[i][1] in folders]
     evidence_paths = {path_key for _, path_key in replaced}
     fresh = Pipeline().analyze([inputs[i] for i in selection], sid=result.settings.get("sid"),
                                environment=result.settings.get("environment"), progress=progress,
@@ -177,11 +178,21 @@ def reanalyze_case(path, progress=None, *, workdir=None):
         key = _path_key(source)
         return _path_key(locations.get(key, source))
 
+    def was_replaced(artifact, source):
+        key = source_key(source)
+        return (artifact, key) in replaced or any(
+            artifact == kind and Path(key).is_relative_to(folder) for kind, folder in replaced_folders)
+
     result.evidence = [item for item in result.evidence if source_key(item.source) not in evidence_paths] + fresh.evidence
-    result.errors = [error for error in result.errors if (error.artifact, source_key(error.source)) not in replaced] + fresh.errors
+    result.errors = [error for error in result.errors if not was_replaced(error.artifact, error.source)] + fresh.errors
     result.summaries = [row for row in result.summaries
-                        if (row.get("artifact"), source_key(row.get("source", ""))) not in replaced] + fresh.summaries
-    kept = [event for event in result.events if (event.artifact, source_key(event.source)) not in replaced]
+                        if not was_replaced(row.get("artifact"), row.get("source", ""))] + fresh.summaries
+    def event_input_artifact(event):
+        if event.artifact == "jumplist" and event.details.get("file_parse_state") == "deleted":
+            return "mft"
+        return event.artifact
+
+    kept = [event for event in result.events if not was_replaced(event_input_artifact(event), event.source)]
     result.events = timeline(normalize_event_timestamp(event) for event in [*kept, *fresh.events])
     result.profiles = fresh.profiles
     result.sid_names = {**result.sid_names, **fresh.sid_names}

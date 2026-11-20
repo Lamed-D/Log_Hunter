@@ -23,7 +23,7 @@ class WindowsTimeRules:
                   "standard_bias": self.standard_bias, "daylight_bias": self.daylight_bias,
                   "standard_date": list(self.standard_date), "daylight_date": list(self.daylight_date)}
         if self.annual is not None:
-            result["annual"] = {str(year): rules.metadata() for year, rules in self.annual.items()}
+            result["annual"] = {str(year): rules.metadata() for year, rules in self.annual.items() if rules is not None}
         return result
 
 
@@ -57,7 +57,7 @@ def _annual_rules(software, name):
     last = values.get("lastentry", {}).get("value")
     if not isinstance(first, int) or not isinstance(last, int) or not 1 <= first <= last <= 9999:
         return {}
-    result = {}
+    result = dict.fromkeys((first, last))
     for year in range(first, last + 1):
         entry = values.get(str(year))
         if entry is None or entry["type"] != 3 or len(entry["raw"]) != 44:
@@ -155,7 +155,12 @@ def local_time_to_utc(raw, rules):
         if wall.tzinfo is not None:
             return None, details
         if rules.annual is not None:
-            rules = rules.annual.get(wall.year)
+            if not rules.annual:
+                return None, details
+            year = wall.year
+            if year not in rules.annual:
+                year = min(max(year, min(rules.annual)), max(rules.annual))
+            rules = rules.annual.get(year)
             if rules is None:
                 return None, details
         standard = timedelta(minutes=rules.standard_bias)
