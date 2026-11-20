@@ -1,4 +1,5 @@
 """Every time on screen and in the report is UTC with a 'UTC' mark; values without a zone are never shown as UTC."""
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,11 +39,17 @@ class UTCDisplayTests(unittest.TestCase):
     def test_report_marks_times_and_date_filter_as_utc(self):
         from log_hunter.core.report import export_reports
         with tempfile.TemporaryDirectory() as folder:
-            export_reports(Path(folder), [], [event("2024-01-01T00:00:00+00:00")], [], [], [])
+            export_reports(Path(folder), [], [event("2024-01-01T09:00:00+09:00"),
+                                             event("2023-12-31T21:00:00-04:00"),
+                                             event("2025-01-01T00:00:00")], [], [], [])
             page = (Path(folder) / "report.html").read_text(encoding="utf-8")
         self.assertIn("<th>시각 (UTC)</th>", page)
         self.assertIn("YYYY-MM-DD, UTC", page)
-        self.assertIn("2024-01-01 00:00:00 UTC ~ 2024-01-01 00:00:00 UTC", page)
+        self.assertIn("2024-01-01 00:00:00 UTC ~ 2024-01-01 01:00:00 UTC", page)
+        _, script = page.split("<script>\nconst ALL_EVENTS = ", 1)
+        data, _ = script.split(";\nconst ALL_RELATIONS", 1)
+        self.assertEqual([row["timestamp"] for row in json.loads(data)],
+                         ["2024-01-01T00:00:00+00:00", "2024-01-01T01:00:00+00:00", None])
 
 
 if __name__ == "__main__":
