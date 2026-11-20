@@ -29,7 +29,11 @@ def _fat_utc_time(data, offset):
                          time >> 11, (time >> 5) & 63, (time & 31) * 2, tzinfo=timezone.utc)
     except ValueError:
         return None
-    return stamp.isoformat(), {"fat_time_hex": raw.hex(), "shell_item_time_offset": offset}
+    return stamp.isoformat(), {
+        "fat_time_hex": raw.hex(),
+        "shell_item_time_offset": offset,
+        "time_basis": "셸 항목 DOS 시각 (UTC로 기록, 2초 단위)",
+    }
 
 
 def _extract_shell_item_name(data, codepage=None):
@@ -249,7 +253,8 @@ class ShellBagParser(ArtifactParser):
                 key_stamp if rank == 0 else None,
                 "key_lastwrite" if rank == 0 else None,
                 self.sid, path=full_path, locator=value_loc,
-                details={**details, "time_basis": "key_lastwrite" if rank == 0 else "unknown"}
+                details={**details, "time_basis": "레지스트리 키 FILETIME (UTC, 100ns 단위)"
+                         if rank == 0 and key_stamp else "unknown"}
             )
             for field, item_time in item_times.items():
                 if item_time:
