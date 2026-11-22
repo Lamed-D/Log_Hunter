@@ -74,9 +74,15 @@ class HistoryParser(ArtifactParser):
                 columns = {row[1] for row in connection.execute("PRAGMA table_info(visits)")}
                 referrer = ("(SELECT ru.url FROM visits rv JOIN urls ru ON rv.url=ru.id WHERE rv.id=v.from_visit) AS referrer_url"
                             if "from_visit" in columns else "NULL AS referrer_url")
-                for row in connection.execute(f"SELECT v.id, v.visit_time, v.transition, u.url, u.title, {referrer} "
+                url_columns = {row[1] for row in connection.execute("PRAGMA table_info(urls)")}
+                last_visit = "u.last_visit_time" if "last_visit_time" in url_columns else "NULL"
+                for row in connection.execute(f"SELECT v.id, v.visit_time, v.transition, u.url, u.title, {referrer}, "
+                                              f"{last_visit} AS url_last_visit_raw "
                                               "FROM visits v JOIN urls u ON v.url=u.id"):
                     details = {**_record(row), **where}
+                    raw_last_visit = details.pop("url_last_visit_raw")
+                    if isinstance(raw_last_visit, int) and raw_last_visit > 0:
+                        details["url_last_visit_utc"] = chromium_timestamp(raw_last_visit)
                     if not details.get("referrer_url"):
                         details.pop("referrer_url", None)
                     yield ForensicEvent(self.artifact, str(path), "url_visit", chromium_timestamp(row["visit_time"]),
