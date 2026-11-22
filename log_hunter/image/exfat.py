@@ -2,9 +2,9 @@
 exFAT timestamps carry an optional UTC offset: with a valid offset the time is returned in UTC, otherwise as the
 local wall-clock text without a zone (never assumed to be UTC)."""
 import struct
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 
-from .fat import FATError, MAX_CHAIN, MAX_DEPTH, MAX_ENTRIES
+from .fat import FATError, MAX_CHAIN, MAX_DEPTH, MAX_ENTRIES, _fat_wall_clock
 
 FILE, STREAM, NAME = 0x85, 0xC0, 0xC1
 IN_USE = 0x80
@@ -13,21 +13,15 @@ ATTR_DIRECTORY = 0x10
 
 def exfat_time(stamp, centis=0, offset=0):
     """(text, is_utc): UTC ISO when the offset byte is marked valid, else local 'YYYY-MM-DDTHH:MM:SS'; (None, False)."""
-    if not stamp:
-        return None, False
-    second = (stamp & 0x1F) * 2 + centis // 100
-    minute, hour = (stamp >> 5) & 0x3F, (stamp >> 11) & 0x1F
-    day, month, year = (stamp >> 16) & 0x1F, (stamp >> 21) & 0x0F, 1980 + (stamp >> 25)
-    try:
-        local = datetime(year, month, day, hour, minute, min(second, 59), (centis % 100) * 10000)
-    except ValueError:
+    local = _fat_wall_clock(stamp >> 16, stamp & 0xffff, centis)
+    if local is None:
         return None, False
     if offset & 0x80:
         quarters = offset & 0x7F
         quarters = quarters - 0x80 if quarters & 0x40 else quarters
         moment = local.replace(tzinfo=timezone(timedelta(minutes=15 * quarters)))
         return moment.astimezone(timezone.utc).isoformat(), True
-    return local.replace(microsecond=0).isoformat(), False
+    return local.isoformat(), False
 
 
 class ExFATVolume:
