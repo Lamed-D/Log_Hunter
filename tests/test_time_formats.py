@@ -25,11 +25,17 @@ class FormatToUtcTests(unittest.TestCase):
         stamp = (44 << 25) | (1 << 21) | (1 << 16) | (9 << 11) | (30 << 5) | 5  # 2024-01-01 09:30:10 local
         self.assertEqual(exfat_time(stamp, 50, 0x80 | 36), ("2024-01-01T00:30:10.500000+00:00", True))  # +09:00
         self.assertEqual(exfat_time(stamp, 0, 0x80 | (0x80 - 20)), ("2024-01-01T14:30:10+00:00", True))  # -05:00
-        self.assertEqual(exfat_time(stamp, 50, 0), ("2024-01-01T09:30:10", False))  # no offset: local, kept raw
+        self.assertEqual(exfat_time(stamp, 50, 0), ("2024-01-01T09:30:10.500000", False))
+        self.assertEqual(exfat_time(stamp, 200), (None, False))
 
     def test_fat_dates_are_never_utc(self):
         from log_hunter.image.fat import _dos_datetime
-        self.assertEqual(_dos_datetime((44 << 9) | (1 << 5) | 1, (9 << 11) | (30 << 5) | 5, 150), "2024-01-01T09:30:11")
+        date = (44 << 9) | (1 << 5) | 1
+        time = (9 << 11) | (30 << 5) | 5
+        self.assertEqual(_dos_datetime(date, time, 150), "2024-01-01T09:30:11.500000")
+        self.assertEqual(_dos_datetime(date, time, 100), "2024-01-01T09:30:11")
+        self.assertIsNone(_dos_datetime(date, time, 200))
+        self.assertIsNone(_dos_datetime((44 << 9) | (2 << 5) | 31, time))
 
     def test_browser_numbers(self):
         from log_hunter.core.timestamp import chromium_timestamp

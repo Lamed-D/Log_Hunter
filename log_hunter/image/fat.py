@@ -1,6 +1,7 @@
 """Read-only FAT12/16/32 volume reader (boot sector, allocation table, directories with long names, deleted entries).
 FAT keeps local wall-clock dates without a time zone: they are returned as raw text, never as UTC."""
 import struct
+from datetime import datetime
 
 DELETED, END = 0xE5, 0x00
 ATTR_DIRECTORY, ATTR_VOLUME, ATTR_LFN = 0x10, 0x08, 0x0F
@@ -11,15 +12,21 @@ class FATError(ValueError):
     pass
 
 
-def _dos_datetime(date, time=0, centis=0):
-    """'YYYY-MM-DDTHH:MM:SS' local wall clock (no zone) from FAT date/time words, or None when unset/invalid."""
-    if not date:
+def _fat_wall_clock(date, time, centis):
+    """Decode a two-second DOS clock and its optional 0–199 ten-millisecond increments."""
+    if not date or not 0 <= centis < 200:
         return None
     year, month, day = 1980 + (date >> 9), (date >> 5) & 0x0F, date & 0x1F
     hour, minute, second = time >> 11, (time >> 5) & 0x3F, (time & 0x1F) * 2 + centis // 100
-    if not (1 <= month <= 12 and 1 <= day <= 31 and hour < 24 and minute < 60 and second < 61):
+    try:
+        return datetime(year, month, day, hour, minute, second, (centis % 100) * 10_000)
+    except ValueError:
         return None
-    return f"{year:04d}-{month:02d}-{day:02d}T{hour:02d}:{minute:02d}:{min(second, 59):02d}"
+
+
+def _dos_datetime(date, time=0, centis=0):
+    local = _fat_wall_clock(date, time, centis)
+    return local.isoformat() if local else None
 
 
 class FATVolume:
