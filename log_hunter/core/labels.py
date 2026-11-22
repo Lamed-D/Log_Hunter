@@ -286,9 +286,9 @@ TIME_BASIS_TEXT = {
     "fields": {
         "key_lastwrite": "레지스트리 키 마지막 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
         "key_last_write": "레지스트리 키 마지막 기록 시각 (FILETIME, UTC로 기록, 100나노초 단위)",
-        "shell_item_created": "셸 항목 안 DOS 날짜·시각 (UTC로 기록, 2초 단위)",
-        "shell_item_modified": "셸 항목 안 DOS 날짜·시각 (UTC로 기록, 2초 단위)",
-        "shell_item_accessed": "셸 항목 안 DOS 날짜·시각 (UTC로 기록, 2초 단위)",
+        "shell_item_created": "셸 항목 안 DOS 날짜·시각 (시간대 미상, 2초 단위)",
+        "shell_item_modified": "셸 항목 안 DOS 날짜·시각 (시간대 미상, 2초 단위)",
+        "shell_item_accessed": "셸 항목 안 DOS 날짜·시각 (시간대 미상, 2초 단위)",
         "lnk_target_created": "바로가기 머리글의 FILETIME (UTC로 기록, 100나노초 단위)",
         "lnk_target_written": "바로가기 머리글의 FILETIME (UTC로 기록, 100나노초 단위)",
         "lnk_target_accessed": "바로가기 머리글의 FILETIME (UTC로 기록, 100나노초 단위)",

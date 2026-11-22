@@ -29,10 +29,10 @@ def rows(event):
 
 class RecordInfoTabTests(unittest.TestCase):
     def test_shell_item_time_is_shown_as_stored_with_basis_source_and_key_time(self):
-        got = rows(shell_item("shell_item_modified", "2024-01-01T06:55:44+00:00"))
-        self.assertEqual(got["시각 (UTC)"], "2024-01-01 06:55:44 UTC")  # no second conversion
+        got = rows(shell_item("shell_item_modified", None, timestamp_raw_local="2024-01-01T06:55:44", timezone_known=False))
+        self.assertEqual(got["시각 (UTC)"], "2024-01-01 06:55:44 (시간대 미상)")
         self.assertIn("2초 단위", got["시각 근거"])
-        self.assertIn("UTC로 기록", got["시각 근거"])
+        self.assertIn("시간대 미상", got["시각 근거"])
         self.assertIn("셸 항목", got["시각 출처"])
         self.assertEqual(got["레지스트리 키 마지막 기록 (UTC)"], "2024-01-01 06:56:02 UTC")
 

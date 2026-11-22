@@ -441,6 +441,8 @@ def time_basis_text(event):
     its time meaning; a time without a zone says so."""
     fields = event_time_fields(event)
     if fields["timestamp_raw_local"] and not fields["timestamp_utc"]:
+        if event.artifact == "shellbag" and (event.time_field or "").startswith("shell_item_"):
+            return TIME_BASIS_TEXT["fields"].get(event.time_field, TIME_BASIS_TEXT["unknown_zone"])
         return TIME_BASIS_TEXT["unknown_zone"]
     stored = (event.details or {}).get("time_basis")
     if stored and stored != "key_lastwrite" or stored == "key_lastwrite" and event.time_field == "key_lastwrite":
