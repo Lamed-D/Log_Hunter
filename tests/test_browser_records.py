@@ -73,6 +73,23 @@ def make_history(folder):
 
 
 class BrowserRecordTests(unittest.TestCase):
+    def test_repeated_visits_keep_both_clocks(self):
+        from log_hunter.parser.history import HistoryParser
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = make_history(Path(tmp))
+            db = sqlite3.connect(path)
+            db.executescript("CREATE TABLE visits(id INTEGER, url INTEGER, visit_time INTEGER, transition INTEGER);")
+            db.executemany("INSERT INTO visits VALUES(?,1,?,0)", [(1, T - 500_000), (2, T)])
+            db.commit()
+            db.close()
+            visits = sorted((e for e in HistoryParser().parse(path) if e.action == "url_visit"),
+                            key=lambda e: e.locator)
+            self.assertEqual([e.timestamp for e in visits],
+                             ["2020-12-29T23:59:59.500000+00:00", "2020-12-30T00:00:00+00:00"])
+            self.assertEqual([e.details["url_last_visit_utc"] for e in visits],
+                             ["2020-12-30T00:00:00+00:00"] * 2)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         folder = profile(self.temp.name)

@@ -1027,6 +1027,7 @@ DETAIL_LABELS = {
     "cache_status": "캐시 상태",
     # 브라우저 방문·쿠키·다운로드·확장·프로필
     "profile": "브라우저 프로필", "title": "제목", "transition": "이동 방식 (원시 값)", "visit_time": "방문 시각",
+    "url_last_visit_utc": "이 주소의 마지막 방문 시각 (UTC)",
     "referrer": "참조 주소", "url_chain": "주소 경로 (리디렉션 포함)", "url_chain_count": "주소 경로 단계 수",
     "value_stored": "값 저장 여부 (값은 읽지 않음)", "cookie_last_update": "쿠키 마지막 갱신",
     "cookie_httponly": "스크립트 접근 차단 (HttpOnly)", "cookie_last_access": "쿠키 마지막 사용",
