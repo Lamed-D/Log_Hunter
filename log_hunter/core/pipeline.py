@@ -424,7 +424,8 @@ class Pipeline:
             local = event.details.get("timestamp_raw_local")
             if local or event.artifact in ("network", "tasks"):
                 clock = clock_for_source(clocks, event.source)
-                if event.timestamp is None and local:
+                # A shell item can describe a target from another installation or volume.
+                if event.timestamp is None and local and event.details.get("time_source") != "shell_item_fat":
                     event.timestamp, time_details = local_time_to_utc(local, clock)
                     if event.time_field in ("setupapi_section_start", "setupapi_section_end"):
                         time_details["time_basis"] = SETUPAPI_TIME_BASIS + ", " + time_details["time_basis"]
